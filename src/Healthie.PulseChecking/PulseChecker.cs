@@ -1,14 +1,16 @@
 ﻿using Healthie.PulseChecking.Models;
+using Healthie.Storage;
 
 namespace Healthie.PulseChecking;
 
-public abstract class PulseChecker : IPulseChecker
+public abstract class PulseChecker(IStateProvider stateProvider) : IPulseChecker
 {
-    private State? _state;
+    private readonly IStateProvider _stateProvider = stateProvider;
+
     protected State State
     {
-        get => _state ?? new();
-        set => _state = value;
+        get => _stateProvider.GetState<State>(Name) ?? new();
+        set => _stateProvider.SetState(Name, value);
     }
 
     public abstract Pulse<Result> Check();
@@ -20,7 +22,7 @@ public abstract class PulseChecker : IPulseChecker
         State = state;
     }
 
-    State IState.GetState()
+    public State GetState()
     {
         return State;
     }
