@@ -1,9 +1,8 @@
 ﻿using Hangfire;
-using Healthie.Hangfire.Converters;
-using Healthie.Scheduling;
+using Healthie.Scheduling.Hangfire.Converters;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Healthie.Hangfire;
+namespace Healthie.Scheduling.Hangfire;
 
 public static class StartupExtensions
 {
@@ -18,7 +17,7 @@ public static class StartupExtensions
             });
         });
 
-        // services.AddHangfireServer();
+        services.AddHangfireServer();
 
         services.AddSingleton<ICronConverter, CronConverter>();
         services.AddSingleton<IPulseScheduler, HangfirePulseScheduler>();

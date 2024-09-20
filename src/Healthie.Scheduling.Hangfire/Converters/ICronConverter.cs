@@ -1,4 +1,4 @@
-﻿namespace Healthie.Hangfire.Converters;
+﻿namespace Healthie.Scheduling.Hangfire.Converters;
 
 public interface ICronConverter
 {

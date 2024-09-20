@@ -1,18 +1,14 @@
 ﻿using Hangfire;
-using Healthie.Hangfire.Converters;
 using Healthie.PulseChecking;
-using Healthie.Scheduling;
+using Healthie.Scheduling.Hangfire.Converters;
 
-namespace Healthie.Hangfire;
+namespace Healthie.Scheduling.Hangfire;
 
 public class HangfirePulseScheduler(ICronConverter cronConverter, IRecurringJobManager recurringJobManager)
     : IPulseScheduler
 {
-    private readonly ICronConverter _cronConverter = cronConverter
-        ?? throw new ArgumentNullException(nameof(cronConverter));
-
-    private readonly IRecurringJobManager _recurringJobManager = recurringJobManager
-        ?? throw new ArgumentNullException(nameof(recurringJobManager));
+    private readonly ICronConverter _cronConverter = cronConverter;
+    private readonly IRecurringJobManager _recurringJobManager = recurringJobManager;
 
     public void Schedule(IPulseChecker checker, TimeSpan interval)
     {

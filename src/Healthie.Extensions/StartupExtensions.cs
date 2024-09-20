@@ -10,7 +10,8 @@ public static class StartupExtensions
     public static IServiceCollection AddHealthie(this IServiceCollection services,
         Assembly[] scanAssembliesForPulseCheckers)
     {
-        services.AddHostedService<PulsesScheduler>();
+        services.AddSingleton<IPulsesScheduler, PulsesScheduler>();
+        services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<IPulsesScheduler>());
 
         for (int i = 0; i < scanAssembliesForPulseCheckers.Length; i++)
         {
