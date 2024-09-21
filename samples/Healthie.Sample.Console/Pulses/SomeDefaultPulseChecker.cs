@@ -2,7 +2,7 @@
 using Healthie.PulseChecking.Models;
 using Healthie.Storage;
 
-namespace Healthie.Api.Pulses;
+namespace Healthie.Sample.Console.Pulses;
 
 public class SomeDefaultPulseChecker(IStateProvider stateProvider) : PulseChecker(stateProvider)
 {
