@@ -8,6 +8,7 @@ public static class StartupExtensions
     {
         services.AddMemoryCache();
         services.AddSingleton<IStateProvider, MemoryCacheStateProvider>();
+        services.AddSingleton<IAsyncStateProvider, MemoryCacheStateProvider>();
 
         return services;
     }
