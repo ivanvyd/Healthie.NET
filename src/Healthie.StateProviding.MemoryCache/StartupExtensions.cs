@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Healthie.StateProviding;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace Healthie.Storage.MemoryCache;
+namespace Healthie.StateProviding.MemoryCache;
 
 public static class StartupExtensions
 {

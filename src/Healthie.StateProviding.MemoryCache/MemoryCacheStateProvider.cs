@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.Caching.Memory;
+﻿using Healthie.StateProviding;
+using Microsoft.Extensions.Caching.Memory;
 
-namespace Healthie.Storage.MemoryCache;
+namespace Healthie.StateProviding.MemoryCache;
 
 public class MemoryCacheStateProvider(IMemoryCache memoryCache) : IStateProvider, IAsyncStateProvider
 {

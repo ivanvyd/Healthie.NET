@@ -1,8 +1,8 @@
-﻿using Healthie.Extensions;
+﻿using Healthie.DependencyInjection;
 using Healthie.PulseChecking.Models;
 using Healthie.Scheduling;
 using Healthie.Scheduling.Hangfire;
-using Healthie.Storage.MemoryCache;
+using Healthie.StateProviding.MemoryCache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Reflection;

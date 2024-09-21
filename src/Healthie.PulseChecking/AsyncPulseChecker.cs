@@ -1,5 +1,5 @@
 ﻿using Healthie.PulseChecking.Models;
-using Healthie.Storage;
+using Healthie.StateProviding;
 
 namespace Healthie.PulseChecking;
 

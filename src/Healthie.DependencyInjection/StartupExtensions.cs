@@ -3,7 +3,7 @@ using Healthie.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 
-namespace Healthie.Extensions;
+namespace Healthie.DependencyInjection;
 
 public static class StartupExtensions
 {

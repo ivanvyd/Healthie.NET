@@ -1,4 +1,4 @@
-﻿namespace Healthie.Storage;
+﻿namespace Healthie.StateProviding;
 
 public interface IAsyncStateProvider
 {

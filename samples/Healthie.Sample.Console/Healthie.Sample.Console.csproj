@@ -13,10 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Healthie.Extensions\Healthie.Extensions.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Scheduling.Hangfire\Healthie.Scheduling.Hangfire.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Scheduling\Healthie.Scheduling.csproj" />
-    <ProjectReference Include="..\..\src\Healthie.Storage.MemoryCache\Healthie.Storage.MemoryCache.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.MemoryCache\Healthie.StateProviding.MemoryCache.csproj" />
   </ItemGroup>
 
 </Project>
