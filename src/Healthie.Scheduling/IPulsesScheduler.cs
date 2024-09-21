@@ -5,5 +5,5 @@ namespace Healthie.Scheduling;
 
 public interface IPulsesScheduler : IHostedService
 {
-    public Dictionary<string, State> GetPulsesStates();
+    Dictionary<string, State> GetPulsesStates();
 }

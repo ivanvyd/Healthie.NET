@@ -21,6 +21,7 @@ public static class StartupExtensions
 
         services.AddSingleton<ICronConverter, CronConverter>();
         services.AddSingleton<IPulseScheduler, HangfirePulseScheduler>();
+        services.AddSingleton<IAsyncPulseScheduler, AsyncHangfirePulseScheduler>();
 
         return services;
     }
