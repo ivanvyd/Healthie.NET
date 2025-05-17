@@ -16,7 +16,8 @@ public class PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseSch
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        TimeSpan interval = TimeSpan.FromMinutes(1);
+        // TODO: dynamic
+        TimeSpan interval = TimeSpan.FromSeconds(5);
 
         foreach (var checker in _pulseCheckers)
         {

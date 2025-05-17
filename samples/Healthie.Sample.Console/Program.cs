@@ -1,7 +1,7 @@
 ﻿using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.DependencyInjection;
-using Healthie.Scheduling.Hangfire;
+using Healthie.Scheduling.Quartz;
 using Healthie.StateProviding.MemoryCache;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -20,9 +20,9 @@ public static class Program
         _host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                services.AddHealthie([Assembly.GetExecutingAssembly()]);
-                services.AddHealthieHangfire();
                 services.AddHealthieMemoryCache();
+                services.AddHealthieQuartz();
+                services.AddHealthie([Assembly.GetExecutingAssembly()]);
             })
             .Build();
 

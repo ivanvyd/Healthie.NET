@@ -1,5 +1,4 @@
-﻿using Healthie.Abstractions;
-using Healthie.Abstractions.Models;
+﻿using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
 namespace Healthie.Abstractions.Scheduling;
@@ -28,7 +27,8 @@ public class AsyncPulsesScheduler(IEnumerable<IAsyncPulseChecker> pulseCheckers,
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        TimeSpan interval = TimeSpan.FromMinutes(1);
+        // TODO: dynamic
+        TimeSpan interval = TimeSpan.FromSeconds(5);
 
         await Task.WhenAll(_pulseCheckers.Select(async checker =>
         {

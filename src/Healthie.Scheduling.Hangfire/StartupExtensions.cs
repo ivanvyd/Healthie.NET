@@ -9,6 +9,8 @@ public static class StartupExtensions
 {
     public static IServiceCollection AddHealthieHangfire(this IServiceCollection services)
     {
+        throw new NotImplementedException();
+
         // todo: provider dynamic
         services.AddHangfire(configuration =>
         {
@@ -21,7 +23,7 @@ public static class StartupExtensions
 
         services.AddHangfireServer();
 
-        services.AddSingleton<ICronConverter, CronConverter>();
+        services.AddSingleton<ICronConverter, HangfireCronConverter>();
         services.AddSingleton<IPulseScheduler, HangfirePulseScheduler>();
         services.AddSingleton<IAsyncPulseScheduler, AsyncHangfirePulseScheduler>();
 

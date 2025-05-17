@@ -2,7 +2,7 @@
 
 namespace Healthie.Scheduling.Hangfire.Converters;
 
-public class CronConverter : ICronConverter
+public class HangfireCronConverter : ICronConverter
 {
     private const string CronMinutesIntervalFormat = "*/{0} * * * *";
 

@@ -8,9 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Healthie.Abstractions\Healthie.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
-    <ProjectReference Include="..\..\src\Healthie.Scheduling.Hangfire\Healthie.Scheduling.Hangfire.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.MemoryCache\Healthie.StateProviding.MemoryCache.csproj" />
   </ItemGroup>
 
