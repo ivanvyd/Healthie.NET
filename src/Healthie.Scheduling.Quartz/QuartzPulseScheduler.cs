@@ -1,13 +1,14 @@
 using Healthie.Abstractions;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Extensions;
-using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.Scheduling.Quartz.Jobs;
 using Quartz;
 
 namespace Healthie.Scheduling.Quartz;
 
-public class QuartzPulseScheduler(ISchedulerFactory schedulerFactory) : IPulseScheduler
+public class QuartzPulseScheduler(ISchedulerFactory schedulerFactory)
+    : IPulseScheduler
 {
     private readonly ISchedulerFactory _schedulerFactory = schedulerFactory;
 
@@ -34,5 +35,21 @@ public class QuartzPulseScheduler(ISchedulerFactory schedulerFactory) : IPulseSc
             .Build();
 
         scheduler.ScheduleJob(job, [trigger], true).GetAwaiter().GetResult();
+    }
+
+    public void Unschedule(IPulseChecker checker)
+    {
+        var scheduler = _schedulerFactory.GetScheduler().GetAwaiter().GetResult();
+        var jobName = checker.Name;
+        var jobKey = new JobKey(jobName);
+        var triggerKey = new TriggerKey($"{jobName}-trigger");
+        if (scheduler.CheckExists(jobKey).GetAwaiter().GetResult())
+        {
+            scheduler.DeleteJob(jobKey).GetAwaiter().GetResult();
+        }
+        if (scheduler.CheckExists(triggerKey).GetAwaiter().GetResult())
+        {
+            scheduler.UnscheduleJob(triggerKey).GetAwaiter().GetResult();
+        }
     }
 }

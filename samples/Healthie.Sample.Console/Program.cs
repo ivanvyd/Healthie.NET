@@ -1,8 +1,10 @@
-﻿using Healthie.Abstractions.Models;
+﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.DependencyInjection;
 using Healthie.Scheduling.Quartz;
-using Healthie.StateProviding.MemoryCache;
+using Healthie.StateProviding.CosmosDb;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.Reflection;
@@ -17,12 +19,22 @@ public static class Program
 
     public static async Task Main(string[] args)
     {
+        // CONSIDER: This is a sample code. In Prod, handle it via DI.
+        CosmosClient client = new("AccountEndpoint=https://ivanv-tests.documents.azure.com:443/;AccountKey=G9fva6gpyzPgPSUYwLawta2CqWWlsovDpCYdAWWmuncN5GDfsgbaFSrNn5Uh0ElshGJTt9m7AWK8ACDbGGAKcg==;");
+        Database db = await client.CreateDatabaseIfNotExistsAsync("Healthie");
+        Container container = await db.CreateContainerIfNotExistsAsync("HealthieState", "/id");
+
         _host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                services.AddHealthieMemoryCache();
                 services.AddHealthieQuartz();
                 services.AddHealthie([Assembly.GetExecutingAssembly()]);
+                // In Memory
+                // services.AddHealthieMemoryCache();
+                // SQL Server
+                // services.AddHealthieSqlServer(connectionString: "");
+                // Cosmos DB
+                services.AddHealthieCosmosDb(container);
             })
             .Build();
 
@@ -41,6 +53,12 @@ public static class Program
             WriteLine("2. /pulses/interval");
             WriteLine("3. /pulses-async");
             WriteLine("4. /pulses-async/interval");
+            WriteLine();
+            WriteLine("5. /pulses/stop");
+            WriteLine("6. /pulses/start");
+            WriteLine("7. /pulses-async/stop");
+            WriteLine("8  /pulses-async/start");
+            WriteLine();
             WriteLine("10. Exit");
 
             var choice = ReadLine();
@@ -92,6 +110,30 @@ public static class Program
                     }
                     WriteLine("Press any key to return to the menu...");
                     ReadKey();
+                    break;
+                case "5":
+                    Clear();
+                    WriteLine("Enter pulse name to stop:");
+                    var nameToStop = ReadLine();
+                    Host.Services.GetRequiredService<IPulsesScheduler>().Deactivate(nameToStop);
+                    break;
+                case "6":
+                    Clear();
+                    WriteLine("Enter pulse name to start:");
+                    var nameToStart = ReadLine();
+                    Host.Services.GetRequiredService<IPulsesScheduler>().Activate(nameToStart);
+                    break;
+                case "7":
+                    Clear();
+                    WriteLine("Enter pulse name to stop:");
+                    var nameToStopAsync = ReadLine();
+                    await Host.Services.GetRequiredService<IAsyncPulsesScheduler>().DeactivateAsync(nameToStopAsync);
+                    break;
+                case "8":
+                    Clear();
+                    WriteLine("Enter pulse name to start:");
+                    var nameToStartAsync = ReadLine();
+                    await Host.Services.GetRequiredService<IAsyncPulsesScheduler>().ActivateAsync(nameToStartAsync);
                     break;
                 case "10":
                     await Host.StopAsync();
@@ -189,20 +231,16 @@ public static class Program
         WritePulsesStates(pulsesStates);
     }
 
-    private static void WritePulsesStates(Dictionary<string, State> pulsesStates)
+    private static void WritePulsesStates(Dictionary<string, PulseCheckerState> pulsesStates)
     {
         foreach (var pulse in pulsesStates)
         {
-            var name = pulse.Key;
-            var lastExecutionDateTime = pulse.Value.LastExecutionDateTime;
-            var message = pulse.Value.LastPulse?.ToString();
-            var isHealthy = pulse.Value.LastPulse?.IsSuccess is true && pulse.Value.LastPulse?.Result?.IsHealthy is true;
-
-            WriteLine($"Name: {name}");
-            WriteLine($"Last Execution DateTime: {lastExecutionDateTime}");
-            WriteLine($"Message: {message}");
-            WriteLine($"Is Healthy: {isHealthy}");
+            WriteLine($"Name: {pulse.Key}");
+            WriteLine($"Last Execution DateTime: {pulse.Value.LastExecutionDateTime}");
+            WriteLine($"Is Healthy: {pulse.Value.LastResult?.IsHealthy is true}");
+            WriteLine($"Message: {pulse.Value.LastResult?.Message}");
             WriteLine($"Interval: {pulse.Value.Interval}");
+            WriteLine($"Is Active: {pulse.Value.IsActive}");
             WriteLine();
         }
     }

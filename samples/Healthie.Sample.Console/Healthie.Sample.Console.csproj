@@ -15,7 +15,9 @@
     <ProjectReference Include="..\..\src\Healthie.Abstractions\Healthie.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.MemoryCache\Healthie.StateProviding.MemoryCache.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.SqlServer\Healthie.StateProviding.SqlServer.csproj" />
   </ItemGroup>
 
 </Project>

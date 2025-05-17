@@ -1,49 +1,96 @@
-﻿using Healthie.Abstractions.Models;
+﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Models;
 using Healthie.Abstractions.StateProviding;
 
 namespace Healthie.Abstractions;
 
-public abstract class PulseChecker(IStateProvider stateProvider) : IPulseChecker
+public abstract class PulseChecker(IStateProvider stateProvider)
+    : IPulseChecker
 {
     private readonly IStateProvider _stateProvider = stateProvider;
 
-    protected State State
+    private bool _isRunning = false;
+
+    protected PulseCheckerState State
     {
-        get => _stateProvider.GetState<State>(Name) ?? new();
+        get => _stateProvider.GetState<PulseCheckerState>(Name) ?? new();
         set => _stateProvider.SetState(Name, value);
     }
 
-    public abstract Pulse<Result> Check();
+    public abstract PulseCheckerResult Check();
 
     public string Name => GetType().FullName!;
 
-    public void SetState(State state)
+    public void SetState(PulseCheckerState state)
     {
         State = state;
     }
 
-    public State GetState()
+    public PulseCheckerState GetState()
     {
         return State;
     }
 
     public void SetInterval(PulseInterval interval)
     {
-        State state = GetState();
+        PulseCheckerState state = GetState();
+        if (state.Interval == interval)
+            return;
         state.Interval = interval;
         SetState(state);
     }
 
     public void Trigger()
     {
+        if (_isRunning)
+            return;
+
         var currentDateTimeUtc = DateTime.UtcNow;
 
-        var pulseResult = Check();
+        try
+        {
+            _isRunning = true;
 
-        State state = GetState();
-        state.LastExecutionDateTime = currentDateTimeUtc;
-        state.LastPulse = pulseResult;
+            var pulseResult = Check();
 
+            PulseCheckerState state = GetState();
+            state.LastExecutionDateTime = currentDateTimeUtc;
+            state.LastResult = pulseResult;
+
+            SetState(state);
+        }
+        catch (Exception ex)
+        {
+            PulseCheckerState state = GetState();
+            state.LastExecutionDateTime = currentDateTimeUtc;
+            string message = $"{ex.GetType()}: {ex.Message}";
+            state.LastResult = new(false, message);
+
+            SetState(state);
+        }
+        finally
+        {
+            _isRunning = false;
+        }
+    }
+
+    public bool Stop()
+    {
+        PulseCheckerState state = GetState();
+        if (!state.IsActive)
+            return false;
+        state.IsActive = false;
         SetState(state);
+        return true;
+    }
+
+    public bool Start()
+    {
+        PulseCheckerState state = GetState();
+        if (state.IsActive)
+            return false;
+        state.IsActive = true;
+        SetState(state);
+        return true;
     }
 }

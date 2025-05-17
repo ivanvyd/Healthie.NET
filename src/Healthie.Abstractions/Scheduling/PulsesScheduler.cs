@@ -1,4 +1,5 @@
-﻿using Healthie.Abstractions.Models;
+﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
 namespace Healthie.Abstractions.Scheduling;
@@ -14,7 +15,7 @@ public class PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseSch
         return _pulseCheckers.ToDictionary(pulseChecker => pulseChecker.Name, _ => _);
     }
 
-    public Dictionary<string, State> GetPulsesStates()
+    public Dictionary<string, PulseCheckerState> GetPulsesStates()
     {
         return _pulseCheckers.ToDictionary(checker => checker.Name, checker => checker.GetState());
     }
@@ -32,6 +33,38 @@ public class PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseSch
         Schedule(pulseChecker);
     }
 
+    public void Activate(string name)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        bool isStarted = pulseChecker.Start();
+
+        if (isStarted)
+        {
+            Schedule(pulseChecker);
+        }
+    }
+
+    public void Deactivate(string name)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        bool isStopped = pulseChecker.Stop();
+
+        if (isStopped)
+        {
+            _pulseScheduler.Unschedule(pulseChecker);
+        }
+    }
+
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         foreach (var checker in _pulseCheckers)
@@ -44,11 +77,11 @@ public class PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseSch
 
     private void Schedule(IPulseChecker checker)
     {
-        State state = checker.GetState();
+        PulseCheckerState state = checker.GetState();
 
-        if (state.LastExecutionDateTime is null)
+        if (!state.IsActive)
         {
-            checker.Trigger();
+            return;
         }
 
         _pulseScheduler.Schedule(checker, state.Interval);

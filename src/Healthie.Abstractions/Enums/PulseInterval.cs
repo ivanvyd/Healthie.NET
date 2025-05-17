@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace Healthie.Abstractions.Models;
+namespace Healthie.Abstractions.Enums;
 
 public enum PulseInterval
 {

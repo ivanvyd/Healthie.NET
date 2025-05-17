@@ -1,13 +1,14 @@
 using Healthie.Abstractions;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Extensions;
-using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.Scheduling.Quartz.Jobs;
 using Quartz;
 
 namespace Healthie.Scheduling.Quartz;
 
-public class AsyncQuartzPulseScheduler(ISchedulerFactory schedulerFactory) : IAsyncPulseScheduler
+public class AsyncQuartzPulseScheduler(ISchedulerFactory schedulerFactory)
+    : IAsyncPulseScheduler
 {
     private readonly ISchedulerFactory _schedulerFactory = schedulerFactory;
 
@@ -34,5 +35,22 @@ public class AsyncQuartzPulseScheduler(ISchedulerFactory schedulerFactory) : IAs
             .Build();
 
         await scheduler.ScheduleJob(job, [trigger], true);
+    }
+
+    public async Task UnscheduleAsync(IAsyncPulseChecker checker)
+    {
+        var scheduler = await _schedulerFactory.GetScheduler();
+        await scheduler.Start();
+        var jobName = checker.Name;
+        var jobKey = new JobKey(jobName);
+        var triggerKey = new TriggerKey($"{jobName}-trigger");
+        if (await scheduler.CheckExists(jobKey))
+        {
+            await scheduler.DeleteJob(jobKey);
+        }
+        if (await scheduler.CheckExists(triggerKey))
+        {
+            await scheduler.UnscheduleJob(triggerKey);
+        }
     }
 }

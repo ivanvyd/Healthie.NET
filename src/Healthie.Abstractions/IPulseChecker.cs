@@ -1,10 +1,13 @@
-﻿using Healthie.Abstractions.Models;
+﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Models;
 
 namespace Healthie.Abstractions;
 
 public interface IPulseChecker : IPulse, IState
 {
     string Name { get; }
-    Pulse<Result> Check();
+    PulseCheckerResult Check();
     void SetInterval(PulseInterval interval);
+    bool Stop();
+    bool Start();
 }

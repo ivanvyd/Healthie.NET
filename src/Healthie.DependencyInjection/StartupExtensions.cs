@@ -1,4 +1,5 @@
 ﻿using Healthie.Abstractions;
+using Healthie.Abstractions.Initialization;
 using Healthie.Abstractions.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
@@ -10,6 +11,7 @@ public static class StartupExtensions
     public static IServiceCollection AddHealthie(this IServiceCollection services,
         Assembly[] scanAssembliesForPulseCheckers)
     {
+        services.AddHostedService<StateProviderInitializationService>();
         services.AddSingleton<IPulsesScheduler, PulsesScheduler>();
         services.AddHostedService(serviceProvider => serviceProvider.GetRequiredService<IPulsesScheduler>());
         services.AddSingleton<IAsyncPulsesScheduler, AsyncPulsesScheduler>();

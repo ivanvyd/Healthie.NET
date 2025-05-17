@@ -6,8 +6,10 @@ namespace Healthie.Sample.Console.Pulses;
 
 public class SomeDefaultPulseChecker(IStateProvider stateProvider) : PulseChecker(stateProvider)
 {
-    public override Pulse<Result> Check()
+    public override PulseCheckerResult Check()
     {
-        return new Result(true, $"SomeDefaultPulseChecker is healthy at {DateTime.UtcNow}");
+        return new PulseCheckerResult(
+            isHealthy: true,
+            message: $"SomeDefaultPulseChecker is healthy at {DateTime.UtcNow}");
     }
 }

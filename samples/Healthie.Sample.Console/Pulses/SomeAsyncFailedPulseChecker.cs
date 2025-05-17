@@ -6,8 +6,10 @@ namespace Healthie.Sample.Console.Pulses;
 
 public class SomeAsyncFailedPulseChecker(IAsyncStateProvider stateProvider) : AsyncPulseChecker(stateProvider)
 {
-    public override async Task<Pulse<Result>> CheckAsync()
+    public override Task<PulseCheckerResult> CheckAsync()
     {
-        return new NotImplementedException($"SomeFailedPulseChecker is not implemented at {DateTime.UtcNow}");
+        return Task.FromResult(new PulseCheckerResult(
+           isHealthy: false, 
+            message: $"SomeFailedPulseChecker is not implemented at {DateTime.UtcNow}"));
     }
 }

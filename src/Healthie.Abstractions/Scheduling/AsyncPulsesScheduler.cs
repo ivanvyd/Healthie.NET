@@ -1,4 +1,5 @@
-﻿using Healthie.Abstractions.Models;
+﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
 namespace Healthie.Abstractions.Scheduling;
@@ -14,7 +15,7 @@ public class AsyncPulsesScheduler(IEnumerable<IAsyncPulseChecker> pulseCheckers,
         return Task.FromResult(_pulseCheckers.ToDictionary(pulseChecker => pulseChecker.Name, _ => _));
     }
 
-    public async Task<Dictionary<string, State>> GetPulsesStatesAsync()
+    public async Task<Dictionary<string, PulseCheckerState>> GetPulsesStatesAsync()
     {
         var pulsesStates = await Task.WhenAll(_pulseCheckers.Select(async checker =>
         {
@@ -43,6 +44,38 @@ public class AsyncPulsesScheduler(IEnumerable<IAsyncPulseChecker> pulseCheckers,
         await ScheduleAsync(pulseChecker);
     }
 
+    public async Task ActivateAsync(string name)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        bool isStarted = await pulseChecker.StartAsync();
+
+        if (isStarted)
+        {
+            await ScheduleAsync(pulseChecker);
+        }
+    }
+
+    public async Task DeactivateAsync(string name)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        bool isStopped = await pulseChecker.StopAsync();
+
+        if (isStopped)
+        {
+            await _pulseScheduler.UnscheduleAsync(pulseChecker);
+        }
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await Task.WhenAll(_pulseCheckers.Select(ScheduleAsync));
@@ -52,9 +85,9 @@ public class AsyncPulsesScheduler(IEnumerable<IAsyncPulseChecker> pulseCheckers,
     {
         var state = await checker.GetStateAsync();
 
-        if (state.LastExecutionDateTime is null)
+        if (!state.IsActive)
         {
-            await checker.TriggerAsync();
+            return;
         }
 
         await _pulseScheduler.ScheduleAsync(checker, state.Interval);

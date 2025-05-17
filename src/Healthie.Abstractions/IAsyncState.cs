@@ -4,6 +4,6 @@ namespace Healthie.Abstractions;
 
 public interface IAsyncState
 {
-    Task<State> GetStateAsync();
-    Task SetStateAsync(State state);
+    Task<PulseCheckerState> GetStateAsync();
+    Task SetStateAsync(PulseCheckerState state);
 }

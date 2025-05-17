@@ -1,4 +1,4 @@
-using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Enums;
 
 namespace Healthie.Abstractions.Extensions;
 

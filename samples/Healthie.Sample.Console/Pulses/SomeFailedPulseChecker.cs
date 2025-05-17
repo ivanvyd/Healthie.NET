@@ -6,8 +6,8 @@ namespace Healthie.Sample.Console.Pulses;
 
 public class SomeFailedPulseChecker(IStateProvider stateProvider) : PulseChecker(stateProvider)
 {
-    public override Pulse<Result> Check()
+    public override PulseCheckerResult Check()
     {
-        return new NotImplementedException($"SomeFailedPulseChecker is not implemented at {DateTime.UtcNow}");
+        throw new NotImplementedException($"SomeFailedPulseChecker is not implemented at {DateTime.UtcNow}");
     }
 }

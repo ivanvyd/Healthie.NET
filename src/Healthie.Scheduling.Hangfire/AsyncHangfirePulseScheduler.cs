@@ -1,7 +1,7 @@
 ﻿using Hangfire;
 using Healthie.Abstractions;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Extensions;
-using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 
 namespace Healthie.Scheduling.Hangfire;
@@ -20,5 +20,10 @@ public class AsyncHangfirePulseScheduler(IRecurringJobManagerV2 recurringJobMana
             cronExpression);
 
         return Task.CompletedTask;
+    }
+
+    public Task UnscheduleAsync(IAsyncPulseChecker checker)
+    {
+        throw new NotImplementedException();
     }
 }

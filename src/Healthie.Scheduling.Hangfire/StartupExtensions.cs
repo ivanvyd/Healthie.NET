@@ -8,8 +8,6 @@ public static class StartupExtensions
 {
     public static IServiceCollection AddHealthieHangfire(this IServiceCollection services)
     {
-        throw new NotImplementedException();
-
         // TODO: add providers
         services.AddHangfire(configuration =>
         {
