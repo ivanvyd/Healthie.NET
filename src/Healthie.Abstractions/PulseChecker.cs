@@ -27,16 +27,23 @@ public abstract class PulseChecker(IStateProvider stateProvider) : IPulseChecker
         return State;
     }
 
+    public void SetInterval(PulseInterval interval)
+    {
+        State state = GetState();
+        state.Interval = interval;
+        SetState(state);
+    }
+
     public void Trigger()
     {
         var currentDateTimeUtc = DateTime.UtcNow;
 
         var pulseResult = Check();
 
-        SetState(new()
-        {
-            LastExecutionDateTime = currentDateTimeUtc,
-            LastPulse = pulseResult,
-        });
+        State state = GetState();
+        state.LastExecutionDateTime = currentDateTimeUtc;
+        state.LastPulse = pulseResult;
+
+        SetState(state);
     }
 }

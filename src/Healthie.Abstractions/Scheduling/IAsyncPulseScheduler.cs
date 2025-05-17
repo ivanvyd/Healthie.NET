@@ -1,8 +1,8 @@
-﻿using Healthie.Abstractions;
+﻿using Healthie.Abstractions.Models;
 
 namespace Healthie.Abstractions.Scheduling;
 
 public interface IAsyncPulseScheduler
 {
-    Task ScheduleAsync(IAsyncPulseChecker checker, TimeSpan interval);
+    Task ScheduleAsync(IAsyncPulseChecker checker, PulseInterval interval);
 }

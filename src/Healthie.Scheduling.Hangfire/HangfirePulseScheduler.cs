@@ -1,19 +1,19 @@
 ﻿using Hangfire;
 using Healthie.Abstractions;
+using Healthie.Abstractions.Extensions;
+using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
-using Healthie.Scheduling.Hangfire.Converters;
 
 namespace Healthie.Scheduling.Hangfire;
 
-public class HangfirePulseScheduler(ICronConverter cronConverter, IRecurringJobManager recurringJobManager)
+public class HangfirePulseScheduler(IRecurringJobManager recurringJobManager)
     : IPulseScheduler
 {
-    private readonly ICronConverter _cronConverter = cronConverter;
     private readonly IRecurringJobManager _recurringJobManager = recurringJobManager;
 
-    public void Schedule(IPulseChecker checker, TimeSpan interval)
+    public void Schedule(IPulseChecker checker, PulseInterval interval)
     {
-        var cronExpression = _cronConverter.Convert(interval);
+        var cronExpression = interval.ToCronExpression();
         _recurringJobManager.AddOrUpdate(
             checker.GetType().Name,
             () => checker.Trigger(),

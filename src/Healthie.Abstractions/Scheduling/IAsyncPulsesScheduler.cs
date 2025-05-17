@@ -6,4 +6,8 @@ namespace Healthie.Abstractions.Scheduling;
 public interface IAsyncPulsesScheduler : IHostedService
 {
     Task<Dictionary<string, State>> GetPulsesStatesAsync();
+
+    Task<Dictionary<string, IAsyncPulseChecker>> GetPulseCheckersAsync();
+
+    Task SetIntervalAsync(string name, PulseInterval interval);
 }

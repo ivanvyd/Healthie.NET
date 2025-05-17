@@ -6,4 +6,5 @@ public interface IPulseChecker : IPulse, IState
 {
     string Name { get; }
     Pulse<Result> Check();
+    void SetInterval(PulseInterval interval);
 }

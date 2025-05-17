@@ -8,7 +8,7 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
 {
     private readonly IAsyncStateProvider _stateProvider = stateProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
-    private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(5);
+    private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(10);
 
     public abstract Task<Pulse<Result>> CheckAsync();
 
@@ -40,17 +40,25 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         }
     }
 
+    public async Task SetIntervalAsync(PulseInterval interval)
+    {
+        State state = await GetStateAsync();
+        state.Interval = interval;
+        await SetStateAsync(state);
+    }
+
     public async Task TriggerAsync()
     {
         var currentDateTimeUtc = DateTime.UtcNow;
 
         var pulseResult = await CheckAsync();
 
-        await SetStateAsync(new()
-        {
-            LastExecutionDateTime = currentDateTimeUtc,
-            LastPulse = pulseResult,
-        });
+        State state = await GetStateAsync();
+
+        state.LastExecutionDateTime = currentDateTimeUtc;
+        state.LastPulse = pulseResult;
+
+        await SetStateAsync(state);
     }
 
     public ValueTask DisposeAsync()

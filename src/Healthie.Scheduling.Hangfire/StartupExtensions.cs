@@ -1,6 +1,5 @@
 ﻿using Hangfire;
 using Healthie.Abstractions.Scheduling;
-using Healthie.Scheduling.Hangfire.Converters;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Healthie.Scheduling.Hangfire;
@@ -11,7 +10,7 @@ public static class StartupExtensions
     {
         throw new NotImplementedException();
 
-        // todo: provider dynamic
+        // TODO: add providers
         services.AddHangfire(configuration =>
         {
             configuration.UseInMemoryStorage(new()
@@ -23,7 +22,6 @@ public static class StartupExtensions
 
         services.AddHangfireServer();
 
-        services.AddSingleton<ICronConverter, HangfireCronConverter>();
         services.AddSingleton<IPulseScheduler, HangfirePulseScheduler>();
         services.AddSingleton<IAsyncPulseScheduler, AsyncHangfirePulseScheduler>();
 

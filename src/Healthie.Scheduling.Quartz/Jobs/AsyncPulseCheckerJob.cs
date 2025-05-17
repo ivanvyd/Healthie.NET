@@ -6,7 +6,7 @@ namespace Healthie.Scheduling.Quartz.Jobs;
 [DisallowConcurrentExecution]
 public class AsyncPulseCheckerJob : IJob
 {
-    public static readonly string CheckerKey = "checker";
+    public static readonly string CheckerKey = "async_checker";
 
     public async Task Execute(IJobExecutionContext context)
     {
