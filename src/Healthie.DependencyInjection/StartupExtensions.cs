@@ -1,5 +1,5 @@
-﻿using Healthie.PulseChecking;
-using Healthie.Scheduling;
+﻿using Healthie.Abstractions;
+using Healthie.Abstractions.Scheduling;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 

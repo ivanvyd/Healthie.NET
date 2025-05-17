@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Hangfire" Version="1.8.14" />
+    <PackageReference Include="Hangfire" Version="1.8.20" />
     <PackageReference Include="Hangfire.InMemory" Version="1.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Healthie.Scheduling\Healthie.Scheduling.csproj" />
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

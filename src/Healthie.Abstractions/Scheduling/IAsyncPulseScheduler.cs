@@ -1,6 +1,6 @@
-﻿using Healthie.PulseChecking;
+﻿using Healthie.Abstractions;
 
-namespace Healthie.Scheduling;
+namespace Healthie.Abstractions.Scheduling;
 
 public interface IAsyncPulseScheduler
 {

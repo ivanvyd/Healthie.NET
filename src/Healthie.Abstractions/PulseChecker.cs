@@ -1,7 +1,7 @@
-﻿using Healthie.PulseChecking.Models;
-using Healthie.StateProviding;
+﻿using Healthie.Abstractions.Models;
+using Healthie.Abstractions.StateProviding;
 
-namespace Healthie.PulseChecking;
+namespace Healthie.Abstractions;
 
 public abstract class PulseChecker(IStateProvider stateProvider) : IPulseChecker
 {

@@ -1,6 +1,6 @@
-﻿using Healthie.PulseChecking.Models;
+﻿using Healthie.Abstractions.Models;
 
-namespace Healthie.PulseChecking;
+namespace Healthie.Abstractions;
 
 public interface IAsyncState
 {

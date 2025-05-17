@@ -1,7 +1,7 @@
-﻿using Healthie.PulseChecking.Models;
+﻿using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
-namespace Healthie.Scheduling;
+namespace Healthie.Abstractions.Scheduling;
 
 public interface IPulsesScheduler : IHostedService
 {

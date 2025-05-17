@@ -1,6 +1,6 @@
-﻿using Healthie.PulseChecking;
-using Healthie.PulseChecking.Models;
-using Healthie.StateProviding;
+﻿using Healthie.Abstractions;
+using Healthie.Abstractions.Models;
+using Healthie.Abstractions.StateProviding;
 
 namespace Healthie.Sample.Console.Pulses;
 

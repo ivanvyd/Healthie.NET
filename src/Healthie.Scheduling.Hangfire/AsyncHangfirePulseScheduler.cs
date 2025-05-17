@@ -1,5 +1,6 @@
 ﻿using Hangfire;
-using Healthie.PulseChecking;
+using Healthie.Abstractions;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Scheduling.Hangfire.Converters;
 
 namespace Healthie.Scheduling.Hangfire;

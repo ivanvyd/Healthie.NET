@@ -1,4 +1,4 @@
-﻿namespace Healthie.PulseChecking.Models;
+﻿namespace Healthie.Abstractions.Models;
 
 public record Result(bool isHealthy, string? message = null)
 {

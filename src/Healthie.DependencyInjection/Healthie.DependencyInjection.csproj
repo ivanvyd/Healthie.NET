@@ -7,8 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Healthie.PulseChecking\Healthie.PulseChecking.csproj" />
-    <ProjectReference Include="..\Healthie.Scheduling\Healthie.Scheduling.csproj" />
+    <ProjectReference Include="..\Healthie.PulseChecking\Healthie.Abstractions.csproj" />
   </ItemGroup>
 
 </Project>

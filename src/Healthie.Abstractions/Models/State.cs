@@ -1,4 +1,4 @@
-﻿namespace Healthie.PulseChecking.Models;
+﻿namespace Healthie.Abstractions.Models;
 
 public record State
 {

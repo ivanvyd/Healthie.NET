@@ -1,4 +1,5 @@
 ﻿using Hangfire;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Scheduling.Hangfire.Converters;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,6 +9,7 @@ public static class StartupExtensions
 {
     public static IServiceCollection AddHealthieHangfire(this IServiceCollection services)
     {
+        // todo: provider dynamic
         services.AddHangfire(configuration =>
         {
             configuration.UseInMemoryStorage(new()

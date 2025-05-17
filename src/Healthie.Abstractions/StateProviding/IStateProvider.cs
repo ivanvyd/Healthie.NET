@@ -1,4 +1,4 @@
-﻿namespace Healthie.StateProviding;
+﻿namespace Healthie.Abstractions.StateProviding;
 
 public interface IStateProvider
 {

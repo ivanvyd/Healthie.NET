@@ -1,4 +1,4 @@
-﻿using Healthie.StateProviding;
+﻿using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Healthie.StateProviding.MemoryCache;

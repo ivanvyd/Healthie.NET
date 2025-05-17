@@ -1,8 +1,7 @@
-﻿using Healthie.PulseChecking;
-using Healthie.PulseChecking.Models;
+﻿using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
-namespace Healthie.Scheduling;
+namespace Healthie.Abstractions.Scheduling;
 
 public class PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseScheduler pulseScheduler)
     : BackgroundService, IPulsesScheduler

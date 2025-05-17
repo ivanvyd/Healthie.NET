@@ -1,6 +1,6 @@
-﻿using Healthie.DependencyInjection;
-using Healthie.PulseChecking.Models;
-using Healthie.Scheduling;
+﻿using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
+using Healthie.DependencyInjection;
 using Healthie.Scheduling.Hangfire;
 using Healthie.StateProviding.MemoryCache;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,4 +1,4 @@
-﻿namespace Healthie.PulseChecking;
+﻿namespace Healthie.Abstractions;
 
 public interface IPulse
 {
