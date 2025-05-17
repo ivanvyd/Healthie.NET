@@ -58,6 +58,7 @@ public static class Program
                     ReadKey();
                     break;
                 case "3":
+                    await Host.StopAsync();
                     return;
                 default:
                     WriteLine("Invalid choice. Please try again.");
