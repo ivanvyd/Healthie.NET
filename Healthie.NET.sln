@@ -28,6 +28,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.StateProviding.Sql
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.StateProviding.CosmosDb", "src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj", "{A424B149-E5DB-7CBB-A87C-370A091CF1EB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.Api", "src\Healthie.Api\Healthie.Api.csproj", "{504A6600-467D-3645-6AD8-03FD58163B46}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.Sample.WebApi", "samples\Healthie.Sample.WebApi\Healthie.Sample.WebApi.csproj", "{FE013954-10BD-4BEE-93CB-9B0AFB2F4843}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -66,6 +70,14 @@ Global
 		{A424B149-E5DB-7CBB-A87C-370A091CF1EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A424B149-E5DB-7CBB-A87C-370A091CF1EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A424B149-E5DB-7CBB-A87C-370A091CF1EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{504A6600-467D-3645-6AD8-03FD58163B46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{504A6600-467D-3645-6AD8-03FD58163B46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{504A6600-467D-3645-6AD8-03FD58163B46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{504A6600-467D-3645-6AD8-03FD58163B46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE013954-10BD-4BEE-93CB-9B0AFB2F4843}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE013954-10BD-4BEE-93CB-9B0AFB2F4843}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE013954-10BD-4BEE-93CB-9B0AFB2F4843}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE013954-10BD-4BEE-93CB-9B0AFB2F4843}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -79,6 +91,8 @@ Global
 		{0B6D5D0E-E47C-F04A-9F4B-5A165634C932} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{DAB31989-3A6F-CB81-8F1B-3ADF051923CE} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{A424B149-E5DB-7CBB-A87C-370A091CF1EB} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
+		{504A6600-467D-3645-6AD8-03FD58163B46} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
+		{FE013954-10BD-4BEE-93CB-9B0AFB2F4843} = {351D767F-E606-42FF-8724-3F548E6D13A4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0EE98644-4A9C-4D31-8145-997C8B5A8119}

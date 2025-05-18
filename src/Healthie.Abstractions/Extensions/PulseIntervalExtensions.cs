@@ -10,6 +10,7 @@ public static class PulseIntervalExtensions
         {
             PulseInterval.EverySecond => "0/1 * * * * ?",
             PulseInterval.Every2Seconds => "0/2 * * * * ?",
+            PulseInterval.Every3Seconds => "0/3 * * * * ?",
             PulseInterval.Every5Seconds => "0/5 * * * * ?",
             PulseInterval.Every10Seconds => "0/10 * * * * ?",
             PulseInterval.Every15Seconds => "0/15 * * * * ?",

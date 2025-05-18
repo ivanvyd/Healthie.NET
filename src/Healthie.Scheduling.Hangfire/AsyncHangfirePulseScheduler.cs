@@ -15,7 +15,7 @@ public class AsyncHangfirePulseScheduler(IRecurringJobManagerV2 recurringJobMana
     {
         var cronExpression = interval.ToCronExpression();
         _recurringJobManager.AddOrUpdate(
-            checker.GetType().Name,
+            checker.Name,
             () => Task.Run(() => checker.TriggerAsync()),
             cronExpression);
 
