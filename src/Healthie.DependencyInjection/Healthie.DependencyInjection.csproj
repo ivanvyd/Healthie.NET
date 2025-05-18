@@ -4,6 +4,11 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <PackageId>Healthie.NET.DependencyInjection</PackageId>
+    <Version>1.0.0-beta</Version>
+    <Authors>Ivan Vydrin</Authors>
+    <Description>Provides the DI mechanisms to Healthie.NET - a lightweight, extensible library for .NET applications designed to monitor components whose health and operational status need to be periodically checked and reported.</Description>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
