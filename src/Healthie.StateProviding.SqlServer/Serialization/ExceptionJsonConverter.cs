@@ -89,7 +89,7 @@ internal class ExceptionJsonConverter : JsonConverter<Exception>
                                     string? key = reader.GetString();
                                     reader.Read(); // Move to value
                                     object? value = JsonSerializer.Deserialize<object>(ref reader, options);
-                                    if (key != null) data[key] = value;
+                                    if (key != null) data![key] = value;
                                 }
                             }
                         }

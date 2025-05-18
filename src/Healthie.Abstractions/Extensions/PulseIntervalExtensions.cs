@@ -2,8 +2,17 @@ using Healthie.Abstractions.Enums;
 
 namespace Healthie.Abstractions.Extensions;
 
+/// <summary>
+/// Provides extension methods for the <see cref="PulseInterval"/> enum.
+/// </summary>
 public static class PulseIntervalExtensions
 {
+    /// <summary>
+    /// Converts a <see cref="PulseInterval"/> enum value to its corresponding CRON expression string.
+    /// </summary>
+    /// <param name="pulseInterval">The pulse interval to convert.</param>
+    /// <returns>A CRON expression string representing the interval.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown if the <paramref name="pulseInterval"/> is not supported.</exception>
     public static string ToCronExpression(this PulseInterval pulseInterval)
     {
         return pulseInterval switch

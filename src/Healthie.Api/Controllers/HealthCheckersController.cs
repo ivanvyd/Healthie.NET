@@ -26,7 +26,7 @@ public class HealthCheckersController : ControllerBase
     {
         _pulsesScheduler = pulsesScheduler ?? throw new ArgumentNullException(nameof(pulsesScheduler));
         _asyncPulsesScheduler = asyncPulsesScheduler ?? throw new ArgumentNullException(nameof(asyncPulsesScheduler));
-        _logger = logger;
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     [HttpGet("intervals")]

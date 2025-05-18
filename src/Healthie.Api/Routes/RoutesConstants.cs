@@ -1,6 +1,6 @@
 ﻿namespace Healthie.Api.Routes;
 
-public static class RoutesConstants
+internal static class RoutesConstants
 {
     public const string HealthieApiRoute = "healthie-api";
 }

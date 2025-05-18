@@ -4,33 +4,66 @@ using Healthie.Abstractions.StateProviding;
 
 namespace Healthie.Abstractions;
 
-public abstract class PulseChecker(IStateProvider stateProvider)
-    : IPulseChecker
+/// <summary>
+/// Base class for implementing synchronous pulse checkers.
+/// </summary>
+public abstract class PulseChecker : IPulseChecker
 {
-    private readonly IStateProvider _stateProvider = stateProvider;
+    private readonly IStateProvider _stateProvider;
 
     private bool _isRunning = false;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PulseChecker"/> class.
+    /// </summary>
+    /// <param name="stateProvider">The state provider used to manage the state of the pulse checker.</param>
+    protected PulseChecker(IStateProvider stateProvider)
+    {
+        _stateProvider = stateProvider;
+    }
+
+    /// <summary>
+    /// Gets or sets the state of the pulse checker.
+    /// </summary>
     protected PulseCheckerState State
     {
         get => _stateProvider.GetState<PulseCheckerState>(Name) ?? new();
         set => _stateProvider.SetState(Name, value);
     }
 
+    /// <summary>
+    /// Performs the pulse check and returns the result.
+    /// </summary>
+    /// <returns>The result of the pulse check.</returns>
     public abstract PulseCheckerResult Check();
 
+    /// <summary>
+    /// Gets the name of the pulse checker.
+    /// </summary>
     public string Name => GetType().FullName!;
 
+    /// <summary>
+    /// Sets the state of the pulse checker.
+    /// </summary>
+    /// <param name="state">The state to set.</param>
     public void SetState(PulseCheckerState state)
     {
         State = state;
     }
 
+    /// <summary>
+    /// Gets the current state of the pulse checker.
+    /// </summary>
+    /// <returns>The current state of the pulse checker.</returns>
     public PulseCheckerState GetState()
     {
         return State;
     }
 
+    /// <summary>
+    /// Sets the interval at which the pulse check should be performed.
+    /// </summary>
+    /// <param name="interval">The interval to set.</param>
     public void SetInterval(PulseInterval interval)
     {
         PulseCheckerState state = GetState();
@@ -40,6 +73,9 @@ public abstract class PulseChecker(IStateProvider stateProvider)
         SetState(state);
     }
 
+    /// <summary>
+    /// Triggers the pulse check.
+    /// </summary>
     public void Trigger()
     {
         if (_isRunning)
@@ -74,6 +110,10 @@ public abstract class PulseChecker(IStateProvider stateProvider)
         }
     }
 
+    /// <summary>
+    /// Stops the pulse checker.
+    /// </summary>
+    /// <returns><c>true</c> if the pulse checker was successfully stopped; otherwise, <c>false</c>.</returns>
     public bool Stop()
     {
         PulseCheckerState state = GetState();
@@ -84,6 +124,10 @@ public abstract class PulseChecker(IStateProvider stateProvider)
         return true;
     }
 
+    /// <summary>
+    /// Starts the pulse checker.
+    /// </summary>
+    /// <returns><c>true</c> if the pulse checker was successfully started; otherwise, <c>false</c>.</returns>
     public bool Start()
     {
         PulseCheckerState state = GetState();

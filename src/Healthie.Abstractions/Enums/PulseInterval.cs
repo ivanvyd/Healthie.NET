@@ -2,6 +2,9 @@ using System.ComponentModel;
 
 namespace Healthie.Abstractions.Enums;
 
+/// <summary>
+/// Defines the available execution intervals for pulse checkers.
+/// </summary>
 public enum PulseInterval
 {
     [Description("Every 1 second")]

@@ -4,19 +4,41 @@ using Healthie.Abstractions.StateProviding;
 
 namespace Healthie.Abstractions;
 
-public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
-    : IAsyncPulseChecker, IAsyncDisposable
+/// <summary>
+/// Base class for implementing asynchronous pulse checkers.
+/// </summary>
+public abstract class AsyncPulseChecker : IAsyncPulseChecker, IAsyncDisposable
 {
-    private readonly IAsyncStateProvider _stateProvider = stateProvider;
+    private readonly IAsyncStateProvider _stateProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(10);
 
     private bool _isRunning = false;
 
-    public abstract Task<PulseCheckerResult> CheckAsync();
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AsyncPulseChecker"/> class.
+    /// </summary>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
+    protected AsyncPulseChecker(IAsyncStateProvider stateProvider)
+    {
+        _stateProvider = stateProvider;
+    }
 
+    /// <summary>
+    /// Gets the name of the pulse checker.
+    /// </summary>
     public string Name => GetType().FullName!;
 
+    /// <summary>
+    /// Performs the pulse check asynchronously.
+    /// </summary>
+    /// <returns>A <see cref="PulseCheckerResult"/> representing the result of the pulse check.</returns>
+    public abstract Task<PulseCheckerResult> CheckAsync();
+
+    /// <summary>
+    /// Sets the state of the pulse checker asynchronously.
+    /// </summary>
+    /// <param name="state">The state to set.</param>
     public async Task SetStateAsync(PulseCheckerState state)
     {
         await _semaphore.WaitAsync(_defaultTimeout);
@@ -30,6 +52,10 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         }
     }
 
+    /// <summary>
+    /// Gets the current state of the pulse checker asynchronously.
+    /// </summary>
+    /// <returns>The current <see cref="PulseCheckerState"/>.</returns>
     public async Task<PulseCheckerState> GetStateAsync()
     {
         await _semaphore.WaitAsync(_defaultTimeout);
@@ -43,6 +69,10 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         }
     }
 
+    /// <summary>
+    /// Sets the interval for the pulse checker asynchronously.
+    /// </summary>
+    /// <param name="interval">The interval to set.</param>
     public async Task SetIntervalAsync(PulseInterval interval)
     {
         PulseCheckerState state = await GetStateAsync();
@@ -52,6 +82,9 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         await SetStateAsync(state);
     }
 
+    /// <summary>
+    /// Triggers the pulse check asynchronously.
+    /// </summary>
     public async Task TriggerAsync()
     {
         if (_isRunning)
@@ -88,6 +121,10 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         }
     }
 
+    /// <summary>
+    /// Stops the pulse checker asynchronously.
+    /// </summary>
+    /// <returns><c>true</c> if the pulse checker was active and is now stopped; otherwise, <c>false</c>.</returns>
     public async Task<bool> StopAsync()
     {
         PulseCheckerState state = await GetStateAsync();
@@ -98,6 +135,10 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         return true;
     }
 
+    /// <summary>
+    /// Starts the pulse checker asynchronously.
+    /// </summary>
+    /// <returns><c>true</c> if the pulse checker was already active; otherwise, <c>false</c>.</returns>
     public async Task<bool> StartAsync()
     {
         PulseCheckerState state = await GetStateAsync();
@@ -108,6 +149,10 @@ public abstract class AsyncPulseChecker(IAsyncStateProvider stateProvider)
         return false;
     }
 
+    /// <summary>
+    /// Disposes the resources used by the pulse checker asynchronously.
+    /// </summary>
+    /// <returns>A completed <see cref="ValueTask"/>.</returns>
     public ValueTask DisposeAsync()
     {
         _semaphore.Dispose();
