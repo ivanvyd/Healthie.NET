@@ -20,7 +20,7 @@ public static class Program
     public static async Task Main(string[] args)
     {
         // CONSIDER: This is a sample code. In Prod, handle it via DI.
-        CosmosClient client = new("AccountEndpoint=https://ivanv-tests.documents.azure.com:443/;AccountKey=G9fva6gpyzPgPSUYwLawta2CqWWlsovDpCYdAWWmuncN5GDfsgbaFSrNn5Uh0ElshGJTt9m7AWK8ACDbGGAKcg==;");
+        CosmosClient client = new("");
         Database db = await client.CreateDatabaseIfNotExistsAsync("Healthie");
         Container container = await db.CreateContainerIfNotExistsAsync("HealthieState", "/id");
 
