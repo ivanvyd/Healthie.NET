@@ -72,6 +72,39 @@ public class AsyncPulsesScheduler : BackgroundService, IAsyncPulsesScheduler
     }
 
     /// <summary>
+    /// Sets the unhealthy threshold for a specific pulse checker.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="threshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    /// <exception cref="ArgumentException">Thrown when the pulse checker with the specified name is not found.</exception>
+    public async Task SetUnhealthyThresholdAsync(string name, uint threshold)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        await pulseChecker.SetUnhealthyThresholdAsync(threshold);
+    }
+
+    /// <summary>
+    /// Resets a specific pulse checker state to healthy.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker to reset.</param>
+    /// <exception cref="ArgumentException">Thrown when the pulse checker with the specified name is not found.</exception>
+    public async Task ResetAsync(string name)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        await pulseChecker.ResetAsync();
+    }
+
+    /// <summary>
     /// Activates a specific pulse checker.
     /// </summary>
     /// <param name="name">The name of the pulse checker.</param>

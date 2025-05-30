@@ -237,7 +237,8 @@ public static class Program
         {
             WriteLine($"Name: {pulse.Key}");
             WriteLine($"Last Execution DateTime: {pulse.Value.LastExecutionDateTime}");
-            WriteLine($"Is Healthy: {pulse.Value.LastResult?.IsHealthy is true}");
+            WriteLine($"Health Status: {pulse.Value.LastResult?.Health ?? PulseCheckerHealth.Unhealthy}");
+            WriteLine($"Is Healthy: {pulse.Value.LastResult?.IsHealthy ?? false}");
             WriteLine($"Message: {pulse.Value.LastResult?.Message}");
             WriteLine($"Interval: {pulse.Value.Interval}");
             WriteLine($"Is Active: {pulse.Value.IsActive}");

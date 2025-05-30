@@ -24,9 +24,9 @@ public class HealthCheckersController : ControllerBase
         IAsyncPulsesScheduler asyncPulsesScheduler,
         ILogger<HealthCheckersController>? logger)
     {
-        _pulsesScheduler = pulsesScheduler ?? throw new ArgumentNullException(nameof(pulsesScheduler));
-        _asyncPulsesScheduler = asyncPulsesScheduler ?? throw new ArgumentNullException(nameof(asyncPulsesScheduler));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _pulsesScheduler = pulsesScheduler;
+        _asyncPulsesScheduler = asyncPulsesScheduler;
+        _logger = logger;
     }
 
     [HttpGet("intervals")]
@@ -98,6 +98,34 @@ public class HealthCheckersController : ControllerBase
         }
     }
 
+    [HttpPut("sync/{checkerName}/threshold")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult SetSyncCheckerThreshold(string checkerName, [FromQuery] uint threshold)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+
+        try
+        {
+            _pulsesScheduler.SetUnhealthyThreshold(checkerName, threshold);
+            return NoContent();
+        }
+        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger?.LogWarning("Synchronous checker '{CheckerName}' not found for setting threshold.", checkerName);
+            return NotFound($"Synchronous checker '{checkerName}' not found.");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error setting threshold for synchronous checker '{CheckerName}'.", checkerName);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
     [HttpPost("sync/{checkerName}/start")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -153,6 +181,65 @@ public class HealthCheckersController : ControllerBase
         }
     }
 
+    [HttpPost("sync/{checkerName}/trigger")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult TriggerSyncChecker(string checkerName)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+        
+        try
+        {
+            var checkers = _pulsesScheduler.GetPulseCheckers();
+            if (!checkers.TryGetValue(checkerName, out var checker))
+            {
+                _logger?.LogWarning("Synchronous checker '{CheckerName}' not found for triggering.", checkerName);
+                return NotFound($"Synchronous checker '{checkerName}' not found.");
+            }
+            
+            checker.Trigger();
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error triggering synchronous checker '{CheckerName}'.", checkerName);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    [HttpPatch("sync/{checkerName}/reset")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult ResetSyncChecker(string checkerName)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+
+        try
+        {
+            _pulsesScheduler.Reset(checkerName);
+
+            return NoContent();
+        }
+        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger?.LogWarning("Synchronous checker '{CheckerName}' not found for resetting.", checkerName);
+            return NotFound($"Synchronous checker '{checkerName}' not found.");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error triggering synchronous checker '{CheckerName}'.", checkerName);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
     [HttpGet("async")]
     [ProducesResponseType(typeof(Dictionary<string, PulseCheckerState>), StatusCodes.Status200OK)]
     public async Task<ActionResult<Dictionary<string, PulseCheckerState>>> GetAsyncCheckersStates()
@@ -191,6 +278,34 @@ public class HealthCheckersController : ControllerBase
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Error setting interval for asynchronous checker '{CheckerName}'.", checkerName);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    [HttpPut("async/{checkerName}/threshold")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetAsyncCheckerThreshold(string checkerName, [FromQuery] uint threshold)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+
+        try
+        {
+            await _asyncPulsesScheduler.SetUnhealthyThresholdAsync(checkerName, threshold);
+            return NoContent();
+        }
+        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger?.LogWarning("Asynchronous checker '{CheckerName}' not found for setting threshold.", checkerName);
+            return NotFound($"Asynchronous checker '{checkerName}' not found.");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error setting threshold for asynchronous checker '{CheckerName}'.", checkerName);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -245,6 +360,65 @@ public class HealthCheckersController : ControllerBase
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Error stopping asynchronous checker '{CheckerName}'.", checkerName);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    [HttpPost("async/{checkerName}/trigger")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> TriggerAsyncChecker(string checkerName)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+        
+        try
+        {
+            var checkers = await _asyncPulsesScheduler.GetPulseCheckersAsync();
+            if (!checkers.TryGetValue(checkerName, out var checker))
+            {
+                _logger?.LogWarning("Asynchronous checker '{CheckerName}' not found for triggering.", checkerName);
+                return NotFound($"Asynchronous checker '{checkerName}' not found.");
+            }
+            
+            await checker.TriggerAsync();
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error triggering asynchronous checker '{CheckerName}'.", checkerName);
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    [HttpPatch("async/{checkerName}/reset")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetAsyncChecker(string checkerName)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+
+        try
+        {
+            await _asyncPulsesScheduler.ResetAsync(checkerName);
+
+            return NoContent();
+        }
+        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger?.LogWarning("Asynchronous checker '{CheckerName}' not found for resetting.", checkerName);
+            return NotFound($"Asynchronous checker '{checkerName}' not found.");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error triggering synchronous checker '{CheckerName}'.", checkerName);
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }

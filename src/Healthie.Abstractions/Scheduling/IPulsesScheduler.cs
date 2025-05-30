@@ -29,6 +29,19 @@ public interface IPulsesScheduler : IHostedService
     void SetInterval(string name, PulseInterval interval);
 
     /// <summary>
+    /// Sets the unhealthy threshold for a specific pulse checker.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="threshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    void SetUnhealthyThreshold(string name, uint threshold);
+
+    /// <summary>
+    /// Resets a specific pulse checker state to healthy.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker to reset.</param>
+    void Reset(string name);
+
+    /// <summary>
     /// Activates a specific pulse checker.
     /// </summary>
     /// <param name="name">The name of the pulse checker to activate.</param>

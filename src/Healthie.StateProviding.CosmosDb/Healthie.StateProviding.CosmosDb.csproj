@@ -1,11 +1,11 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Healthie.NET.CosmosDb</PackageId>
-    <Version>1.0.0-beta</Version>
+    <Version>1.1.0-beta</Version>
     <Authors>Ivan Vydrin</Authors>
     <Description>Provides a Cosmos DB state provider for Healthie.NET - a lightweight, extensible library for .NET applications designed to monitor components whose health and operational status need to be periodically checked and reported.</Description>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

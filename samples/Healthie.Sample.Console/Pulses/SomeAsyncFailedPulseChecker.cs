@@ -1,4 +1,5 @@
 ﻿using Healthie.Abstractions;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.StateProviding;
 
@@ -9,7 +10,7 @@ public class SomeAsyncFailedPulseChecker(IAsyncStateProvider stateProvider) : As
     public override Task<PulseCheckerResult> CheckAsync()
     {
         return Task.FromResult(new PulseCheckerResult(
-           isHealthy: false, 
-            message: $"SomeFailedPulseChecker is not implemented at {DateTime.UtcNow}"));
+           health: PulseCheckerHealth.Unhealthy, 
+           message: $"SomeFailedPulseChecker is not implemented at {DateTime.UtcNow}"));
     }
 }

@@ -61,6 +61,39 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     }
 
     /// <summary>
+    /// Sets the unhealthy threshold for a specific pulse checker.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="threshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
+    public void SetUnhealthyThreshold(string name, uint threshold)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        pulseChecker.SetUnhealthyThreshold(threshold);
+    }
+
+    /// <summary>
+    /// Resets a specific pulse checker state to healthy.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker to reset.</param>
+    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
+    public void Reset(string name)
+    {
+        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
+        if (pulseChecker is null)
+        {
+            throw new ArgumentException($"Pulse checker with name {name} not found.");
+        }
+
+        pulseChecker.Reset();
+    }
+
+    /// <summary>
     /// Activates a specific pulse checker.
     /// </summary>
     /// <param name="name">The name of the pulse checker.</param>

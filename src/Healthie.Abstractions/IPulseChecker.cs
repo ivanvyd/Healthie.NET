@@ -27,6 +27,20 @@ public interface IPulseChecker : IPulse, IState
     void SetInterval(PulseInterval interval);
 
     /// <summary>
+    /// Sets the unhealthy threshold for the pulse checker.
+    /// </summary>
+    /// <param name="threshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    void SetUnhealthyThreshold(uint threshold);
+
+    /// <summary>
+    /// Resets the pulse checker state to healthy.
+    /// </summary>
+    /// <remarks>
+    /// This resets the consecutive failures count, sets the health status to Healthy, and clears any error messages.
+    /// </remarks>
+    void Reset();
+
+    /// <summary>
     /// Stops the pulse checker.
     /// </summary>
     /// <returns><c>true</c> if the pulse checker was successfully stopped; otherwise, <c>false</c>.</returns>

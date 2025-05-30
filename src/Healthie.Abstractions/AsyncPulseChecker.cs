@@ -12,16 +12,40 @@ public abstract class AsyncPulseChecker : IAsyncPulseChecker, IAsyncDisposable
     private readonly IAsyncStateProvider _stateProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly TimeSpan _defaultTimeout = TimeSpan.FromSeconds(10);
-
+    private readonly PulseInterval _initialInterval;
+    private readonly uint _initialUnhealthyThreshold;
     private bool _isRunning = false;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AsyncPulseChecker"/> class.
     /// </summary>
     /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
-    protected AsyncPulseChecker(IAsyncStateProvider stateProvider)
+    protected AsyncPulseChecker(IAsyncStateProvider stateProvider) 
+        : this(stateProvider, PulseInterval.EveryMinute, 0)
     {
-        _stateProvider = stateProvider;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AsyncPulseChecker"/> class with a specific interval.
+    /// </summary>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
+    /// <param name="initialInterval">The initial interval at which the pulse checker operates.</param>
+    protected AsyncPulseChecker(IAsyncStateProvider stateProvider, PulseInterval initialInterval)
+        : this(stateProvider, initialInterval, 0)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AsyncPulseChecker"/> class with a specific interval and unhealthy threshold.
+    /// </summary>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
+    /// <param name="initialInterval">The initial interval at which the pulse checker operates.</param>
+    /// <param name="unhealthyThreshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    protected AsyncPulseChecker(IAsyncStateProvider stateProvider, PulseInterval initialInterval, uint unhealthyThreshold)
+    {
+        _stateProvider = stateProvider ?? throw new ArgumentNullException(nameof(stateProvider));
+        _initialInterval = initialInterval;
+        _initialUnhealthyThreshold = unhealthyThreshold;
     }
 
     /// <summary>
@@ -61,7 +85,7 @@ public abstract class AsyncPulseChecker : IAsyncPulseChecker, IAsyncDisposable
         await _semaphore.WaitAsync(_defaultTimeout);
         try
         {
-            return await _stateProvider.GetStateAsync<PulseCheckerState>(Name) ?? new();
+            return await _stateProvider.GetStateAsync<PulseCheckerState>(Name) ?? new(_initialInterval, _initialUnhealthyThreshold);
         }
         finally
         {
@@ -79,6 +103,44 @@ public abstract class AsyncPulseChecker : IAsyncPulseChecker, IAsyncDisposable
         if (state.Interval == interval)
             return;
         state.Interval = interval;
+        await SetStateAsync(state);
+    }
+
+    /// <summary>
+    /// Sets the unhealthy threshold for the pulse checker asynchronously.
+    /// </summary>
+    /// <param name="threshold">The threshold to set.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task SetUnhealthyThresholdAsync(uint threshold)
+    {
+        PulseCheckerState state = await GetStateAsync();
+        if (state.UnhealthyThreshold == threshold)
+        {
+            return;
+        }
+        state.UnhealthyThreshold = threshold;
+        await SetStateAsync(state);
+    }
+
+    /// <summary>
+    /// Resets the pulse checker state to healthy asynchronously.
+    /// </summary>
+    /// <remarks>
+    /// This resets the consecutive failures count, sets the health status to Healthy, and clears any error messages.
+    /// </remarks>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task ResetAsync()
+    {
+        PulseCheckerState state = await GetStateAsync();
+        
+        // Reset the consecutive failures count
+        state.ConsecutiveFailureCount = 0;
+        
+        // Create a new healthy result
+        state.LastResult = new PulseCheckerResult(
+            PulseCheckerHealth.Healthy,
+            string.Empty);
+            
         await SetStateAsync(state);
     }
 
@@ -101,8 +163,40 @@ public abstract class AsyncPulseChecker : IAsyncPulseChecker, IAsyncDisposable
             PulseCheckerState state = await GetStateAsync();
 
             state.LastExecutionDateTime = currentDateTimeUtc;
-            state.LastResult = pulseResult;
+            
+            // Update consecutive failure count based on the check result
+            if (pulseResult.Health == PulseCheckerHealth.Healthy)
+            {
+                // Reset the failure count on success
+                state.ConsecutiveFailureCount = 0;
+            }
+            else
+            {
+                // Increment the failure count on failure
+                state.ConsecutiveFailureCount++;
+                
+                // Adjust the pulse result based on failure count if needed
+                if (pulseResult.Health != PulseCheckerHealth.Unhealthy && 
+                    state.ConsecutiveFailureCount > state.UnhealthyThreshold)
+                {
+                    // If we've reached the threshold but the result wasn't already unhealthy,
+                    // create a new result with the unhealthy status
+                    pulseResult = new PulseCheckerResult(
+                        PulseCheckerHealth.Unhealthy, 
+                        $"{pulseResult.Message} (Crossed unhealthy threshold: {state.ConsecutiveFailureCount}/{state.UnhealthyThreshold})");
+                }
+                else if (pulseResult.Health == PulseCheckerHealth.Unhealthy && 
+                         state.ConsecutiveFailureCount <= state.UnhealthyThreshold)
+                {
+                    // If result is unhealthy but we haven't crossed the threshold,
+                    // downgrade to suspicious
+                    pulseResult = new PulseCheckerResult(
+                        PulseCheckerHealth.Suspicious, 
+                        $"{pulseResult.Message} (Suspicious: {state.ConsecutiveFailureCount}/{state.UnhealthyThreshold})");
+                }
+            }
 
+            state.LastResult = pulseResult;
             await SetStateAsync(state);
         }
         catch (Exception ex)
@@ -110,8 +204,16 @@ public abstract class AsyncPulseChecker : IAsyncPulseChecker, IAsyncDisposable
             PulseCheckerState state = await GetStateAsync();
 
             state.LastExecutionDateTime = currentDateTimeUtc;
+            state.ConsecutiveFailureCount++;
+            
             string message = $"{ex.GetType()}: {ex.Message}";
-            state.LastResult = new(false, message);
+            
+            // Determine if this should be unhealthy based on threshold
+            var health = state.ConsecutiveFailureCount > state.UnhealthyThreshold 
+                ? PulseCheckerHealth.Unhealthy
+                : PulseCheckerHealth.Suspicious;
+                
+            state.LastResult = new(health, message);
 
             await SetStateAsync(state);
         }

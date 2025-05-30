@@ -30,6 +30,21 @@ public interface IAsyncPulsesScheduler : IHostedService
     Task SetIntervalAsync(string name, PulseInterval interval);
 
     /// <summary>
+    /// Sets the unhealthy threshold for a specific pulse.
+    /// </summary>
+    /// <param name="name">The name of the pulse.</param>
+    /// <param name="threshold">The number of consecutive failures needed to consider the pulse unhealthy.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    Task SetUnhealthyThresholdAsync(string name, uint threshold);
+
+    /// <summary>
+    /// Resets a specific pulse checker state to healthy.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker to reset.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    Task ResetAsync(string name);
+
+    /// <summary>
     /// Activates a specific pulse.
     /// </summary>
     /// <param name="name">The name of the pulse to activate.</param>
