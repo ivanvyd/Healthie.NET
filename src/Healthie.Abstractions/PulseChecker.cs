@@ -1,24 +1,36 @@
-﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.StateProviding;
 
 namespace Healthie.Abstractions;
 
 /// <summary>
-/// Base class for implementing synchronous pulse checkers.
+/// Abstract base class for implementing pulse checkers that monitor the health of a component or service.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Derive from this class and override <see cref="CheckAsync"/> to implement custom health check logic.
+/// The base class handles state management, threshold evaluation, concurrency control, and event notifications.
+/// </para>
+/// <para>
+/// Concurrent calls to <see cref="TriggerAsync"/> are prevented using a <see cref="SemaphoreSlim"/>.
+/// If a trigger is already executing, subsequent calls return immediately without executing.
+/// </para>
+/// </remarks>
 public abstract class PulseChecker : IPulseChecker
 {
+    private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
     private readonly IStateProvider _stateProvider;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly PulseInterval _initialInterval;
     private readonly uint _initialUnhealthyThreshold;
-    private bool _isRunning = false;
+    private string? _historyKey;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="PulseChecker"/> class.
+    /// Initializes a new instance of the <see cref="PulseChecker"/> class with default interval and threshold.
     /// </summary>
-    /// <param name="stateProvider">The state provider used to manage the state of the pulse checker.</param>
-    protected PulseChecker(IStateProvider stateProvider) 
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
+    protected PulseChecker(IStateProvider stateProvider)
         : this(stateProvider, PulseInterval.EveryMinute, 0)
     {
     }
@@ -26,7 +38,7 @@ public abstract class PulseChecker : IPulseChecker
     /// <summary>
     /// Initializes a new instance of the <see cref="PulseChecker"/> class with a specific interval.
     /// </summary>
-    /// <param name="stateProvider">The state provider used to manage the state of the pulse checker.</param>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
     /// <param name="initialInterval">The initial interval at which the pulse checker operates.</param>
     protected PulseChecker(IStateProvider stateProvider, PulseInterval initialInterval)
         : this(stateProvider, initialInterval, 0)
@@ -36,7 +48,7 @@ public abstract class PulseChecker : IPulseChecker
     /// <summary>
     /// Initializes a new instance of the <see cref="PulseChecker"/> class with a specific interval and unhealthy threshold.
     /// </summary>
-    /// <param name="stateProvider">The state provider used to manage the state of the pulse checker.</param>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
     /// <param name="initialInterval">The initial interval at which the pulse checker operates.</param>
     /// <param name="unhealthyThreshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
     protected PulseChecker(IStateProvider stateProvider, PulseInterval initialInterval, uint unhealthyThreshold)
@@ -46,196 +58,287 @@ public abstract class PulseChecker : IPulseChecker
         _initialUnhealthyThreshold = unhealthyThreshold;
     }
 
-    /// <summary>
-    /// Gets or sets the state of the pulse checker.
-    /// </summary>
-    protected PulseCheckerState State
-    {
-        get => _stateProvider.GetState<PulseCheckerState>(Name) ?? new(_initialInterval, _initialUnhealthyThreshold);
-        set => _stateProvider.SetState(Name, value);
-    }
-
-    /// <summary>
-    /// Performs the pulse check and returns the result.
-    /// </summary>
-    /// <returns>The result of the pulse check.</returns>
-    public abstract PulseCheckerResult Check();
-
-    /// <summary>
-    /// Gets the name of the pulse checker.
-    /// </summary>
+    /// <inheritdoc />
     public string Name => GetType().FullName!;
 
-    /// <summary>
-    /// Sets the state of the pulse checker.
-    /// </summary>
-    /// <param name="state">The state to set.</param>
-    public void SetState(PulseCheckerState state)
-    {
-        State = state;
-    }
+    /// <inheritdoc />
+    public virtual string DisplayName => Name;
 
     /// <summary>
-    /// Gets the current state of the pulse checker.
+    /// Gets or sets the configured maximum history length from <see cref="HealthieOptions"/>.
+    /// Set by the scheduler on startup.
     /// </summary>
-    /// <returns>The current state of the pulse checker.</returns>
-    public PulseCheckerState GetState()
-    {
-        return State;
-    }
+    internal int ConfiguredMaxHistoryLength { get; set; } = 5;
+
+    private string HistoryKey => _historyKey ??= $"{Name}:history";
 
     /// <summary>
-    /// Sets the interval at which the pulse check should be performed.
+    /// Performs the pulse check asynchronously.
     /// </summary>
-    /// <param name="interval">The interval to set.</param>
-    public void SetInterval(PulseInterval interval)
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A <see cref="PulseCheckerResult"/> representing the result of the pulse check.</returns>
+    public abstract Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default);
+
+    /// <inheritdoc />
+    public event EventHandler<PulseCheckerStateChangedEventArgs>? StateChanged;
+
+    /// <inheritdoc />
+    public async Task SetStateAsync(PulseCheckerState state, CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = GetState();
+        await _semaphore.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var oldState = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
+                ?? new(_initialInterval, _initialUnhealthyThreshold);
+            await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
+            if (!Equals(oldState, state))
+            {
+                StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, state));
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<PulseCheckerState> GetStateAsync(CancellationToken cancellationToken = default)
+    {
+        await _semaphore.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
+                ?? new(_initialInterval, _initialUnhealthyThreshold);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task SetIntervalAsync(PulseInterval interval, CancellationToken cancellationToken = default)
+    {
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
         if (state.Interval == interval)
             return;
         state.Interval = interval;
-        SetState(state);
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Sets the unhealthy threshold for the pulse checker.
-    /// </summary>
-    /// <param name="threshold">The threshold to set.</param>
-    public void SetUnhealthyThreshold(uint threshold)
+    /// <inheritdoc />
+    public async Task SetUnhealthyThresholdAsync(uint threshold, CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = GetState();
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
         if (state.UnhealthyThreshold == threshold)
         {
             return;
         }
-
         state.UnhealthyThreshold = threshold;
-        SetState(state);
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Resets the pulse checker state to healthy.
-    /// </summary>
-    /// <remarks>
-    /// This resets the consecutive failures count, sets the health status to Healthy, and clears any error messages.
-    /// </remarks>
-    public void Reset()
+    /// <inheritdoc />
+    public async Task ResetAsync(CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = GetState();
-        
-        // Reset the consecutive failures count
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
+
         state.ConsecutiveFailureCount = 0;
-        
-        // Create a new healthy result
+
         state.LastResult = new PulseCheckerResult(
             PulseCheckerHealth.Healthy,
             string.Empty);
-            
-        SetState(state);
+
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Triggers the pulse check.
-    /// </summary>
-    public void Trigger()
+    /// <inheritdoc />
+    public async Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
-        if (_isRunning)
-            return;
+        return await _stateProvider.GetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, cancellationToken).ConfigureAwait(false)
+            ?? [];
+    }
 
-        var currentDateTimeUtc = DateTime.UtcNow;
+    /// <inheritdoc />
+    public async Task ClearHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        await _stateProvider.SetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, [], cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetHistoryEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
+    {
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
+        if (state.IsHistoryEnabled == enabled)
+            return;
+        state.IsHistoryEnabled = enabled;
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// This method is thread-safe. If a check is already in progress,
+    /// this call will return immediately to prevent concurrent execution.
+    /// Inside this method, the state provider is called directly to avoid
+    /// deadlocks with the semaphore used by <see cref="GetStateAsync"/> and <see cref="SetStateAsync"/>.
+    /// </remarks>
+    public async Task TriggerAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await _semaphore.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
+            return;
 
         try
         {
-            _isRunning = true;
+            var currentDateTimeUtc = DateTime.UtcNow;
 
-            var pulseResult = Check();
+            var pulseResult = await CheckAsync(cancellationToken).ConfigureAwait(false);
 
-            PulseCheckerState state = GetState();
+            PulseCheckerState state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
+                ?? new(_initialInterval, _initialUnhealthyThreshold);
+
+            var oldState = state with { };
             state.LastExecutionDateTime = currentDateTimeUtc;
-            
-            // Update consecutive failure count based on the check result
+
             if (pulseResult.Health == PulseCheckerHealth.Healthy)
             {
-                // Reset the failure count on success
                 state.ConsecutiveFailureCount = 0;
             }
             else
             {
-                // Increment the failure count on failure
                 state.ConsecutiveFailureCount++;
-                
-                // Adjust the pulse result based on failure count if needed
-                if (pulseResult.Health != PulseCheckerHealth.Unhealthy && 
+
+                if (pulseResult.Health != PulseCheckerHealth.Unhealthy &&
                     state.ConsecutiveFailureCount > state.UnhealthyThreshold)
                 {
-                    // If we've reached the threshold but the result wasn't already unhealthy,
-                    // create a new result with the unhealthy status
                     pulseResult = new PulseCheckerResult(
-                        PulseCheckerHealth.Unhealthy, 
+                        PulseCheckerHealth.Unhealthy,
                         $"{pulseResult.Message} (Crossed unhealthy threshold: {state.ConsecutiveFailureCount}/{state.UnhealthyThreshold})");
                 }
-                else if (pulseResult.Health == PulseCheckerHealth.Unhealthy && 
+                else if (pulseResult.Health == PulseCheckerHealth.Unhealthy &&
                          state.ConsecutiveFailureCount <= state.UnhealthyThreshold)
                 {
-                    // If result is unhealthy but we haven't crossed the threshold,
-                    // downgrade to suspicious
                     pulseResult = new PulseCheckerResult(
-                        PulseCheckerHealth.Suspicious, 
+                        PulseCheckerHealth.Suspicious,
                         $"{pulseResult.Message} (Suspicious: {state.ConsecutiveFailureCount}/{state.UnhealthyThreshold})");
                 }
             }
 
             state.LastResult = pulseResult;
-            SetState(state);
+
+            // Save history if enabled
+            if (state.IsHistoryEnabled)
+            {
+                await AppendHistoryEntryAsync(
+                    new PulseCheckerHistoryEntry(pulseResult.Health, pulseResult.Message, currentDateTimeUtc),
+                    ConfiguredMaxHistoryLength,
+                    cancellationToken).ConfigureAwait(false);
+            }
+
+            await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
+            if (!Equals(oldState, state))
+            {
+                StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, state));
+            }
         }
         catch (Exception ex)
         {
-            PulseCheckerState state = GetState();
-            state.LastExecutionDateTime = currentDateTimeUtc;
+            PulseCheckerState state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, default).ConfigureAwait(false)
+                ?? new(_initialInterval, _initialUnhealthyThreshold);
+
+            var oldState = state with { };
+            state.LastExecutionDateTime = DateTime.UtcNow;
             state.ConsecutiveFailureCount++;
-            
+
             string message = $"{ex.GetType()}: {ex.Message}";
-            
-            // Determine if this should be unhealthy based on threshold
-            var health = state.ConsecutiveFailureCount > state.UnhealthyThreshold 
+
+            var health = state.ConsecutiveFailureCount > state.UnhealthyThreshold
                 ? PulseCheckerHealth.Unhealthy
                 : PulseCheckerHealth.Suspicious;
-                
+
             state.LastResult = new(health, message);
 
-            SetState(state);
+            // Save history if enabled
+            if (state.IsHistoryEnabled)
+            {
+                await AppendHistoryEntryAsync(
+                    new PulseCheckerHistoryEntry(health, message, state.LastExecutionDateTime!.Value),
+                    ConfiguredMaxHistoryLength,
+                    default).ConfigureAwait(false);
+            }
+
+            await _stateProvider.SetStateAsync(Name, state, default).ConfigureAwait(false);
+            if (!Equals(oldState, state))
+            {
+                StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, state));
+            }
         }
         finally
         {
-            _isRunning = false;
+            _semaphore.Release();
         }
     }
 
-    /// <summary>
-    /// Stops the pulse checker.
-    /// </summary>
-    /// <returns><c>true</c> if the pulse checker was successfully stopped; otherwise, <c>false</c>.</returns>
-    public bool Stop()
+    /// <inheritdoc />
+    public async Task<bool> StopAsync(CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = GetState();
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
         if (!state.IsActive)
             return false;
         state.IsActive = false;
-        SetState(state);
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
         return true;
     }
 
-    /// <summary>
-    /// Starts the pulse checker.
-    /// </summary>
-    /// <returns><c>true</c> if the pulse checker was successfully started; otherwise, <c>false</c>.</returns>
-    public bool Start()
+    /// <inheritdoc />
+    public async Task<bool> StartAsync(CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = GetState();
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
         if (state.IsActive)
-            return false;
+            return true;
         state.IsActive = true;
-        SetState(state);
-        return true;
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        return false;
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        _semaphore.Dispose();
+        GC.SuppressFinalize(this);
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Trims the history to match <see cref="ConfiguredMaxHistoryLength"/>.
+    /// Called by the scheduler on startup.
+    /// </summary>
+    internal async Task TrimHistoryAsync(CancellationToken cancellationToken = default)
+    {
+        var history = await _stateProvider.GetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, cancellationToken).ConfigureAwait(false)
+            ?? [];
+
+        if (history.Count > ConfiguredMaxHistoryLength)
+        {
+            history.RemoveRange(0, history.Count - ConfiguredMaxHistoryLength);
+            await _stateProvider.SetStateAsync(HistoryKey, history, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task AppendHistoryEntryAsync(
+        PulseCheckerHistoryEntry entry,
+        int maxLength,
+        CancellationToken cancellationToken)
+    {
+        var history = await _stateProvider.GetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, cancellationToken).ConfigureAwait(false)
+            ?? [];
+
+        history.Add(entry);
+
+        if (history.Count > maxLength)
+            history.RemoveRange(0, history.Count - maxLength);
+
+        await _stateProvider.SetStateAsync(HistoryKey, history, cancellationToken).ConfigureAwait(false);
     }
 }

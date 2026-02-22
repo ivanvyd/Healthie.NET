@@ -5,11 +5,21 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <PackageId>Healthie.NET.Api</PackageId>
-    <Version>1.1.0-beta</Version>
+    <Version>2.0.0-beta</Version>
     <Authors>Ivan Vydrin</Authors>
-    <Description>Provides a ready-to-use API for Healthie.NET - a lightweight, extensible library for .NET applications designed to monitor components whose health and operational status need to be periodically checked and reported.</Description>
+    <Description>ASP.NET Core API endpoints for Healthie.NET -- exposes RESTful endpoints for managing pulse checkers with configurable routing and authorization.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
+    <PackageTags>health-check;monitoring;pulse;dotnet;api;aspnetcore</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

@@ -5,23 +5,30 @@ using System.Net;
 
 namespace Healthie.StateProviding.CosmosDb;
 
-public class CosmosDbStateProvider(Container container)
-    : IStateProvider,
-    IAsyncStateProvider
+/// <summary>
+/// Provides state persistence for pulse checkers using Azure CosmosDB.
+/// </summary>
+/// <param name="container">The CosmosDB container to store state documents in.</param>
+public class CosmosDbStateProvider(Container container) : IStateProvider
 {
-    private readonly Container _container = container;
+    private readonly Container _container = container
+        ?? throw new ArgumentNullException(nameof(container));
 
-    public TState? GetState<TState>(string name)
+    /// <inheritdoc />
+    public async Task<TState?> GetStateAsync<TState>(
+        string name,
+        CancellationToken cancellationToken = default)
     {
-        return GetStateAsync<TState>(name).GetAwaiter().GetResult();
-    }
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-    public async Task<TState?> GetStateAsync<TState>(string name)
-    {
         try
         {
-            ItemResponse<StateDocument<TState>> response = await _container.ReadItemAsync<StateDocument<TState>>(name,
-                new PartitionKey(name));
+            ItemResponse<StateDocument<TState>> response =
+                await _container.ReadItemAsync<StateDocument<TState>>(
+                    name,
+                    new PartitionKey(name),
+                    cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
 
             return response.Resource.Value;
         }
@@ -31,15 +38,20 @@ public class CosmosDbStateProvider(Container container)
         }
     }
 
-    public void SetState<TState>(string name, TState state)
+    /// <inheritdoc />
+    public async Task SetStateAsync<TState>(
+        string name,
+        TState state,
+        CancellationToken cancellationToken = default)
     {
-        SetStateAsync(name, state).GetAwaiter().GetResult();
-    }
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-    public async Task SetStateAsync<TState>(string name, TState state)
-    {
         var stateDocument = new StateDocument<TState>(name, state);
 
-        await _container.UpsertItemAsync(stateDocument, new PartitionKey(name));
+        await _container.UpsertItemAsync(
+            stateDocument,
+            new PartitionKey(name),
+            cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
     }
 }

@@ -1,13 +1,11 @@
-﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.DependencyInjection;
-using Healthie.Scheduling.Quartz;
 using Healthie.StateProviding.CosmosDb;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using System.Reflection;
 using static System.Console;
 
 namespace Healthie.Sample.Console;
@@ -27,18 +25,13 @@ public static class Program
         _host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                services.AddHealthieQuartz();
-                services.AddHealthie([Assembly.GetExecutingAssembly()]);
-                // In Memory
-                // services.AddHealthieMemoryCache();
-                // SQL Server
-                // services.AddHealthieSqlServer(connectionString: "");
-                // Cosmos DB
-                services.AddHealthieCosmosDb(container);
+                services
+                    .AddHealthie(typeof(Program).Assembly)
+                    .AddHealthieCosmosDb(container);
             })
             .Build();
 
-        Task.Run(DisplayMenuAsync);
+        _ = Task.Run(DisplayMenuAsync);
 
         await Host.RunAsync();
     }
@@ -51,13 +44,8 @@ public static class Program
             WriteLine("Select an option:");
             WriteLine("1. /pulses");
             WriteLine("2. /pulses/interval");
-            WriteLine("3. /pulses-async");
-            WriteLine("4. /pulses-async/interval");
-            WriteLine();
-            WriteLine("5. /pulses/stop");
-            WriteLine("6. /pulses/start");
-            WriteLine("7. /pulses-async/stop");
-            WriteLine("8  /pulses-async/start");
+            WriteLine("3. /pulses/stop");
+            WriteLine("4. /pulses/start");
             WriteLine();
             WriteLine("10. Exit");
 
@@ -67,7 +55,7 @@ public static class Program
             {
                 case "1":
                     Clear();
-                    PrintPulseStates();
+                    await PrintPulseStatesAsync();
                     WriteLine("Press any key to return to the menu...");
                     ReadKey();
                     break;
@@ -79,7 +67,7 @@ public static class Program
                     {
                         WriteLine("Enter pulse name:");
                         var name = ReadLine();
-                        SetInterval(name, pulseInterval);
+                        await SetIntervalAsync(name, pulseInterval);
                     }
                     else
                     {
@@ -90,50 +78,15 @@ public static class Program
                     break;
                 case "3":
                     Clear();
-                    await PrintPulseStatesAsync();
-                    WriteLine("Press any key to return to the menu...");
-                    ReadKey();
+                    WriteLine("Enter pulse name to stop:");
+                    var nameToStop = ReadLine();
+                    await Host.Services.GetRequiredService<IPulsesScheduler>().DeactivateAsync(nameToStop!);
                     break;
                 case "4":
                     Clear();
-                    DisplayIntervalOptions();
-                    var asyncIntervalChoice = ReadLine();
-                    if (TryParsePulseInterval(asyncIntervalChoice, out var asyncPulseInterval))
-                    {
-                        WriteLine("Enter pulse name:");
-                        var name = ReadLine();
-                        await SetIntervalAsync(name, asyncPulseInterval);
-                    }
-                    else
-                    {
-                        WriteLine("Invalid interval choice.");
-                    }
-                    WriteLine("Press any key to return to the menu...");
-                    ReadKey();
-                    break;
-                case "5":
-                    Clear();
-                    WriteLine("Enter pulse name to stop:");
-                    var nameToStop = ReadLine();
-                    Host.Services.GetRequiredService<IPulsesScheduler>().Deactivate(nameToStop);
-                    break;
-                case "6":
-                    Clear();
                     WriteLine("Enter pulse name to start:");
                     var nameToStart = ReadLine();
-                    Host.Services.GetRequiredService<IPulsesScheduler>().Activate(nameToStart);
-                    break;
-                case "7":
-                    Clear();
-                    WriteLine("Enter pulse name to stop:");
-                    var nameToStopAsync = ReadLine();
-                    await Host.Services.GetRequiredService<IAsyncPulsesScheduler>().DeactivateAsync(nameToStopAsync);
-                    break;
-                case "8":
-                    Clear();
-                    WriteLine("Enter pulse name to start:");
-                    var nameToStartAsync = ReadLine();
-                    await Host.Services.GetRequiredService<IAsyncPulsesScheduler>().ActivateAsync(nameToStartAsync);
+                    await Host.Services.GetRequiredService<IPulsesScheduler>().ActivateAsync(nameToStart!);
                     break;
                 case "10":
                     await Host.StopAsync();
@@ -175,13 +128,13 @@ public static class Program
         return true;
     }
 
-    private static void SetInterval(string name, PulseInterval interval)
+    private static async Task SetIntervalAsync(string? name, PulseInterval interval)
     {
         var pulsesScheduler = Host.Services.GetRequiredService<IPulsesScheduler>();
 
         try
         {
-            pulsesScheduler.SetInterval(name, interval);
+            await pulsesScheduler.SetIntervalAsync(name!, interval);
             WriteLine($"Interval set to {interval}.");
         }
         catch (ArgumentException)
@@ -192,39 +145,11 @@ public static class Program
         {
             WriteLine($"An unexpected error occurred: {ex.Message}");
         }
-    }
-
-    private static async Task SetIntervalAsync(string name, PulseInterval interval)
-    {
-        var pulsesScheduler = Host.Services.GetRequiredService<IAsyncPulsesScheduler>();
-        
-        try
-        {
-            await pulsesScheduler.SetIntervalAsync(name, interval);
-            WriteLine($"Interval set to {interval}.");
-        }
-        catch (ArgumentException)
-        {
-            WriteLine($"Error: checker {name} is not found.");
-        }
-        catch (Exception ex)
-        {
-            WriteLine($"An unexpected error occurred: {ex.Message}");
-        }
-    }
-
-    private static void PrintPulseStates()
-    {
-        var pulsesScheduler = Host.Services.GetRequiredService<IPulsesScheduler>();
-
-        var pulsesStates = pulsesScheduler.GetPulsesStates();
-
-        WritePulsesStates(pulsesStates);
     }
 
     private static async Task PrintPulseStatesAsync()
     {
-        var pulsesScheduler = Host.Services.GetRequiredService<IAsyncPulsesScheduler>();
+        var pulsesScheduler = Host.Services.GetRequiredService<IPulsesScheduler>();
 
         var pulsesStates = await pulsesScheduler.GetPulsesStatesAsync();
 

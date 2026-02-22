@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
+    <UserSecretsId>8ebb0e22-6cf3-4158-8981-1880eaa8d050</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Dashboard\Healthie.Dashboard.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+</Project>

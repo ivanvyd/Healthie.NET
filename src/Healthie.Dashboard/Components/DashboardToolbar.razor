@@ -1,0 +1,66 @@
+@* Toolbar with actions, search, and dark/light toggle. *@
+@using Healthie.Dashboard.Components
+
+<div class="healthie-toolbar">
+    <div class="healthie-toolbar-actions" role="group" aria-label="Bulk actions">
+        <button class="healthie-btn" @onclick="() => OnTriggerAll.InvokeAsync()" title="Trigger all checkers">
+            @HealthieIcons.Zap Trigger All
+        </button>
+        <div class="healthie-toolbar-divider"></div>
+        <button class="healthie-btn healthie-btn--success" @onclick="() => OnStartAll.InvokeAsync()" title="Start all checkers">
+            @HealthieIcons.Play Start All
+        </button>
+        <button class="healthie-btn healthie-btn--error" @onclick="() => OnStopAll.InvokeAsync()" title="Pause all checkers">
+            @HealthieIcons.Pause Pause All
+        </button>
+    </div>
+    <div class="healthie-toolbar-spacer"></div>
+    <input type="text"
+           class="healthie-search"
+           placeholder="Filter checkers..."
+           value="@SearchFilter"
+           @oninput="OnSearchInput" />
+    @if (EnableDarkModeToggle)
+    {
+        <label class="healthie-toggle" title="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")">
+            <span class="healthie-toggle-icon">@(_isDarkMode ? HealthieIcons.Sun : HealthieIcons.Moon)</span>
+            <div class="healthie-toggle-switch @(_isDarkMode ? "healthie-toggle-switch--on" : "")"
+                 @onclick="ToggleDarkMode"
+                 role="switch"
+                 aria-checked="@_isDarkMode"
+                 tabindex="0"></div>
+        </label>
+    }
+</div>
+
+@code {
+    private bool _isDarkMode;
+
+    [Parameter] public EventCallback OnTriggerAll { get; set; }
+    [Parameter] public EventCallback OnStartAll { get; set; }
+    [Parameter] public EventCallback OnStopAll { get; set; }
+    [Parameter] public bool EnableDarkModeToggle { get; set; }
+
+    [Parameter]
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        set => _isDarkMode = value;
+    }
+
+    [Parameter] public EventCallback<bool> OnDarkModeToggled { get; set; }
+    [Parameter] public string? SearchFilter { get; set; }
+    [Parameter] public EventCallback<string?> SearchFilterChanged { get; set; }
+
+    private async Task ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+        await OnDarkModeToggled.InvokeAsync(_isDarkMode);
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        SearchFilter = e.Value?.ToString();
+        await SearchFilterChanged.InvokeAsync(SearchFilter);
+    }
+}

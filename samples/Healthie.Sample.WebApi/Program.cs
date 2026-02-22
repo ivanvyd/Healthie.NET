@@ -1,16 +1,21 @@
 using Healthie.Api;
 using Healthie.DependencyInjection;
-using Healthie.Scheduling.Quartz;
-using Healthie.StateProviding.MemoryCache;
-using System.Reflection;
+using Healthie.StateProviding.CosmosDb;
+using Microsoft.Azure.Cosmos;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// CONSIDER: This is a sample code. In Prod, handle it via DI.
+CosmosClient client = new("");
+Database db = await client.CreateDatabaseIfNotExistsAsync("Healthie");
+Container container = await db.CreateContainerIfNotExistsAsync("HealthieState", "/id");
+
 // Add services to the container.
-builder.Services.AddHealthieMemoryCache();
-builder.Services.AddHealthieQuartz();
-builder.Services.AddHealthie([Assembly.GetExecutingAssembly()]);
+builder.Services
+    .AddHealthie(typeof(Program).Assembly)
+    .AddHealthieCosmosDb(container);
+
 builder.Services.AddHealthieController(requireAuthorization: false);
 
 builder.Services.AddControllers()

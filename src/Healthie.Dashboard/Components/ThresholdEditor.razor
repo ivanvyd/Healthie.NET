@@ -1,0 +1,24 @@
+@* Threshold numeric editor. *@
+
+<div>
+    <label class="healthie-field-label">Failure Threshold</label>
+    <input type="number"
+           class="healthie-input"
+           min="0"
+           value="@Value"
+           @onchange="OnChanged" />
+</div>
+
+@code {
+    [Parameter] public uint Value { get; set; }
+    [Parameter] public EventCallback<uint> ValueChanged { get; set; }
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        if (uint.TryParse(e.Value?.ToString(), out var val))
+        {
+            Value = val;
+            await ValueChanged.InvokeAsync(val);
+        }
+    }
+}

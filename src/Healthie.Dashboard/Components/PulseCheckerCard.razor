@@ -1,0 +1,302 @@
+@* Compact expandable row for a single pulse checker. *@
+@using System.ComponentModel
+@using System.Reflection
+@using Healthie.Dashboard.Components
+
+<div class="healthie-row healthie-row--@HealthClass @(State.IsActive ? "" : "healthie-row--paused")">
+    @* Collapsed row *@
+    <div class="healthie-row-header" @onclick="ToggleExpanded" tabindex="0" role="button"
+         @onkeydown="OnKeyDown" aria-expanded="@_expanded">
+        <span class="healthie-row-icon healthie-row-icon--@HealthClass">@StatusIcon</span>
+        <span class="healthie-row-name" title="@(DisplayName ?? Name)">@ShortName</span>
+        <HealthStatusChip Health="@CurrentHealth" />
+        @if (State.IsActive)
+        {
+            <span class="healthie-chip healthie-chip--active">Active</span>
+        }
+        else
+        {
+            <span class="healthie-chip healthie-chip--stopped">Paused</span>
+        }
+        <div class="healthie-row-meta">
+            <span class="healthie-row-meta-item healthie-interval-badge">@IntervalLabel</span>
+            @if (State.LastExecutionDateTime.HasValue)
+            {
+                <span class="healthie-row-meta-item healthie-row-time" title="@State.LastExecutionDateTime.Value.ToString("u")">
+                    <span class="healthie-time-absolute">@FormatAbsoluteTime(State.LastExecutionDateTime.Value)</span>
+                    <span class="healthie-time-relative">(@FormatRelativeTime(State.LastExecutionDateTime.Value))</span>
+                </span>
+            }
+            @if (State.IsActive)
+            {
+                <button class="healthie-btn healthie-btn--small healthie-btn--icon healthie-btn--error"
+                        title="Pause"
+                        @onclick="() => OnStop.InvokeAsync()"
+                        @onclick:stopPropagation="true">
+                    @HealthieIcons.Pause
+                </button>
+            }
+            else
+            {
+                <button class="healthie-btn healthie-btn--small healthie-btn--icon healthie-btn--success"
+                        title="Start"
+                        @onclick="() => OnStart.InvokeAsync()"
+                        @onclick:stopPropagation="true">
+                    @HealthieIcons.Play
+                </button>
+            }
+            <button class="healthie-btn healthie-btn--small healthie-btn--icon"
+                    title="Trigger now"
+                    @onclick="OnTriggerClick"
+                    @onclick:stopPropagation="true">
+                @HealthieIcons.Zap
+            </button>
+            <span class="healthie-row-expand @(_expanded ? "healthie-row-expand--open" : "")">@HealthieIcons.ChevronDown</span>
+        </div>
+    </div>
+
+    @* Expanded details *@
+    @if (_expanded)
+    {
+        <div class="healthie-details">
+            @if (ShortName != Name || (DisplayName is not null && DisplayName != Name))
+            {
+                <div class="healthie-details-namespace">@Name</div>
+            }
+
+            <div class="healthie-details-metrics">
+                <div>
+                    <div class="healthie-metric-label">Failures</div>
+                    <div class="healthie-metric-value" style="color: @(State.ConsecutiveFailureCount > 0 ? "var(--healthie-error)" : "var(--healthie-success)")">
+                        @State.ConsecutiveFailureCount
+                        @if (State.UnhealthyThreshold > 0)
+                        {
+                            <span style="opacity: 0.6; font-weight: 400;"> / @State.UnhealthyThreshold</span>
+                        }
+                    </div>
+                </div>
+                <div>
+                    <div class="healthie-metric-label">Status</div>
+                    <div class="healthie-metric-value">@(State.IsActive ? "Active" : "Paused")</div>
+                </div>
+            </div>
+
+            @* Error message *@
+            @if (State.LastResult?.Message is { Length: > 0 } message)
+            {
+                <div class="healthie-error-msg healthie-error-msg--@MessageSeverity">
+                    <div class="healthie-error-msg-text @(_showFullMessage ? "" : "healthie-error-msg-text--clamped")">
+                        @message
+                    </div>
+                    @if (message.Length > 120)
+                    {
+                        <button class="healthie-show-more" @onclick="() => _showFullMessage = !_showFullMessage"
+                                @onclick:stopPropagation="true">
+                            @(_showFullMessage ? "Show less" : "Show more")
+                        </button>
+                    }
+                </div>
+            }
+
+            @* Recent History *@
+            <div class="healthie-history">
+                <div class="healthie-history-header">
+                    <span class="healthie-metric-label">Recent History</span>
+                    <div class="healthie-history-actions">
+                        <label class="healthie-toggle healthie-toggle--compact"
+                               title="@(State.IsHistoryEnabled ? "Disable history recording" : "Enable history recording")">
+                            <span class="healthie-toggle-label-text">@(State.IsHistoryEnabled ? "On" : "Off")</span>
+                            <div class="healthie-toggle-switch healthie-toggle-switch--sm @(State.IsHistoryEnabled ? "healthie-toggle-switch--on" : "")"
+                                 @onclick="OnToggleHistory"
+                                 @onclick:stopPropagation="true"
+                                 role="switch"
+                                 aria-checked="@State.IsHistoryEnabled"
+                                 aria-label="Toggle history recording"
+                                 tabindex="0"></div>
+                        </label>
+                        @if (History.Count > 0)
+                        {
+                            <button class="healthie-btn healthie-btn--small healthie-btn--error"
+                                    title="Clear history"
+                                    @onclick="() => OnClearHistory.InvokeAsync()"
+                                    @onclick:stopPropagation="true">
+                                @HealthieIcons.Trash Clear
+                            </button>
+                        }
+                    </div>
+                </div>
+                @if (History.Count > 0)
+                {
+                    @foreach (var (entry, idx) in History.AsEnumerable().Reverse().Select((e, i) => (e, i)))
+                    {
+                        var index = idx;
+                        var isExpanded = _expandedHistoryEntries.Contains(index);
+                        <div class="healthie-history-entry healthie-history-entry--@HealthClassFor(entry.Health) @(isExpanded ? "healthie-history-entry--expanded" : "")"
+                             @onclick="() => ToggleHistoryEntry(index)"
+                             @onclick:stopPropagation="true"
+                             style="cursor: pointer;">
+                            <span class="healthie-history-icon">@HealthIcon(entry.Health)</span>
+                            <span class="healthie-history-message @(isExpanded ? "healthie-history-message--expanded" : "")"
+                                  title="@(isExpanded ? "" : entry.Message)">@TruncateMessage(entry.Message)</span>
+                            <span class="healthie-history-time" title="@entry.ExecutedAt.ToString("u")">
+                                @FormatAbsoluteTime(entry.ExecutedAt) (@FormatRelativeTime(entry.ExecutedAt))
+                            </span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="healthie-history-empty">No history yet. Trigger the checker to see results here.</div>
+                }
+            </div>
+
+            @* Settings *@
+            <div class="healthie-settings">
+                <IntervalSelector Value="@State.Interval" ValueChanged="@OnIntervalChanged" />
+                <ThresholdEditor Value="@State.UnhealthyThreshold" ValueChanged="@OnThresholdChanged" />
+            </div>
+
+            @* Action buttons *@
+            <div class="healthie-actions">
+                <button class="healthie-btn healthie-btn--small" @onclick="() => OnTrigger.InvokeAsync()"
+                        @onclick:stopPropagation="true">
+                    @HealthieIcons.Zap Trigger
+                </button>
+                <button class="healthie-btn healthie-btn--small healthie-btn--warning" @onclick="() => OnReset.InvokeAsync()"
+                        @onclick:stopPropagation="true">
+                    @HealthieIcons.RotateCcw Reset
+                </button>
+                @if (State.IsActive)
+                {
+                    <button class="healthie-btn healthie-btn--small healthie-btn--error" @onclick="() => OnStop.InvokeAsync()"
+                            @onclick:stopPropagation="true">
+                        @HealthieIcons.Pause Pause
+                    </button>
+                }
+                else
+                {
+                    <button class="healthie-btn healthie-btn--small healthie-btn--success" @onclick="() => OnStart.InvokeAsync()"
+                            @onclick:stopPropagation="true">
+                        @HealthieIcons.Play Start
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Name { get; set; } = string.Empty;
+    [Parameter] public string? DisplayName { get; set; }
+    [Parameter] public PulseCheckerState State { get; set; } = new();
+    [Parameter] public List<PulseCheckerHistoryEntry> History { get; set; } = [];
+    [Parameter] public EventCallback OnStart { get; set; }
+    [Parameter] public EventCallback OnStop { get; set; }
+    [Parameter] public EventCallback OnTrigger { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [Parameter] public EventCallback<PulseInterval> OnIntervalChanged { get; set; }
+    [Parameter] public EventCallback<uint> OnThresholdChanged { get; set; }
+    [Parameter] public EventCallback OnClearHistory { get; set; }
+    [Parameter] public EventCallback<bool> OnHistoryEnabledChanged { get; set; }
+
+    private bool _expanded;
+    private bool _showFullMessage;
+    private readonly HashSet<int> _expandedHistoryEntries = [];
+
+    private PulseCheckerHealth CurrentHealth =>
+        State.LastResult?.Health ?? PulseCheckerHealth.Healthy;
+
+    private string ShortName
+    {
+        get
+        {
+            var source = DisplayName ?? Name;
+            var lastDot = source.LastIndexOf('.');
+            return lastDot >= 0 && lastDot < source.Length - 1 ? source[(lastDot + 1)..] : source;
+        }
+    }
+
+    private string HealthClass => HealthClassFor(CurrentHealth);
+
+    private static string HealthClassFor(PulseCheckerHealth health) => health switch
+    {
+        PulseCheckerHealth.Healthy => "healthy",
+        PulseCheckerHealth.Suspicious => "suspicious",
+        PulseCheckerHealth.Unhealthy => "unhealthy",
+        _ => "healthy"
+    };
+
+    private MarkupString StatusIcon => HealthIcon(CurrentHealth);
+
+    private static MarkupString HealthIcon(PulseCheckerHealth health) => health switch
+    {
+        PulseCheckerHealth.Healthy => HealthieIcons.Heart,
+        PulseCheckerHealth.Suspicious => HealthieIcons.AlertTriangle,
+        PulseCheckerHealth.Unhealthy => HealthieIcons.XCircle,
+        _ => HealthieIcons.HelpCircle
+    };
+
+    private string MessageSeverity => CurrentHealth switch
+    {
+        PulseCheckerHealth.Healthy => "success",
+        PulseCheckerHealth.Suspicious => "warning",
+        PulseCheckerHealth.Unhealthy => "error",
+        _ => "info"
+    };
+
+    private static readonly Dictionary<PulseInterval, string> IntervalLabels =
+        Enum.GetValues<PulseInterval>().ToDictionary(
+            e => e,
+            e => typeof(PulseInterval).GetField(e.ToString())
+                     ?.GetCustomAttribute<DescriptionAttribute>()?.Description
+                 ?? e.ToString());
+
+    private string IntervalLabel
+    {
+        get => IntervalLabels.GetValueOrDefault(State.Interval, State.Interval.ToString());
+    }
+
+    private static string FormatAbsoluteTime(DateTime utcTime)
+    {
+        return utcTime.ToString("MMM d, yyyy h:mm:ss tt");
+    }
+
+    private static string FormatRelativeTime(DateTime utcTime)
+    {
+        var elapsed = DateTime.UtcNow - utcTime;
+        return FormatElapsed(elapsed);
+    }
+
+    private static string FormatElapsed(TimeSpan elapsed)
+    {
+        if (elapsed.TotalSeconds < 5) return "just now";
+        if (elapsed.TotalSeconds < 60) return $"{(int)elapsed.TotalSeconds}s ago";
+        if (elapsed.TotalMinutes < 60) return $"{(int)elapsed.TotalMinutes}m ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours}h ago";
+        return $"{(int)elapsed.TotalDays}d ago";
+    }
+
+    private static string TruncateMessage(string? message)
+    {
+        if (string.IsNullOrEmpty(message)) return "\u2014";
+        return message;
+    }
+
+    private void ToggleExpanded() => _expanded = !_expanded;
+
+    private void ToggleHistoryEntry(int index)
+    {
+        if (!_expandedHistoryEntries.Remove(index))
+            _expandedHistoryEntries.Add(index);
+    }
+
+    private async Task OnTriggerClick() => await OnTrigger.InvokeAsync();
+
+    private async Task OnToggleHistory() => await OnHistoryEnabledChanged.InvokeAsync(!State.IsHistoryEnabled);
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+            _expanded = !_expanded;
+    }
+}

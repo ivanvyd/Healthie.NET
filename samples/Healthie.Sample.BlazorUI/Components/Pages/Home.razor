@@ -1,0 +1,12 @@
+@page "/"
+@inject NavigationManager Navigation
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Navigation.NavigateTo("/healthie/dashboard", replace: true);
+        }
+    }
+}

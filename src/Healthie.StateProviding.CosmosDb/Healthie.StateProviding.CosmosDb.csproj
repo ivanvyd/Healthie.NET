@@ -1,18 +1,29 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Healthie.NET.CosmosDb</PackageId>
-    <Version>1.1.0-beta</Version>
+    <Version>2.0.0-beta</Version>
     <Authors>Ivan Vydrin</Authors>
-    <Description>Provides a Cosmos DB state provider for Healthie.NET - a lightweight, extensible library for .NET applications designed to monitor components whose health and operational status need to be periodically checked and reported.</Description>
+    <Description>Azure CosmosDB state provider for Healthie.NET -- persists pulse checker state to CosmosDB with async-only operations.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
+    <PackageTags>health-check;monitoring;pulse;dotnet;cosmosdb;azure</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.39.1" />
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Cosmos" Version="3.57.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
 

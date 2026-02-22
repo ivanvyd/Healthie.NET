@@ -1,0 +1,34 @@
+@* Interval dropdown selector. *@
+@using System.ComponentModel
+@using System.Reflection
+
+<div>
+    <label class="healthie-field-label">Interval</label>
+    <select class="healthie-select" value="@Value" @onchange="OnChanged">
+        @foreach (var interval in Enum.GetValues<PulseInterval>())
+        {
+            <option value="@interval" selected="@(interval == Value)">@GetDescription(interval)</option>
+        }
+    </select>
+</div>
+
+@code {
+    [Parameter] public PulseInterval Value { get; set; }
+    [Parameter] public EventCallback<PulseInterval> ValueChanged { get; set; }
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<PulseInterval>(e.Value?.ToString(), out var interval))
+        {
+            Value = interval;
+            await ValueChanged.InvokeAsync(interval);
+        }
+    }
+
+    private static string GetDescription(PulseInterval interval)
+    {
+        var field = interval.GetType().GetField(interval.ToString());
+        var attribute = field?.GetCustomAttribute<DescriptionAttribute>();
+        return attribute?.Description ?? interval.ToString();
+    }
+}

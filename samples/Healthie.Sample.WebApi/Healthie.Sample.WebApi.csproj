@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,8 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Healthie.Api\Healthie.Api.csproj" />
     <ProjectReference Include="..\..\src\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
-    <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
-    <ProjectReference Include="..\..\src\Healthie.StateProviding.MemoryCache\Healthie.StateProviding.MemoryCache.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
   </ItemGroup>
 
 </Project>

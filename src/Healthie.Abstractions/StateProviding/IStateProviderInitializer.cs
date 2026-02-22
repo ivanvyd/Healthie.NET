@@ -1,4 +1,4 @@
-﻿namespace Healthie.Abstractions.StateProviding;
+namespace Healthie.Abstractions.StateProviding;
 
 /// <summary>
 /// Defines a contract for initializing a state provider.
@@ -6,7 +6,9 @@
 public interface IStateProviderInitializer
 {
     /// <summary>
-    /// Initializes the state provider.
+    /// Initializes the state provider asynchronously.
     /// </summary>
-    void Initialize();
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous initialization operation.</returns>
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 }

@@ -1,10 +1,12 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 
 namespace Healthie.Abstractions.Enums;
 
 /// <summary>
 /// Defines the possible health states of a pulse checker result.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum PulseCheckerHealth
 {
     /// <summary>

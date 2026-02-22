@@ -1,0 +1,18 @@
+@* Health status chip with color coding. *@
+
+<span class="healthie-chip healthie-chip--@HealthClass">
+    @Health.ToString()
+</span>
+
+@code {
+    [Parameter]
+    public PulseCheckerHealth Health { get; set; }
+
+    private string HealthClass => Health switch
+    {
+        PulseCheckerHealth.Healthy => "healthy",
+        PulseCheckerHealth.Suspicious => "suspicious",
+        PulseCheckerHealth.Unhealthy => "unhealthy",
+        _ => "healthy"
+    };
+}

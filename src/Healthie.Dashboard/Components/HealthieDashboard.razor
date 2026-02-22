@@ -1,0 +1,437 @@
+@* Main Healthie.NET dashboard component. *@
+@implements IAsyncDisposable
+@using Healthie.Dashboard.Components
+@inject IHealthieDashboardService DashboardService
+@inject HealthieUIOptions Options
+@inject HealthieThemeState ThemeState
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<div class="healthie-dashboard" data-healthie-theme="@(_isDarkMode ? "dark" : "light")">
+    @* Header *@
+    <div class="healthie-header">
+        <h1 class="healthie-title">@Options.DashboardTitle</h1>
+    </div>
+
+    @* Toolbar *@
+    <DashboardToolbar OnTriggerAll="@TriggerAllAsync"
+                      OnStartAll="@StartAllAsync"
+                      OnStopAll="@StopAllAsync"
+                      EnableDarkModeToggle="@Options.EnableDarkModeToggle"
+                      IsDarkMode="@_isDarkMode"
+                      OnDarkModeToggled="@OnDarkModeToggled"
+                      SearchFilter="@_searchFilter"
+                      SearchFilterChanged="@OnSearchFilterChanged" />
+
+    @* Loading *@
+    @if (_isLoading)
+    {
+        <div class="healthie-progress"><div class="healthie-progress-bar"></div></div>
+        <div class="healthie-summary">
+            @for (var i = 0; i < 5; i++)
+            {
+                <div class="healthie-skeleton" style="height: 72px;"></div>
+            }
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+            @for (var i = 0; i < 3; i++)
+            {
+                <div class="healthie-skeleton" style="height: 48px;"></div>
+            }
+        </div>
+    }
+    else
+    {
+        @* Summary Cards *@
+        <div class="healthie-summary">
+            <div class="healthie-stat healthie-stat--active">
+                <div class="healthie-stat-icon">@HealthieIcons.Play</div>
+                <div>
+                    <div class="healthie-stat-value">@_activeCount</div>
+                    <div class="healthie-stat-label">Active</div>
+                </div>
+            </div>
+            <div class="healthie-stat healthie-stat--stopped">
+                <div class="healthie-stat-icon">@HealthieIcons.Pause</div>
+                <div>
+                    <div class="healthie-stat-value">@_stoppedCount</div>
+                    <div class="healthie-stat-label">Paused</div>
+                </div>
+            </div>
+            <div class="healthie-stat healthie-stat--healthy">
+                <div class="healthie-stat-icon">@HealthieIcons.Heart</div>
+                <div>
+                    <div class="healthie-stat-value">@_healthyCount</div>
+                    <div class="healthie-stat-label">Healthy</div>
+                </div>
+            </div>
+            <div class="healthie-stat healthie-stat--suspicious">
+                <div class="healthie-stat-icon">@HealthieIcons.AlertTriangle</div>
+                <div>
+                    <div class="healthie-stat-value">@_suspiciousCount</div>
+                    <div class="healthie-stat-label">Suspicious</div>
+                </div>
+            </div>
+            <div class="healthie-stat healthie-stat--unhealthy">
+                <div class="healthie-stat-icon">@HealthieIcons.XCircle</div>
+                <div>
+                    <div class="healthie-stat-value">@_unhealthyCount</div>
+                    <div class="healthie-stat-label">Unhealthy</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="healthie-divider"></div>
+
+        @* Checker List *@
+        @if (_filteredStates.Count == 0)
+        {
+            <div class="healthie-empty">
+                @if (_states.Count == 0)
+                {
+                    <span>No pulse checkers registered. Add a class implementing <code>IPulseChecker</code> to get started.</span>
+                }
+                else
+                {
+                    <span>No checkers match "<strong>@_searchFilter</strong>". Try a different filter.</span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="healthie-checkers">
+                @{ var delay = 0; }
+                @foreach (var (name, state) in _filteredStates.OrderBy(s => s.Key))
+                {
+                    <div class="healthie-fade-in" style="animation-delay: @(delay)ms;">
+                        <PulseCheckerCard Name="@name"
+                                          DisplayName="@GetDisplayName(name)"
+                                          State="@state"
+                                          History="@GetHistoryForChecker(name)"
+                                          OnStart="@(() => StartCheckerAsync(name))"
+                                          OnStop="@(() => StopCheckerAsync(name))"
+                                          OnTrigger="@(() => TriggerCheckerAsync(name))"
+                                          OnReset="@(() => ResetCheckerAsync(name))"
+                                          OnIntervalChanged="@(interval => SetIntervalAsync(name, interval))"
+                                          OnThresholdChanged="@(threshold => SetThresholdAsync(name, threshold))"
+                                          OnClearHistory="@(() => ClearHistoryAsync(name))"
+                                          OnHistoryEnabledChanged="@(enabled => SetHistoryEnabledAsync(name, enabled))" />
+                    </div>
+                    delay += 40;
+                }
+            </div>
+        }
+    }
+
+    @* Toast notifications *@
+    @if (_toasts.Count > 0)
+    {
+        <div class="healthie-toasts">
+            @foreach (var toast in _toasts)
+            {
+                <div class="healthie-toast healthie-toast--@toast.Severity">@toast.Message</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private Dictionary<string, PulseCheckerState> _states = new();
+    private Dictionary<string, PulseCheckerState> _filteredStates = new();
+    private Dictionary<string, List<PulseCheckerHistoryEntry>> _histories = new();
+    private Dictionary<string, string> _displayNames = new();
+    private bool _isLoading = true;
+    private bool _isDarkMode;
+    private string? _searchFilter;
+    private bool _initialized;
+    private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
+    private readonly List<ToastItem> _toasts = [];
+    private Microsoft.JSInterop.IJSObjectReference? _jsModule;
+
+    private int _activeCount;
+    private int _stoppedCount;
+    private int _healthyCount;
+    private int _suspiciousCount;
+    private int _unhealthyCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (_initialized) return;
+        _initialized = true;
+
+        DashboardService.SubscribeToStateChanges((name, state) => _ = OnStateChangedAsync(name, state));
+
+        if (DashboardService is HealthieDashboardService internalService)
+        {
+            await internalService.InitializeSubscriptionsAsync();
+        }
+
+        await LoadStatesAsync();
+    }
+
+    private async Task LoadStatesAsync()
+    {
+        if (!await _loadSemaphore.WaitAsync(TimeSpan.Zero))
+            return;
+
+        try
+        {
+            _isLoading = true;
+            StateHasChanged();
+
+            _states = await DashboardService.GetAllStatesAsync();
+            _displayNames = await DashboardService.GetDisplayNamesAsync();
+            await LoadAllHistoriesAsync();
+            ApplyFilter();
+            UpdateSummary();
+
+            _isLoading = false;
+        }
+        finally
+        {
+            _loadSemaphore.Release();
+        }
+    }
+
+    private async Task LoadAllHistoriesAsync()
+    {
+        var newHistories = new Dictionary<string, List<PulseCheckerHistoryEntry>>();
+        foreach (var name in _states.Keys)
+        {
+            newHistories[name] = await DashboardService.GetHistoryAsync(name);
+        }
+        _histories = newHistories;
+    }
+
+    private async Task LoadHistoryForCheckerAsync(string name)
+    {
+        _histories[name] = await DashboardService.GetHistoryAsync(name);
+    }
+
+    private List<PulseCheckerHistoryEntry> GetHistoryForChecker(string name)
+    {
+        return _histories.TryGetValue(name, out var history) ? history : [];
+    }
+
+    private void ApplyFilter()
+    {
+        if (string.IsNullOrWhiteSpace(_searchFilter))
+        {
+            _filteredStates = new Dictionary<string, PulseCheckerState>(_states);
+        }
+        else
+        {
+            _filteredStates = _states
+                .Where(s => GetDisplayName(s.Key).Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(s => s.Key, s => s.Value);
+        }
+    }
+
+    private void UpdateSummary()
+    {
+        _activeCount = _states.Values.Count(s => s.IsActive);
+        _stoppedCount = _states.Values.Count(s => !s.IsActive);
+        _healthyCount = _states.Values.Count(s =>
+            s.LastResult is null || s.LastResult.Health == PulseCheckerHealth.Healthy);
+        _suspiciousCount = _states.Values.Count(s =>
+            s.LastResult?.Health == PulseCheckerHealth.Suspicious);
+        _unhealthyCount = _states.Values.Count(s =>
+            s.LastResult?.Health == PulseCheckerHealth.Unhealthy);
+    }
+
+    private async Task OnStateChangedAsync(string name, PulseCheckerState newState)
+    {
+        try
+        {
+            // Reload history for the changed checker
+            var history = await DashboardService.GetHistoryAsync(name);
+
+            await InvokeAsync(() =>
+            {
+                _states[name] = newState;
+                _histories[name] = history;
+                ApplyFilter();
+                UpdateSummary();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Component disposed
+        }
+    }
+
+    private async Task TriggerAllAsync()
+    {
+        try
+        {
+            var checkers = await DashboardService.GetAllCheckersAsync();
+            foreach (var (name, _) in checkers)
+            {
+                try { await DashboardService.TriggerAsync(name); }
+                catch (Exception ex) { ShowToast($"Failed to trigger '{name}': {ex.Message}", "error"); }
+            }
+            ShowToast("All checkers triggered.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Failed: {ex.Message}", "error");
+        }
+    }
+
+    private async Task StartAllAsync()
+    {
+        try
+        {
+            await DashboardService.StartAllAsync();
+            ShowToast("All checkers started.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Failed: {ex.Message}", "error");
+        }
+    }
+
+    private async Task StopAllAsync()
+    {
+        try
+        {
+            await DashboardService.StopAllAsync();
+            ShowToast("All checkers paused.", "success");
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Failed: {ex.Message}", "error");
+        }
+    }
+
+    private async Task StartCheckerAsync(string name)
+    {
+        try { await DashboardService.StartAsync(name); ShowToast($"'{ShortName(name)}' started.", "success"); }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task StopCheckerAsync(string name)
+    {
+        try { await DashboardService.StopAsync(name); ShowToast($"'{ShortName(name)}' paused.", "success"); }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task TriggerCheckerAsync(string name)
+    {
+        try { await DashboardService.TriggerAsync(name); ShowToast($"'{ShortName(name)}' triggered.", "success"); }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task ResetCheckerAsync(string name)
+    {
+        try { await DashboardService.ResetAsync(name); ShowToast($"'{ShortName(name)}' reset.", "success"); }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task SetIntervalAsync(string name, PulseInterval interval)
+    {
+        try { await DashboardService.SetIntervalAsync(name, interval); ShowToast($"Interval updated.", "success"); }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task SetThresholdAsync(string name, uint threshold)
+    {
+        try { await DashboardService.SetThresholdAsync(name, threshold); ShowToast($"Threshold updated.", "success"); }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task ClearHistoryAsync(string name)
+    {
+        try
+        {
+            await DashboardService.ClearHistoryAsync(name);
+            _histories[name] = [];
+            StateHasChanged();
+            ShowToast($"History cleared for '{ShortName(name)}'.", "success");
+        }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task SetHistoryEnabledAsync(string name, bool enabled)
+    {
+        try
+        {
+            await DashboardService.SetHistoryEnabledAsync(name, enabled);
+            ShowToast($"History {(enabled ? "enabled" : "disabled")} for '{ShortName(name)}'.", "success");
+        }
+        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
+    }
+
+    private async Task OnDarkModeToggled(bool isDarkMode)
+    {
+        _isDarkMode = isDarkMode;
+        ThemeState.IsDarkMode = isDarkMode;
+        if (_jsModule is not null)
+            await _jsModule.InvokeVoidAsync("setTheme", isDarkMode ? "dark" : "light");
+    }
+
+    private void OnSearchFilterChanged(string? filter)
+    {
+        _searchFilter = filter;
+        ApplyFilter();
+    }
+
+    private void ShowToast(string message, string severity)
+    {
+        _toasts.Add(new ToastItem(message, severity));
+        StateHasChanged();
+        _ = RemoveToastAfterDelay();
+    }
+
+    private async Task RemoveToastAfterDelay()
+    {
+        await Task.Delay(3000);
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                if (_toasts.Count > 0)
+                    _toasts.RemoveAt(0);
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException) { }
+    }
+
+    private string GetDisplayName(string name)
+    {
+        return _displayNames.TryGetValue(name, out var displayName) ? displayName : name;
+    }
+
+    private static string ShortName(string fullName)
+    {
+        var lastDot = fullName.LastIndexOf('.');
+        return lastDot >= 0 && lastDot < fullName.Length - 1 ? fullName[(lastDot + 1)..] : fullName;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _jsModule = await JS.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>(
+                "import", "./_content/Healthie.NET.Dashboard/healthie.js");
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { if (_jsModule is not null) await _jsModule.DisposeAsync(); }
+        catch { }
+
+        try
+        {
+            if (DashboardService is IAsyncDisposable disposable)
+                await disposable.DisposeAsync();
+        }
+        catch { }
+
+        _loadSemaphore.Dispose();
+    }
+
+    private record ToastItem(string Message, string Severity);
+}

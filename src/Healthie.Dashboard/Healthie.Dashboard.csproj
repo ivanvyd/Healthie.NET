@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>Healthie.NET.Dashboard</PackageId>
+    <Version>2.0.0-beta</Version>
+    <Authors>Ivan Vydrin</Authors>
+    <Description>Blazor health monitoring dashboard for Healthie.NET -- zero-dependency UI with real-time event-driven state updates, checker management, and configurable authorization.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
+    <PackageTags>health-check;monitoring;pulse;dotnet;blazor;dashboard</PackageTags>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,168 +1,155 @@
-﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
 namespace Healthie.Abstractions.Scheduling;
 
 /// <summary>
-/// Schedules all registered synchronous pulse checkers.
+/// Background service that schedules and manages all registered pulse checkers.
 /// </summary>
+/// <remarks>
+/// This service starts all active pulse checkers on application startup and provides
+/// methods to manage individual checkers at runtime (set interval, activate, deactivate, etc.).
+/// </remarks>
 public class PulsesScheduler : BackgroundService, IPulsesScheduler
 {
     private readonly IEnumerable<IPulseChecker> _pulseCheckers;
     private readonly IPulseScheduler _pulseScheduler;
+    private readonly HealthieOptions _options;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PulsesScheduler"/> class.
     /// </summary>
-    /// <param name="pulseCheckers">The collection of synchronous pulse checkers to schedule.</param>
+    /// <param name="pulseCheckers">The collection of pulse checkers to schedule.</param>
     /// <param name="pulseScheduler">The scheduler responsible for individual pulse checks.</param>
-    public PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseScheduler pulseScheduler)
+    /// <param name="options">Global Healthie options.</param>
+    public PulsesScheduler(IEnumerable<IPulseChecker> pulseCheckers, IPulseScheduler pulseScheduler, HealthieOptions options)
     {
-        _pulseCheckers = pulseCheckers;
-        _pulseScheduler = pulseScheduler;
+        _pulseCheckers = pulseCheckers ?? throw new ArgumentNullException(nameof(pulseCheckers));
+        _pulseScheduler = pulseScheduler ?? throw new ArgumentNullException(nameof(pulseScheduler));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
     }
 
-    /// <summary>
-    /// Gets all registered pulse checkers.
-    /// </summary>
-    /// <returns>A dictionary mapping pulse checker names to their instances.</returns>
-    public Dictionary<string, IPulseChecker> GetPulseCheckers()
+    /// <inheritdoc />
+    public Task<Dictionary<string, IPulseChecker>> GetPulseCheckersAsync(CancellationToken cancellationToken = default)
     {
-        return _pulseCheckers.ToDictionary(pulseChecker => pulseChecker.Name, _ => _);
+        return Task.FromResult(_pulseCheckers.ToDictionary(checker => checker.Name, checker => checker));
     }
 
-    /// <summary>
-    /// Gets the states of all registered pulse checkers.
-    /// </summary>
-    /// <returns>A dictionary mapping pulse checker names to their states.</returns>
-    public Dictionary<string, PulseCheckerState> GetPulsesStates()
+    /// <inheritdoc />
+    public async Task<Dictionary<string, PulseCheckerState>> GetPulsesStatesAsync(CancellationToken cancellationToken = default)
     {
-        return _pulseCheckers.ToDictionary(checker => checker.Name, checker => checker.GetState());
-    }
-
-    /// <summary>
-    /// Sets the interval for a specific pulse checker.
-    /// </summary>
-    /// <param name="name">The name of the pulse checker.</param>
-    /// <param name="interval">The interval to set.</param>
-    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
-    public void SetInterval(string name, PulseInterval interval)
-    {
-        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
-        if (pulseChecker is null)
+        var pulsesStates = await Task.WhenAll(_pulseCheckers.Select(async checker =>
         {
-            throw new ArgumentException($"Pulse checker with name {name} not found.");
-        }
+            var state = await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
 
-        pulseChecker.SetInterval(interval);
+            return new
+            {
+                checker.Name,
+                State = state,
+            };
+        })).ConfigureAwait(false);
 
-        Schedule(pulseChecker);
+        return pulsesStates.ToDictionary(checker => checker.Name, checker => checker.State);
     }
 
-    /// <summary>
-    /// Sets the unhealthy threshold for a specific pulse checker.
-    /// </summary>
-    /// <param name="name">The name of the pulse checker.</param>
-    /// <param name="threshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
-    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
-    public void SetUnhealthyThreshold(string name, uint threshold)
+    /// <inheritdoc />
+    public async Task SetIntervalAsync(string name, PulseInterval interval, CancellationToken cancellationToken = default)
     {
-        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
-        if (pulseChecker is null)
-        {
-            throw new ArgumentException($"Pulse checker with name {name} not found.");
-        }
-
-        pulseChecker.SetUnhealthyThreshold(threshold);
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.SetIntervalAsync(interval, cancellationToken).ConfigureAwait(false);
+        await ScheduleAsync(pulseChecker, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Resets a specific pulse checker state to healthy.
-    /// </summary>
-    /// <param name="name">The name of the pulse checker to reset.</param>
-    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
-    public void Reset(string name)
+    /// <inheritdoc />
+    public async Task SetUnhealthyThresholdAsync(string name, uint threshold, CancellationToken cancellationToken = default)
     {
-        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
-        if (pulseChecker is null)
-        {
-            throw new ArgumentException($"Pulse checker with name {name} not found.");
-        }
-
-        pulseChecker.Reset();
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.SetUnhealthyThresholdAsync(threshold, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Activates a specific pulse checker.
-    /// </summary>
-    /// <param name="name">The name of the pulse checker.</param>
-    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
-    public void Activate(string name)
+    /// <inheritdoc />
+    public async Task ResetAsync(string name, CancellationToken cancellationToken = default)
     {
-        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
-        if (pulseChecker is null)
-        {
-            throw new ArgumentException($"Pulse checker with name {name} not found.");
-        }
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.ResetAsync(cancellationToken).ConfigureAwait(false);
+    }
 
-        bool isStarted = pulseChecker.Start();
+    /// <inheritdoc />
+    public async Task ActivateAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+        bool wasAlreadyActive = await pulseChecker.StartAsync(cancellationToken).ConfigureAwait(false);
 
-        if (isStarted)
+        if (!wasAlreadyActive)
         {
-            Schedule(pulseChecker);
+            await ScheduleAsync(pulseChecker, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Deactivates a specific pulse checker.
-    /// </summary>
-    /// <param name="name">The name of the pulse checker.</param>
-    /// <exception cref="ArgumentException">Thrown if the pulse checker with the specified name is not found.</exception>
-    public void Deactivate(string name)
+    /// <inheritdoc />
+    public async Task DeactivateAsync(string name, CancellationToken cancellationToken = default)
     {
-        var pulseChecker = _pulseCheckers.FirstOrDefault(checker => checker.Name == name);
-        if (pulseChecker is null)
-        {
-            throw new ArgumentException($"Pulse checker with name {name} not found.");
-        }
-
-        bool isStopped = pulseChecker.Stop();
+        var pulseChecker = GetCheckerOrThrow(name);
+        bool isStopped = await pulseChecker.StopAsync(cancellationToken).ConfigureAwait(false);
 
         if (isStopped)
         {
-            _pulseScheduler.Unschedule(pulseChecker);
+            await _pulseScheduler.UnscheduleAsync(pulseChecker, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// Executes the scheduling of all pulse checkers.
-    /// </summary>
-    /// <param name="stoppingToken">A token to signal the operation should be stopped.</param>
-    /// <returns>A completed task.</returns>
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    /// <inheritdoc />
+    public async Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(string name, CancellationToken cancellationToken = default)
     {
-        foreach (var checker in _pulseCheckers)
+        var pulseChecker = GetCheckerOrThrow(name);
+        return await pulseChecker.GetHistoryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task ClearHistoryAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.ClearHistoryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetHistoryEnabledAsync(string name, bool enabled, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.SetHistoryEnabledAsync(enabled, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        var maxHistory = (int)Math.Clamp(_options.MaxHistoryLength, 1, 10);
+
+        // Configure max history length on all checkers and trim existing histories
+        await Task.WhenAll(_pulseCheckers.OfType<PulseChecker>().Select(async checker =>
         {
-            Schedule(checker);
-        }
+            checker.ConfiguredMaxHistoryLength = maxHistory;
+            await checker.TrimHistoryAsync(stoppingToken).ConfigureAwait(false);
+        })).ConfigureAwait(false);
 
-        return Task.CompletedTask;
+        await Task.WhenAll(_pulseCheckers.Select(checker => ScheduleAsync(checker, stoppingToken))).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Schedules a specific pulse checker.
-    /// </summary>
-    /// <param name="checker">The pulse checker to schedule.</param>
-    private void Schedule(IPulseChecker checker)
+    private IPulseChecker GetCheckerOrThrow(string name)
     {
-        PulseCheckerState state = checker.GetState();
+        return _pulseCheckers.FirstOrDefault(checker => checker.Name == name)
+            ?? throw new ArgumentException($"Pulse checker with name '{name}' not found.", nameof(name));
+    }
+
+    private async Task ScheduleAsync(IPulseChecker checker, CancellationToken cancellationToken = default)
+    {
+        var state = await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
 
         if (!state.IsActive)
         {
             return;
         }
 
-        _pulseScheduler.Schedule(checker, state.Interval);
+        await _pulseScheduler.ScheduleAsync(checker, state.Interval, cancellationToken).ConfigureAwait(false);
     }
 }

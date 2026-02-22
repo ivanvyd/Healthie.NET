@@ -65,4 +65,9 @@ public record PulseCheckerState
     /// Gets or sets a value indicating whether the pulse checker is active.
     /// </summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether history recording is enabled for this pulse checker.
+    /// </summary>
+    public bool IsHistoryEnabled { get; set; } = true;
 }

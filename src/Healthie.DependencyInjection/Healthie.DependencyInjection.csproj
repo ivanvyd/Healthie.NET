@@ -1,15 +1,25 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Healthie.NET.DependencyInjection</PackageId>
-    <Version>1.1.0-beta</Version>
+    <Version>2.0.0-beta</Version>
     <Authors>Ivan Vydrin</Authors>
-    <Description>Provides the DI mechanisms to Healthie.NET - a lightweight, extensible library for .NET applications designed to monitor components whose health and operational status need to be periodically checked and reported.</Description>
+    <Description>Dependency injection registration helpers for Healthie.NET -- assembly scanning, service registration, and a built-in timer scheduler.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
+    <PackageTags>health-check;monitoring;pulse;dotnet;dependency-injection</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />

@@ -2,5 +2,5 @@
 
 internal static class RoutesConstants
 {
-    public const string HealthieApiRoute = "healthie-api";
+    public const string HealthieApiRoute = "healthie";
 }
