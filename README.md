@@ -1,15 +1,10 @@
-<p align="center">
-  <img src="healthie.net.banner.png" alt="Healthie.NET - Trust your uptime" />
-</p>
+![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
-<p align="center">
-  <strong>Trust your uptime.</strong> A lightweight, extensible health monitoring framework for .NET applications.
-</p>
+**Trust your uptime.** A lightweight, extensible health monitoring framework for .NET applications.
 
-<p align="center">
-  <a href="https://www.nuget.org/packages/Healthie.NET.Abstractions"><img src="https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg" alt="NuGet" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
-</p>
+[![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Build](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml)
 
 ---
 
@@ -409,19 +404,19 @@ PATCH /healthie/MyApp.DatabasePulseChecker/reset
 
 ## UI Dashboard
 
-The `Healthie.NET.Dashboard` package provides a zero-dependency Blazor monitoring dashboard as a Razor Class Library. No third-party UI frameworks required — pure HTML/CSS with a professional built-in theme.
+The `Healthie.NET.Dashboard` package provides a zero-dependency Blazor monitoring dashboard as a Razor Class Library. No third-party UI frameworks required -- pure HTML/CSS with a professional built-in theme.
 
 **Key features:**
 
-- **Event-driven real-time updates** — The dashboard subscribes to `IPulseChecker.StateChanged` events and updates individual checker states in-place. No polling, no periodic full re-fetches.
-- **Minimalistic row layout** — Each checker is displayed as a compact inline row showing: status icon, short name, health chip, interval, last run, and trigger button. Click to expand for full details (namespace, failures, error messages, settings, action buttons).
-- **Per-checker management** — Start, stop, trigger, reset, change interval, change threshold — all from the dashboard.
-- **Bulk actions** — Start All, Stop All, and Trigger All buttons in the toolbar for managing all checkers at once.
-- **Summary stat cards** — Total, healthy, suspicious, and unhealthy counts at a glance with color-coded tints.
-- **Dark/light theme** — Built-in toggle with professional light and dark palettes via CSS custom properties.
-- **Search and filter** — Instantly filter checkers by name.
-- **Mobile responsive** — Clean layout on screens from 375px and up.
-- **CSS-only animations** — Smooth transitions on status changes, hover effects, and fade-in animations.
+- **Event-driven real-time updates** -- The dashboard subscribes to `IPulseChecker.StateChanged` events and updates individual checker states in-place. No polling, no periodic full re-fetches.
+- **Minimalistic row layout** -- Each checker is displayed as a compact inline row showing: status icon, short name, health chip, interval, last run, and trigger button. Click to expand for full details (namespace, failures, error messages, settings, action buttons).
+- **Per-checker management** -- Start, stop, trigger, reset, change interval, change threshold -- all from the dashboard.
+- **Bulk actions** -- Start All, Stop All, and Trigger All buttons in the toolbar for managing all checkers at once.
+- **Summary stat cards** -- Total, healthy, suspicious, and unhealthy counts at a glance with color-coded tints.
+- **Dark/light theme** -- Built-in toggle with professional light and dark palettes via CSS custom properties.
+- **Search and filter** -- Instantly filter checkers by name.
+- **Mobile responsive** -- Clean layout on screens from 375px and up.
+- **CSS-only animations** -- Smooth transitions on status changes, hover effects, and fade-in animations.
 
 ### Setup
 
@@ -477,7 +472,7 @@ In a Blazor application, you can embed the dashboard component directly in a Raz
 
 ### How Real-Time Updates Work
 
-The dashboard subscribes to `IPulseChecker.StateChanged` events via `SubscribeToStateChanges(Action<string, PulseCheckerState>)`. When a checker's state changes, only that single entry is updated in the dashboard's dictionary — no polling, no full state re-fetch. A full `GetAllStatesAsync()` is only performed on initial load.
+The dashboard subscribes to `IPulseChecker.StateChanged` events via `SubscribeToStateChanges(Action<string, PulseCheckerState>)`. When a checker's state changes, only that single entry is updated in the dashboard's dictionary -- no polling, no full state re-fetch. A full `GetAllStatesAsync()` is only performed on initial load.
 
 ---
 
@@ -666,38 +661,29 @@ app.MapHealthieUI();  // Serves at /healthie/dashboard
 
 ---
 
-## Publishing NuGet Packages
+## Releasing New Versions
 
-All library projects are configured to generate `.nupkg` files on build. To publish them to NuGet.org:
-
-### 1. Build in Release Mode
+Releases are automated via GitHub Actions. To publish a new version:
 
 ```shell
-dotnet build -c Release
+git tag v2.2.0
+git push origin v2.2.0
 ```
 
-### 2. Push All Packages
+This triggers the CI pipeline which:
+
+1. Builds and packs all NuGet packages with the version from the tag
+2. Publishes all packages to [NuGet.org](https://www.nuget.org/)
+3. Creates a GitHub Release with auto-generated release notes
+
+For pre-release versions, use a suffix:
 
 ```shell
-dotnet nuget push "src/Healthie.Abstractions/bin/Release/Healthie.NET.Abstractions.2.0.0-beta.nupkg" --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push "src/Healthie.DependencyInjection/bin/Release/Healthie.NET.DependencyInjection.2.0.0-beta.nupkg" --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push "src/Healthie.Api/bin/Release/Healthie.NET.Api.2.0.0-beta.nupkg" --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push "src/Healthie.Dashboard/bin/Release/Healthie.NET.Dashboard.2.0.0-beta.nupkg" --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push "src/Healthie.Scheduling.Quartz/bin/Release/Healthie.NET.Quartz.2.0.0-beta.nupkg" --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
-dotnet nuget push "src/Healthie.StateProviding.CosmosDb/bin/Release/Healthie.NET.CosmosDb.2.0.0-beta.nupkg" --api-key YOUR_API_KEY --source https://api.nuget.org/v3/index.json
+git tag v2.2.0-beta
+git push origin v2.2.0-beta
 ```
 
-### Getting an API Key
-
-1. Create an account at [nuget.org](https://www.nuget.org/)
-2. Go to **API Keys** in your account settings
-3. Create a new key with **Push** scope for `Healthie.NET.*` packages
-4. Copy the key and use it in the `--api-key` parameter above
-
-> **Tip:** You can store the API key locally to avoid passing it every time:
-> ```shell
-> dotnet nuget add source https://api.nuget.org/v3/index.json --name nuget.org --username YOUR_USERNAME --password YOUR_API_KEY --store-password-in-clear-text
-> ```
+Pre-release tags are automatically marked as pre-release on GitHub.
 
 ---
 

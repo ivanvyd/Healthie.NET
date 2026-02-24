@@ -1,28 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <PackageId>Healthie.NET.Abstractions</PackageId>
-    <Version>2.1.1-beta</Version>
-    <Authors>Ivan Vydrin</Authors>
     <Description>Core interfaces, models, enums, and abstract base classes for Healthie.NET -- a lightweight health monitoring framework for .NET applications.</Description>
-    <PackageIcon>healthie.net.png</PackageIcon>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageTags>health-check;monitoring;pulse;dotnet;async</PackageTags>
-    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\healthie.net.png" Pack="true" PackagePath="\" />
-  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.1" />

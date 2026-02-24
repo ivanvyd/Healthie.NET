@@ -1,6 +1,4 @@
-<p align="center">
-  <img src="../../healthie.net.banner.png" alt="Healthie.NET - Trust your uptime" />
-</p>
+![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 # Healthie.NET.CosmosDb
 

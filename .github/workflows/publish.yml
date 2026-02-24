@@ -1,0 +1,89 @@
+name: Publish NuGet Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  CONFIGURATION: Release
+  NUPKG_DIR: ./nupkgs
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
+          echo "TAG=v$TAG" >> $GITHUB_OUTPUT
+          echo "Detected version: $TAG"
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: >
+          dotnet build
+          --configuration ${{ env.CONFIGURATION }}
+          --no-restore
+          /p:Version=${{ steps.version.outputs.VERSION }}
+          /p:ContinuousIntegrationBuild=true
+
+      - name: Pack
+        run: >
+          dotnet pack
+          --configuration ${{ env.CONFIGURATION }}
+          --no-build
+          --output ${{ env.NUPKG_DIR }}
+          /p:PackageVersion=${{ steps.version.outputs.VERSION }}
+
+      - name: Publish to NuGet.org
+        run: >
+          dotnet nuget push "${{ env.NUPKG_DIR }}/*.nupkg"
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+
+      - name: Push symbols to NuGet.org
+        run: >
+          dotnet nuget push "${{ env.NUPKG_DIR }}/*.snupkg"
+          --api-key ${{ secrets.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
+        continue-on-error: true
+
+      - name: Create GitHub Release
+        run: |
+          TAG="${{ steps.version.outputs.TAG }}"
+          VERSION="${{ steps.version.outputs.VERSION }}"
+
+          PRERELEASE_FLAG=""
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
+          gh release create "$TAG" \
+            ${{ env.NUPKG_DIR }}/*.nupkg \
+            --generate-notes \
+            $PRERELEASE_FLAG \
+            --title "Healthie.NET $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
