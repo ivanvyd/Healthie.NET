@@ -16,11 +16,11 @@ var database = await cosmosClient.CreateDatabaseIfNotExistsAsync("Healthie");
 var container = await database.Database.CreateContainerIfNotExistsAsync("HealthieState", "/id");
 
 builder.Services
-    .AddHealthie(options => options.MaxHistoryLength = 5, typeof(Program).Assembly)
+    .AddHealthie(options => options.MaxHistoryLength = 10, typeof(Program).Assembly)
     .AddHealthieCosmosDb(container.Container)
     .AddHealthieUI(options =>
     {
-        options.DashboardTitle = "Healthie.NET Sample Dashboard";
+        options.DashboardTitle = "Healthie.NET Test Dashboard";
     });
 
 var app = builder.Build();

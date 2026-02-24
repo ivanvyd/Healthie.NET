@@ -1,6 +1,7 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.StateProviding;
+using Microsoft.Extensions.Logging;
 
 namespace Healthie.Abstractions;
 
@@ -21,10 +22,10 @@ public abstract class PulseChecker : IPulseChecker
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
     private readonly IStateProvider _stateProvider;
+    private readonly ILogger? _logger;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly PulseInterval _initialInterval;
     private readonly uint _initialUnhealthyThreshold;
-    private string? _historyKey;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PulseChecker"/> class with default interval and threshold.
@@ -52,10 +53,23 @@ public abstract class PulseChecker : IPulseChecker
     /// <param name="initialInterval">The initial interval at which the pulse checker operates.</param>
     /// <param name="unhealthyThreshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
     protected PulseChecker(IStateProvider stateProvider, PulseInterval initialInterval, uint unhealthyThreshold)
+        : this(stateProvider, initialInterval, unhealthyThreshold, logger: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PulseChecker"/> class with a specific interval, unhealthy threshold, and logger.
+    /// </summary>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
+    /// <param name="initialInterval">The initial interval at which the pulse checker operates.</param>
+    /// <param name="unhealthyThreshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    /// <param name="logger">An optional logger for diagnostic output.</param>
+    protected PulseChecker(IStateProvider stateProvider, PulseInterval initialInterval, uint unhealthyThreshold, ILogger? logger)
     {
         _stateProvider = stateProvider ?? throw new ArgumentNullException(nameof(stateProvider));
         _initialInterval = initialInterval;
         _initialUnhealthyThreshold = unhealthyThreshold;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -68,9 +82,7 @@ public abstract class PulseChecker : IPulseChecker
     /// Gets or sets the configured maximum history length from <see cref="HealthieOptions"/>.
     /// Set by the scheduler on startup.
     /// </summary>
-    internal int ConfiguredMaxHistoryLength { get; set; } = 5;
-
-    private string HistoryKey => _historyKey ??= $"{Name}:history";
+    internal int ConfiguredMaxHistoryLength { get; set; } = 10;
 
     /// <summary>
     /// Performs the pulse check asynchronously.
@@ -156,14 +168,18 @@ public abstract class PulseChecker : IPulseChecker
     /// <inheritdoc />
     public async Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
-        return await _stateProvider.GetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, cancellationToken).ConfigureAwait(false)
-            ?? [];
+        var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
+            ?? new(_initialInterval, _initialUnhealthyThreshold);
+        return state.History;
     }
 
     /// <inheritdoc />
     public async Task ClearHistoryAsync(CancellationToken cancellationToken = default)
     {
-        await _stateProvider.SetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, [], cancellationToken).ConfigureAwait(false);
+        var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
+            ?? new(_initialInterval, _initialUnhealthyThreshold);
+        state.History = [];
+        await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -186,7 +202,10 @@ public abstract class PulseChecker : IPulseChecker
     public async Task TriggerAsync(CancellationToken cancellationToken = default)
     {
         if (!await _semaphore.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
+        {
+            _logger?.LogDebug("Skipping trigger for '{CheckerName}' — previous execution is still running.", Name);
             return;
+        }
 
         try
         {
@@ -226,13 +245,12 @@ public abstract class PulseChecker : IPulseChecker
 
             state.LastResult = pulseResult;
 
-            // Save history if enabled
+            // Append history if enabled
             if (state.IsHistoryEnabled)
             {
-                await AppendHistoryEntryAsync(
-                    new PulseCheckerHistoryEntry(pulseResult.Health, pulseResult.Message, currentDateTimeUtc),
-                    ConfiguredMaxHistoryLength,
-                    cancellationToken).ConfigureAwait(false);
+                state.History.Add(new PulseCheckerHistoryEntry(pulseResult.Health, pulseResult.Message, currentDateTimeUtc));
+                if (state.History.Count > ConfiguredMaxHistoryLength)
+                    state.History.RemoveRange(0, state.History.Count - ConfiguredMaxHistoryLength);
             }
 
             await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
@@ -258,13 +276,12 @@ public abstract class PulseChecker : IPulseChecker
 
             state.LastResult = new(health, message);
 
-            // Save history if enabled
+            // Append history if enabled
             if (state.IsHistoryEnabled)
             {
-                await AppendHistoryEntryAsync(
-                    new PulseCheckerHistoryEntry(health, message, state.LastExecutionDateTime!.Value),
-                    ConfiguredMaxHistoryLength,
-                    default).ConfigureAwait(false);
+                state.History.Add(new PulseCheckerHistoryEntry(health, message, state.LastExecutionDateTime!.Value));
+                if (state.History.Count > ConfiguredMaxHistoryLength)
+                    state.History.RemoveRange(0, state.History.Count - ConfiguredMaxHistoryLength);
             }
 
             await _stateProvider.SetStateAsync(Name, state, default).ConfigureAwait(false);
@@ -316,29 +333,13 @@ public abstract class PulseChecker : IPulseChecker
     /// </summary>
     internal async Task TrimHistoryAsync(CancellationToken cancellationToken = default)
     {
-        var history = await _stateProvider.GetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, cancellationToken).ConfigureAwait(false)
-            ?? [];
+        var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false);
+        if (state is null) return;
 
-        if (history.Count > ConfiguredMaxHistoryLength)
+        if (state.History.Count > ConfiguredMaxHistoryLength)
         {
-            history.RemoveRange(0, history.Count - ConfiguredMaxHistoryLength);
-            await _stateProvider.SetStateAsync(HistoryKey, history, cancellationToken).ConfigureAwait(false);
+            state.History.RemoveRange(0, state.History.Count - ConfiguredMaxHistoryLength);
+            await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
         }
-    }
-
-    private async Task AppendHistoryEntryAsync(
-        PulseCheckerHistoryEntry entry,
-        int maxLength,
-        CancellationToken cancellationToken)
-    {
-        var history = await _stateProvider.GetStateAsync<List<PulseCheckerHistoryEntry>>(HistoryKey, cancellationToken).ConfigureAwait(false)
-            ?? [];
-
-        history.Add(entry);
-
-        if (history.Count > maxLength)
-            history.RemoveRange(0, history.Count - maxLength);
-
-        await _stateProvider.SetStateAsync(HistoryKey, history, cancellationToken).ConfigureAwait(false);
     }
 }

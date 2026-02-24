@@ -6,6 +6,11 @@
 @inject HealthieThemeState ThemeState
 @inject Microsoft.JSInterop.IJSRuntime JS
 
+<PageTitle>@Options.DashboardTitle</PageTitle>
+<HeadContent>
+    <link href="_content/Healthie.NET.Dashboard/healthie.css" rel="stylesheet" />
+</HeadContent>
+
 <div class="healthie-dashboard" data-healthie-theme="@(_isDarkMode ? "dark" : "light")">
     @* Header *@
     <div class="healthie-header">
@@ -42,36 +47,52 @@
     else
     {
         @* Summary Cards *@
-        <div class="healthie-summary">
-            <div class="healthie-stat healthie-stat--active">
+        <div class="healthie-summary @(_selectedFilter is not null ? "healthie-summary--has-filter" : "")"
+             role="toolbar" aria-label="Filter checkers by status">
+            <div class="healthie-stat healthie-stat--active @(_selectedFilter == "active" ? "healthie-stat--selected" : "")"
+                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "active" ? "true" : "false")"
+                 title="Filter: show active checkers"
+                 @onclick="@(() => OnFilterCardClicked("active"))">
                 <div class="healthie-stat-icon">@HealthieIcons.Play</div>
                 <div>
                     <div class="healthie-stat-value">@_activeCount</div>
                     <div class="healthie-stat-label">Active</div>
                 </div>
             </div>
-            <div class="healthie-stat healthie-stat--stopped">
+            <div class="healthie-stat healthie-stat--stopped @(_selectedFilter == "stopped" ? "healthie-stat--selected" : "")"
+                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "stopped" ? "true" : "false")"
+                 title="Filter: show paused checkers"
+                 @onclick="@(() => OnFilterCardClicked("stopped"))">
                 <div class="healthie-stat-icon">@HealthieIcons.Pause</div>
                 <div>
                     <div class="healthie-stat-value">@_stoppedCount</div>
                     <div class="healthie-stat-label">Paused</div>
                 </div>
             </div>
-            <div class="healthie-stat healthie-stat--healthy">
+            <div class="healthie-stat healthie-stat--healthy @(_selectedFilter == "healthy" ? "healthie-stat--selected" : "")"
+                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "healthy" ? "true" : "false")"
+                 title="Filter: show healthy checkers"
+                 @onclick="@(() => OnFilterCardClicked("healthy"))">
                 <div class="healthie-stat-icon">@HealthieIcons.Heart</div>
                 <div>
                     <div class="healthie-stat-value">@_healthyCount</div>
                     <div class="healthie-stat-label">Healthy</div>
                 </div>
             </div>
-            <div class="healthie-stat healthie-stat--suspicious">
+            <div class="healthie-stat healthie-stat--suspicious @(_selectedFilter == "suspicious" ? "healthie-stat--selected" : "")"
+                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "suspicious" ? "true" : "false")"
+                 title="Filter: show suspicious checkers"
+                 @onclick="@(() => OnFilterCardClicked("suspicious"))">
                 <div class="healthie-stat-icon">@HealthieIcons.AlertTriangle</div>
                 <div>
                     <div class="healthie-stat-value">@_suspiciousCount</div>
                     <div class="healthie-stat-label">Suspicious</div>
                 </div>
             </div>
-            <div class="healthie-stat healthie-stat--unhealthy">
+            <div class="healthie-stat healthie-stat--unhealthy @(_selectedFilter == "unhealthy" ? "healthie-stat--selected" : "")"
+                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "unhealthy" ? "true" : "false")"
+                 title="Filter: show unhealthy checkers"
+                 @onclick="@(() => OnFilterCardClicked("unhealthy"))">
                 <div class="healthie-stat-icon">@HealthieIcons.XCircle</div>
                 <div>
                     <div class="healthie-stat-value">@_unhealthyCount</div>
@@ -92,7 +113,7 @@
                 }
                 else
                 {
-                    <span>No checkers match "<strong>@_searchFilter</strong>". Try a different filter.</span>
+                    <span>No checkers match the current filter. Try a different filter.</span>
                 }
             </div>
         }
@@ -142,6 +163,7 @@
     private bool _isLoading = true;
     private bool _isDarkMode;
     private string? _searchFilter;
+    private string? _selectedFilter;
     private bool _initialized;
     private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
     private readonly List<ToastItem> _toasts = [];
@@ -214,16 +236,31 @@
 
     private void ApplyFilter()
     {
-        if (string.IsNullOrWhiteSpace(_searchFilter))
+        IEnumerable<KeyValuePair<string, PulseCheckerState>> filtered = _states;
+
+        if (!string.IsNullOrWhiteSpace(_searchFilter))
         {
-            _filteredStates = new Dictionary<string, PulseCheckerState>(_states);
+            filtered = filtered.Where(s =>
+                GetDisplayName(s.Key).Contains(_searchFilter, StringComparison.OrdinalIgnoreCase));
         }
-        else
+
+        if (_selectedFilter is not null)
         {
-            _filteredStates = _states
-                .Where(s => GetDisplayName(s.Key).Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
-                .ToDictionary(s => s.Key, s => s.Value);
+            filtered = _selectedFilter switch
+            {
+                "active" => filtered.Where(s => s.Value.IsActive),
+                "stopped" => filtered.Where(s => !s.Value.IsActive),
+                "healthy" => filtered.Where(s =>
+                    s.Value.LastResult is null || s.Value.LastResult.Health == PulseCheckerHealth.Healthy),
+                "suspicious" => filtered.Where(s =>
+                    s.Value.LastResult?.Health == PulseCheckerHealth.Suspicious),
+                "unhealthy" => filtered.Where(s =>
+                    s.Value.LastResult?.Health == PulseCheckerHealth.Unhealthy),
+                _ => filtered
+            };
         }
+
+        _filteredStates = filtered.ToDictionary(s => s.Key, s => s.Value);
     }
 
     private void UpdateSummary()
@@ -265,17 +302,23 @@
         try
         {
             var checkers = await DashboardService.GetAllCheckersAsync();
-            foreach (var (name, _) in checkers)
-            {
-                try { await DashboardService.TriggerAsync(name); }
-                catch (Exception ex) { ShowToast($"Failed to trigger '{name}': {ex.Message}", "error"); }
-            }
+            var tasks = checkers.Select(c => TriggerCheckerSilentAsync(c.Key));
+            var results = await Task.WhenAll(tasks);
+            var failures = results.Where(r => r is not null).ToList();
+            if (failures.Count > 0)
+                foreach (var msg in failures) ShowToast(msg!, "error");
             ShowToast("All checkers triggered.", "success");
         }
         catch (Exception ex)
         {
             ShowToast($"Failed: {ex.Message}", "error");
         }
+    }
+
+    private async Task<string?> TriggerCheckerSilentAsync(string name)
+    {
+        try { await DashboardService.TriggerAsync(name); return null; }
+        catch (Exception ex) { return $"Failed to trigger '{ShortName(name)}': {ex.Message}"; }
     }
 
     private async Task StartAllAsync()
@@ -368,6 +411,12 @@
         ThemeState.IsDarkMode = isDarkMode;
         if (_jsModule is not null)
             await _jsModule.InvokeVoidAsync("setTheme", isDarkMode ? "dark" : "light");
+    }
+
+    private void OnFilterCardClicked(string filter)
+    {
+        _selectedFilter = _selectedFilter == filter ? null : filter;
+        ApplyFilter();
     }
 
     private void OnSearchFilterChanged(string? filter)

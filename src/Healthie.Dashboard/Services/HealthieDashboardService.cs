@@ -189,23 +189,26 @@ internal sealed class HealthieDashboardService(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            foreach (var (name, _) in checkers)
-            {
-                try
-                {
-                    await pulsesScheduler.ActivateAsync(name, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogError(ex, "Failed to start checker '{CheckerName}'.", name);
-                }
-            }
+            await Task.WhenAll(checkers.Select(c => ActivateCheckerAsync(c.Key, cancellationToken)))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             logger?.LogError(ex, "Failed to start all checkers.");
             throw;
+        }
+    }
+
+    private async Task ActivateCheckerAsync(string name, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await pulsesScheduler.ActivateAsync(name, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to start checker '{CheckerName}'.", name);
         }
     }
 
@@ -217,23 +220,26 @@ internal sealed class HealthieDashboardService(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            foreach (var (name, _) in checkers)
-            {
-                try
-                {
-                    await pulsesScheduler.DeactivateAsync(name, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogError(ex, "Failed to stop checker '{CheckerName}'.", name);
-                }
-            }
+            await Task.WhenAll(checkers.Select(c => DeactivateCheckerAsync(c.Key, cancellationToken)))
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             logger?.LogError(ex, "Failed to stop all checkers.");
             throw;
+        }
+    }
+
+    private async Task DeactivateCheckerAsync(string name, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await pulsesScheduler.DeactivateAsync(name, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to stop checker '{CheckerName}'.", name);
         }
     }
 

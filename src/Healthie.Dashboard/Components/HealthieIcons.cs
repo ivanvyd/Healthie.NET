@@ -21,6 +21,9 @@ internal static class HealthieIcons
     public static MarkupString HelpCircle => Svg(
         "<circle cx='12' cy='12' r='10'/><path d='M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3'/><path d='M12 17h.01'/>");
 
+    public static MarkupString LayoutGrid => Svg(
+        "<rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/>");
+
     // Action icons
     public static MarkupString Play => Svg(
         "<polygon points='5 3 19 12 5 21 5 3'/>");

@@ -70,4 +70,9 @@ public record PulseCheckerState
     /// Gets or sets a value indicating whether history recording is enabled for this pulse checker.
     /// </summary>
     public bool IsHistoryEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the list of historical trigger execution entries for this pulse checker.
+    /// </summary>
+    public List<PulseCheckerHistoryEntry> History { get; set; } = [];
 }

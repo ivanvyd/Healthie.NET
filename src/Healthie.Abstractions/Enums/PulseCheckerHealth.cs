@@ -1,3 +1,4 @@
+using Newtonsoft.Json.Converters;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 
@@ -7,6 +8,7 @@ namespace Healthie.Abstractions.Enums;
 /// Defines the possible health states of a pulse checker result.
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
+[Newtonsoft.Json.JsonConverter(typeof(StringEnumConverter))]
 public enum PulseCheckerHealth
 {
     /// <summary>

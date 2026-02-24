@@ -2,6 +2,7 @@
 @using System.ComponentModel
 @using System.Reflection
 @using Healthie.Dashboard.Components
+@inject Microsoft.JSInterop.IJSRuntime JS
 
 <div class="healthie-row healthie-row--@HealthClass @(State.IsActive ? "" : "healthie-row--paused")">
     @* Collapsed row *@
@@ -22,7 +23,7 @@
             <span class="healthie-row-meta-item healthie-interval-badge">@IntervalLabel</span>
             @if (State.LastExecutionDateTime.HasValue)
             {
-                <span class="healthie-row-meta-item healthie-row-time" title="@State.LastExecutionDateTime.Value.ToString("u")">
+                <span class="healthie-row-meta-item healthie-row-time" title="@(State.LastExecutionDateTime.Value.ToString("u"))">
                     <span class="healthie-time-absolute">@FormatAbsoluteTime(State.LastExecutionDateTime.Value)</span>
                     <span class="healthie-time-relative">(@FormatRelativeTime(State.LastExecutionDateTime.Value))</span>
                 </span>
@@ -85,12 +86,12 @@
             @if (State.LastResult?.Message is { Length: > 0 } message)
             {
                 <div class="healthie-error-msg healthie-error-msg--@MessageSeverity">
-                    <div class="healthie-error-msg-text @(_showFullMessage ? "" : "healthie-error-msg-text--clamped")">
+                    <div @ref="_messageRef" class="healthie-error-msg-text @(_showFullMessage ? "" : "healthie-error-msg-text--clamped")">
                         @message
                     </div>
-                    @if (message.Length > 120)
+                    @if (_isMessageOverflowing || _showFullMessage)
                     {
-                        <button class="healthie-show-more" @onclick="() => _showFullMessage = !_showFullMessage"
+                        <button class="healthie-show-more" @onclick="ToggleShowMore"
                                 @onclick:stopPropagation="true">
                             @(_showFullMessage ? "Show less" : "Show more")
                         </button>
@@ -127,22 +128,24 @@
                 </div>
                 @if (History.Count > 0)
                 {
-                    @foreach (var (entry, idx) in History.AsEnumerable().Reverse().Select((e, i) => (e, i)))
-                    {
-                        var index = idx;
-                        var isExpanded = _expandedHistoryEntries.Contains(index);
-                        <div class="healthie-history-entry healthie-history-entry--@HealthClassFor(entry.Health) @(isExpanded ? "healthie-history-entry--expanded" : "")"
-                             @onclick="() => ToggleHistoryEntry(index)"
-                             @onclick:stopPropagation="true"
-                             style="cursor: pointer;">
-                            <span class="healthie-history-icon">@HealthIcon(entry.Health)</span>
-                            <span class="healthie-history-message @(isExpanded ? "healthie-history-message--expanded" : "")"
-                                  title="@(isExpanded ? "" : entry.Message)">@TruncateMessage(entry.Message)</span>
-                            <span class="healthie-history-time" title="@entry.ExecutedAt.ToString("u")">
-                                @FormatAbsoluteTime(entry.ExecutedAt) (@FormatRelativeTime(entry.ExecutedAt))
-                            </span>
-                        </div>
-                    }
+                    <div class="healthie-history-entries">
+                        @foreach (var (entry, idx) in History.AsEnumerable().Reverse().Take(10).Select((e, i) => (e, i)))
+                        {
+                            var index = idx;
+                            var isExpanded = _expandedHistoryEntries.Contains(index);
+                            <div class="healthie-history-entry healthie-history-entry--@HealthClassFor(entry.Health) @(isExpanded ? "healthie-history-entry--expanded" : "")"
+                                 @onclick="() => ToggleHistoryEntry(index)"
+                                 @onclick:stopPropagation="true"
+                                 style="cursor: pointer;">
+                                <span class="healthie-history-icon">@HealthIcon(entry.Health)</span>
+                                <span class="healthie-history-message @(isExpanded ? "healthie-history-message--expanded" : "")"
+                                      title="@(isExpanded ? "" : entry.Message)">@TruncateMessage(entry.Message)</span>
+                                <span class="healthie-history-time" title="@(entry.ExecutedAt.ToString("u"))">
+                                    @FormatAbsoluteTime(entry.ExecutedAt) (@FormatRelativeTime(entry.ExecutedAt))
+                                </span>
+                            </div>
+                        }
+                    </div>
                 }
                 else
                 {
@@ -201,6 +204,9 @@
 
     private bool _expanded;
     private bool _showFullMessage;
+    private bool _isMessageOverflowing;
+    private ElementReference _messageRef;
+    private Microsoft.JSInterop.IJSObjectReference? _jsModule;
     private readonly HashSet<int> _expandedHistoryEntries = [];
 
     private PulseCheckerHealth CurrentHealth =>
@@ -258,7 +264,7 @@
 
     private static string FormatAbsoluteTime(DateTime utcTime)
     {
-        return utcTime.ToString("MMM d, yyyy h:mm:ss tt");
+        return utcTime.ToString("MMM d, yyyy h:mm:ss tt") + " UTC";
     }
 
     private static string FormatRelativeTime(DateTime utcTime)
@@ -280,6 +286,41 @@
     {
         if (string.IsNullOrEmpty(message)) return "\u2014";
         return message;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _jsModule = await JS.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>(
+                "import", "./_content/Healthie.NET.Dashboard/healthie.js");
+        }
+
+        await CheckMessageOverflowAsync();
+    }
+
+    private async Task CheckMessageOverflowAsync()
+    {
+        if (_jsModule is null || !_expanded || _showFullMessage) return;
+
+        try
+        {
+            var overflowing = await _jsModule.InvokeAsync<bool>("isTextOverflowing", _messageRef);
+            if (overflowing != _isMessageOverflowing)
+            {
+                _isMessageOverflowing = overflowing;
+                StateHasChanged();
+            }
+        }
+        catch (Microsoft.JSInterop.JSException) { }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void ToggleShowMore()
+    {
+        _showFullMessage = !_showFullMessage;
+        if (!_showFullMessage)
+            _isMessageOverflowing = true; // Keep button visible after collapsing
     }
 
     private void ToggleExpanded() => _expanded = !_expanded;

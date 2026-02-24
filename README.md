@@ -1,19 +1,25 @@
-# Healthie.NET
+<p align="center">
+  <img src="healthie.net.banner.png" alt="Healthie.NET - Trust your uptime" />
+</p>
 
-Async-only health monitoring framework for .NET 8 applications.
+<p align="center">
+  <strong>Trust your uptime.</strong> A lightweight, extensible health monitoring framework for .NET applications.
+</p>
 
-[![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <a href="https://www.nuget.org/packages/Healthie.NET.Abstractions"><img src="https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg" alt="NuGet" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
 
 ---
 
 ## Overview
 
-Healthie.NET is a lightweight, extensible library for monitoring the health and operational status of background tasks, services, databases, APIs, or any component in your .NET application. It provides a structured way to define **pulse checkers** that execute at configurable intervals, persist their state through pluggable providers, and expose their status through a REST API or a real-time Blazor dashboard.
+Healthie.NET lets you define **pulse checkers** -- small classes that monitor the health of databases, APIs, queues, caches, or anything else in your stack. Each checker runs on a configurable interval, tracks consecutive failures with a three-state health model (`Healthy` / `Suspicious` / `Unhealthy`), and persists its state through pluggable providers. Monitor everything through a real-time Blazor dashboard or REST API.
 
 **Why Healthie.NET?**
 
-- **Async-only API surface** -- no sync/async confusion, no `GetAwaiter().GetResult()` deadlocks.
+- **Drop-in and go** -- define a checker, register it, and you're monitoring. No boilerplate.
 - **Pluggable architecture** -- swap schedulers and state providers without changing your health check logic.
 - **Zero-dependency default scheduler** -- get started immediately with the built-in `PeriodicTimer`-based scheduler.
 - **Production-ready CosmosDB persistence** -- persist health check state to Azure CosmosDB for distributed environments.
@@ -23,14 +29,13 @@ Healthie.NET is a lightweight, extensible library for monitoring the health and 
 
 ## Features
 
-- Async-only pulse checkers with `CancellationToken` propagation throughout
+- Fully async pulse checkers with `CancellationToken` propagation throughout
 - Configurable polling intervals (1 second to 5 minutes via `PulseInterval` enum)
 - Three-state health model: `Healthy`, `Suspicious`, `Unhealthy`
 - Unhealthy threshold with consecutive failure tracking and automatic state promotion
 - Thread-safe concurrent execution prevention via `SemaphoreSlim`
 - Real-time state change notifications (`EventHandler<PulseCheckerStateChangedEventArgs>`)
 - Assembly scanning for automatic pulse checker discovery and DI registration
-- `ConfigureAwait(false)` on all library awaits for safe library usage
 - Extensible contracts for custom scheduling (`IPulseScheduler`) and state storage (`IStateProvider`)
 - RESTful API controller with configurable routing and authorization
 - Zero-dependency Blazor dashboard with event-driven updates, dark/light mode, and per-checker management
@@ -186,7 +191,7 @@ await checker.ClearHistoryAsync();           // Clear existing history
 var history = await checker.GetHistoryAsync(); // Get history entries
 ```
 
-The maximum number of history entries is configured globally via `HealthieOptions.MaxHistoryLength` (default: 5, range: 1-10).
+The maximum number of history entries is configured globally via `HealthieOptions.MaxHistoryLength` (default: 10, range: 1-10).
 
 ### Constructor Overloads
 
@@ -450,12 +455,6 @@ app.MapHealthieUI();
 
 ```csharp
 app.MapHealthieUI().RequireAuthorization("AdminPolicy");
-```
-
-**5. Include the stylesheet.** Your host page must include:
-
-```html
-<link href="_content/Healthie.NET.Dashboard/healthie.css" rel="stylesheet" />
 ```
 
 ### Dashboard Options

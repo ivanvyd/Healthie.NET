@@ -5,13 +5,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PackageId>Healthie.NET.Quartz</PackageId>
-    <Version>2.0.0-beta</Version>
+    <Version>2.1.1-beta</Version>
     <Authors>Ivan Vydrin</Authors>
     <Description>Quartz.NET scheduling provider for Healthie.NET -- persistent, CRON-based pulse check scheduling with clustering support.</Description>
+    <PackageIcon>healthie.net.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageTags>health-check;monitoring;pulse;dotnet;quartz;scheduling</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -19,6 +21,7 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\healthie.net.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
