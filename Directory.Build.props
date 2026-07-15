@@ -89,7 +89,6 @@
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\"
           Condition="!Exists('$(MSBuildProjectDirectory)/README.md')" />
     <None Include="$(MSBuildThisFileDirectory)healthie.net.png" Pack="true" PackagePath="\" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

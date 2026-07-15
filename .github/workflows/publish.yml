@@ -36,14 +36,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       # The 10.0 SDK builds every target framework the libraries ship for; the 8.0 runtime is
       # needed to also run the tests against net8.0 before publishing.
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: |
             8.0.x
@@ -124,7 +124,7 @@ jobs:
 
       # Attached to the workflow run, so a dry run still leaves something to inspect.
       - name: Upload packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nupkgs-${{ steps.version.outputs.VERSION }}
           path: |

@@ -28,14 +28,13 @@
 
   <!-- Library dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.57.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.61.0" />
     <!-- Provider-agnostic AI abstractions: the host brings its own IChatClient. -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.0" />
     <!-- 2.0 is in preview and tracks a release-candidate protocol revision; stay on stable. -->
     <PackageVersion Include="ModelContextProtocol" Version="1.4.1" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="1.4.1" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
-    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="Quartz.Extensions.DependencyInjection" Version="3.18.2" />
     <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.18.2" />
   </ItemGroup>
@@ -44,7 +43,7 @@
   <ItemGroup>
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.4.6" />
-    <PackageVersion Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
   <!-- Test dependencies -->
