@@ -41,6 +41,22 @@
     <PackageIcon>healthie.net.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>Copyright (c) Ivan Vydrin 2024-2026</Copyright>
+    <!--
+      Pinned to the tag being released, not to main: someone reading an older package's notes should
+      see what that release changed, not what a later one did. $(Version) comes from the release
+      workflow. A local build has none, which leaves a link to a tag that does not exist, which is
+      harmless because only released packages are published.
+    -->
+    <PackageReleaseNotes>https://github.com/ivanvyd/Healthie.NET/blob/v$(Version)/CHANGELOG.md</PackageReleaseNotes>
+
+    <!--
+      The shipped frameworks resolve different Microsoft.Extensions.* versions (see
+      Directory.Packages.props), which is exactly how one framework's public surface drifts from the
+      other's unnoticed. This fails the pack instead. No baseline version yet: 3.0.0 is deliberately
+      breaking against 2.3.0, so comparing against it would only produce noise. Set
+      PackageValidationBaselineVersion to 3.0.0 once it ships, so 3.x patches cannot break callers.
+    -->
+    <EnablePackageValidation>true</EnablePackageValidation>
 
     <!-- Source Link for debugger integration -->
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
