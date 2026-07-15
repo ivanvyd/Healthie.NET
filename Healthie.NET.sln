@@ -42,6 +42,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.AI", "src\Healthie
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.AppHost", "samples\Healthie.AppHost\Healthie.AppHost.csproj", "{2CF10A2E-EB24-4FFC-B539-36E5BD1575F9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.Tests.E2E", "tests\Healthie.Tests.E2E\Healthie.Tests.E2E.csproj", "{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -208,6 +210,18 @@ Global
 		{2CF10A2E-EB24-4FFC-B539-36E5BD1575F9}.Release|x64.Build.0 = Release|Any CPU
 		{2CF10A2E-EB24-4FFC-B539-36E5BD1575F9}.Release|x86.ActiveCfg = Release|Any CPU
 		{2CF10A2E-EB24-4FFC-B539-36E5BD1575F9}.Release|x86.Build.0 = Release|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Debug|x64.Build.0 = Debug|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Debug|x86.Build.0 = Debug|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Release|x64.ActiveCfg = Release|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Release|x64.Build.0 = Release|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Release|x86.ActiveCfg = Release|Any CPU
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -226,6 +240,7 @@ Global
 		{A0BA3DB8-5026-49A0-919E-187BA0FC7A0F} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{6CD3225D-1C2A-44EB-A948-6BC172F2FE70} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{2CF10A2E-EB24-4FFC-B539-36E5BD1575F9} = {351D767F-E606-42FF-8724-3F548E6D13A4}
+		{EDA2DE2C-7138-4848-AB4A-BCB1904DB7DC} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0EE98644-4A9C-4D31-8145-997C8B5A8119}

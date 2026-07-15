@@ -7,15 +7,40 @@ pull request.
 ## Building and Testing
 
 ```shell
-dotnet build Healthie.NET.sln          # build all projects; NuGet packages are generated on build
-dotnet test                            # run the unit test suite
+dotnet build Healthie.NET.sln              # build all projects; NuGet packages are generated on build
+dotnet test tests/Healthie.Tests.Unit      # the unit suite: fast, no infrastructure
+dotnet test                                # everything, including the browser tests below
 ```
 
-Running the samples (`samples/Healthie.Sample.Console`,
-`samples/Healthie.Sample.WebApi`, `samples/Healthie.Sample.BlazorUI`) requires
-a reachable CosmosDB instance (the [CosmosDB emulator](https://learn.microsoft.com/azure/cosmos-db/how-to-develop-emulator)
-works fine) — see each sample's `Program.cs` for its connection string
-placeholder.
+The samples need no external infrastructure. All three
+(`samples/Healthie.Sample.Console`, `samples/Healthie.Sample.WebApi`,
+`samples/Healthie.Sample.BlazorUI`) fall back to the in-memory state provider,
+so `dotnet run --project samples/Healthie.Sample.Console` is enough to see a
+change work end to end. Set `ConnectionStrings:CosmosDb` (user secrets, or an
+environment variable) on the Web API or Blazor sample to exercise the durable
+path against a real CosmosDB or the
+[emulator](https://learn.microsoft.com/azure/cosmos-db/how-to-develop-emulator).
+
+### End-to-end tests
+
+`tests/Healthie.Tests.E2E` drives the dashboard in a real Chromium against the Blazor sample, once
+per provider combination. Chromium is installed on first run, so the first `dotnet test` is slower:
+
+```shell
+dotnet build Healthie.NET.sln
+dotnet test tests/Healthie.Tests.E2E
+```
+
+By default it covers the combinations that need no infrastructure -- the timer and Quartz
+schedulers, both on the in-memory state provider. Point `HEALTHIE_TEST_COSMOS` at a CosmosDB
+(the emulator counts) to also run both schedulers against the CosmosDB state provider:
+
+```shell
+HEALTHIE_TEST_COSMOS="AccountEndpoint=https://localhost:8081/;AccountKey=..." dotnet test tests/Healthie.Tests.E2E
+```
+
+Without that variable the CosmosDB combinations are simply not generated, so the suite still passes
+on a machine with nothing installed. CI runs the in-memory combinations on every push.
 
 ## Repository Layout
 
@@ -23,7 +48,7 @@ placeholder.
 |---|---|
 | `src/` | The packages that ship to NuGet. Everything here is public API surface. |
 | `samples/` | Consumer applications demonstrating usage. Not packed or published. |
-| `tests/` | Test projects. `tests/Healthie.Tests.Unit` is the unit test suite (xUnit). |
+| `tests/` | Test projects. `tests/Healthie.Tests.Unit` is the unit suite (xUnit); `tests/Healthie.Tests.E2E` drives the dashboard in a browser (xUnit + Playwright). |
 | `fabric/standards/` | The project's coding standards — read the relevant file before a larger change. |
 
 ## Coding Standards

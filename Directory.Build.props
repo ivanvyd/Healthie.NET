@@ -61,7 +61,17 @@
 
   <!-- Pack shared assets for src/ projects -->
   <ItemGroup Condition="'$(IsShippedProject)' == 'true'">
-    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+    <!--
+      A package's listing page is its own README when it has one, and the repository README only as
+      a fallback. Both land at the package root as README.md, which is what PackageReadmeFile names.
+      The repository README is written for someone browsing the repo: it covers all eight packages
+      and links to files that only exist in the repo, neither of which serves someone who has landed
+      on one package's page.
+    -->
+    <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="\"
+          Condition="Exists('$(MSBuildProjectDirectory)/README.md')" />
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\"
+          Condition="!Exists('$(MSBuildProjectDirectory)/README.md')" />
     <None Include="$(MSBuildThisFileDirectory)healthie.net.png" Pack="true" PackagePath="\" />
     <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>

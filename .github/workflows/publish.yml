@@ -97,6 +97,13 @@ jobs:
           -p:Version=${{ steps.version.outputs.VERSION }}
           -p:ContinuousIntegrationBuild=true
 
+      # The end-to-end tests drive a real browser, so Chromium has to be on the runner before the
+      # gate below can run them.
+      - name: Install Chromium
+        run: pwsh tests/Healthie.Tests.E2E/bin/${{ env.CONFIGURATION }}/net8.0/playwright.ps1 install chromium --with-deps
+
+      # The whole suite, unit and end-to-end, gates the release: nothing is packed, tagged, or
+      # published unless the dashboard itself is proven to work in a browser first.
       - name: Test
         run: >
           dotnet test

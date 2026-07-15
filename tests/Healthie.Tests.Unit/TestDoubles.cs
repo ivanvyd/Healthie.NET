@@ -29,6 +29,83 @@ internal sealed class AlwaysUnhealthyPulseChecker(IStateProvider stateProvider)
         => Task.FromResult(new PulseCheckerResult(PulseCheckerHealth.Unhealthy, "down"));
 }
 
+/// <summary>
+/// An <see cref="IPulseChecker"/> that implements the interface directly rather than deriving from
+/// <see cref="PulseChecker"/>. Owning the event outright is what lets a test see whether a
+/// subscriber is still attached, and skipping the base class is what lets
+/// <see cref="TriggerAsync"/> genuinely throw -- <see cref="PulseChecker.TriggerAsync"/> turns a
+/// failing check into an unhealthy result instead of letting it propagate.
+/// </summary>
+internal sealed class FakePulseChecker(string name) : IPulseChecker
+{
+    private PulseCheckerState _state = new(PulseInterval.EveryMinute, 0);
+
+    public event EventHandler<PulseCheckerStateChangedEventArgs>? StateChanged;
+
+    /// <summary>How many handlers are attached to <see cref="StateChanged"/>.</summary>
+    public int SubscriberCount => StateChanged?.GetInvocationList().Length ?? 0;
+
+    /// <summary>Thrown by <see cref="TriggerAsync"/> when set.</summary>
+    public Exception? ThrowOnTrigger { get; set; }
+
+    public int TriggerCount { get; private set; }
+
+    public string Name => name;
+
+    public string DisplayName => name;
+
+    /// <summary>Raises <see cref="StateChanged"/> as a real checker would after a state change.</summary>
+    public void RaiseStateChanged(PulseCheckerHealth health)
+    {
+        var oldState = _state;
+        _state = new PulseCheckerState(PulseInterval.EveryMinute, 0)
+        {
+            LastResult = new PulseCheckerResult(health, health.ToString()),
+        };
+        StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, _state));
+    }
+
+    public Task TriggerAsync(CancellationToken cancellationToken = default)
+    {
+        TriggerCount++;
+        return ThrowOnTrigger is not null ? Task.FromException(ThrowOnTrigger) : Task.CompletedTask;
+    }
+
+    public Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(new PulseCheckerResult(PulseCheckerHealth.Healthy, "ok"));
+
+    public Task<PulseCheckerState> GetStateAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(_state);
+
+    public Task SetStateAsync(PulseCheckerState state, CancellationToken cancellationToken = default)
+    {
+        _state = state;
+        return Task.CompletedTask;
+    }
+
+    public Task SetIntervalAsync(PulseInterval interval, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetUnhealthyThresholdAsync(uint threshold, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task ResetAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task<bool> StopAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<bool> StartAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
+
+    public Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult(_state.History);
+
+    public Task ClearHistoryAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    public Task SetHistoryEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+}
+
 /// <summary>A state provider stand-in used to assert registration precedence.</summary>
 internal sealed class CustomStateProvider : IStateProvider
 {

@@ -30,4 +30,38 @@ jobs:
         run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: >
+          dotnet test tests/Healthie.Tests.Unit
+          --configuration Release --no-build --verbosity normal
+
+  # Split out because these drive a real browser against the sample app: they need Chromium, and
+  # they take minutes rather than seconds. Keeping them off the unit job keeps its feedback fast.
+  e2e:
+    name: End-to-end (browser)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      # --with-deps installs the system libraries Chromium needs, which the runner does not carry.
+      - name: Install Chromium
+        run: pwsh tests/Healthie.Tests.E2E/bin/Release/net8.0/playwright.ps1 install chromium --with-deps
+
+      - name: Test
+        run: >
+          dotnet test tests/Healthie.Tests.E2E
+          --configuration Release --no-build --verbosity normal

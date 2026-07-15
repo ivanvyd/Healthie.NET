@@ -371,11 +371,20 @@ public class PulseCheckerTests
 }
 
 /// <summary>A pulse checker whose result, timing, and failures the test drives.</summary>
-internal sealed class ControllablePulseChecker(IStateProvider stateProvider, uint unhealthyThreshold = 0)
+/// <param name="name">
+/// Overrides the checker's name. Two instances of this type otherwise share one name, which
+/// collides wherever checkers are keyed by it.
+/// </param>
+internal sealed class ControllablePulseChecker(
+    IStateProvider stateProvider,
+    uint unhealthyThreshold = 0,
+    string? name = null)
     : PulseChecker(stateProvider, PulseInterval.EveryMinute, unhealthyThreshold)
 {
     private readonly TaskCompletionSource _checkStarted =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public override string Name => name ?? base.Name;
 
     public PulseCheckerResult NextResult { get; set; } = new(PulseCheckerHealth.Healthy, "ok");
 

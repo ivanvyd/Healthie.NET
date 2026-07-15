@@ -6,7 +6,7 @@
 [![Downloads](https://img.shields.io/nuget/dt/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
 [![Build](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4.svg)](https://dotnet.microsoft.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ivanvyd/Healthie.NET/blob/main/LICENSE)
 
 ```csharp
 // Finds every pulse checker in your app and starts monitoring on the intervals they declare.
@@ -671,9 +671,9 @@ The repository includes three sample applications demonstrating different usage 
 
 | Sample | Description | Path |
 |---|---|---|
-| **Console** | Minimal console application with interactive menu | [`samples/Healthie.Sample.Console`](samples/Healthie.Sample.Console) |
-| **WebAPI** | REST endpoints, Swagger, Kubernetes probes, and the MCP endpoint | [`samples/Healthie.Sample.WebApi`](samples/Healthie.Sample.WebApi) |
-| **BlazorUI** | Blazor Server app with the Healthie.NET UI dashboard | [`samples/Healthie.Sample.BlazorUI`](samples/Healthie.Sample.BlazorUI) |
+| **Console** | Minimal console application with interactive menu | [`samples/Healthie.Sample.Console`](https://github.com/ivanvyd/Healthie.NET/tree/main/samples/Healthie.Sample.Console) |
+| **WebAPI** | REST endpoints, Swagger, Kubernetes probes, and the MCP endpoint | [`samples/Healthie.Sample.WebApi`](https://github.com/ivanvyd/Healthie.NET/tree/main/samples/Healthie.Sample.WebApi) |
+| **BlazorUI** | Blazor Server app with the Healthie.NET UI dashboard | [`samples/Healthie.Sample.BlazorUI`](https://github.com/ivanvyd/Healthie.NET/tree/main/samples/Healthie.Sample.BlazorUI) |
 
 ```shell
 dotnet run --project samples/Healthie.Sample.WebApi     # http://localhost:5199/healthie
@@ -701,7 +701,7 @@ Both are development-time only. Nothing under `src/` depends on Aspire or Docker
 
 ## Migration
 
-Upgrading from v1.x? See the [v1 to v2 migration guide](docs/migration-v1-to-v2.md).
+Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v1-to-v2.md).
 
 ---
 
@@ -721,7 +721,7 @@ Planned features for future releases:
 
 ## Contributing
 
-Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing, the coding standards, and how releases work; [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) applies to everyone taking part.
+Contributions are welcome. [CONTRIBUTING.md](https://github.com/ivanvyd/Healthie.NET/blob/main/CONTRIBUTING.md) covers building, testing, the coding standards, and how releases work; [CODE_OF_CONDUCT.md](https://github.com/ivanvyd/Healthie.NET/blob/main/CODE_OF_CONDUCT.md) applies to everyone taking part.
 
 ```shell
 git clone https://github.com/ivanvyd/Healthie.NET.git
@@ -740,9 +740,9 @@ Please open an issue before starting anything large, so the design can be agreed
 |---|---|
 | **Bug or feature request** | [Open an issue](https://github.com/ivanvyd/Healthie.NET/issues/new/choose) |
 | **Question or idea** | [Start a discussion](https://github.com/ivanvyd/Healthie.NET/discussions) |
-| **Security vulnerability** | Report it privately -- see [SECURITY.md](SECURITY.md). Please don't open a public issue. |
-| **What changed** | [CHANGELOG.md](CHANGELOG.md) |
+| **Security vulnerability** | Report it privately -- see [SECURITY.md](https://github.com/ivanvyd/Healthie.NET/blob/main/SECURITY.md). Please don't open a public issue. |
+| **What changed** | [CHANGELOG.md](https://github.com/ivanvyd/Healthie.NET/blob/main/CHANGELOG.md) |
 
 ## License
 
-[MIT](LICENSE) -- do what you like with it, no warranty.
+[MIT](https://github.com/ivanvyd/Healthie.NET/blob/main/LICENSE) -- do what you like with it, no warranty.

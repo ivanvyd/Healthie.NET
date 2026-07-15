@@ -1,5 +1,6 @@
 using Healthie.DependencyInjection;
 using Healthie.Sample.BlazorUI.Components;
+using Healthie.Scheduling.Quartz;
 using Healthie.StateProviding.CosmosDb;
 using Healthie.Dashboard;
 using Microsoft.Azure.Cosmos;
@@ -16,6 +17,13 @@ builder.Services
     {
         options.DashboardTitle = "Healthie.NET Test Dashboard";
     });
+
+// Swap the scheduler with Healthie:Scheduler=Quartz. AddHealthie has already registered the
+// built-in timer, and the last registration wins, so this overrides it.
+if (string.Equals(builder.Configuration["Healthie:Scheduler"], "Quartz", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHealthieQuartz();
+}
 
 // Persist state to CosmosDB when a connection string is configured (set
 // ConnectionStrings:CosmosDb, for example via user secrets or the emulator). Without one the
