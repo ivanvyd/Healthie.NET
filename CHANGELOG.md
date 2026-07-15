@@ -81,6 +81,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - `HealthieOptions.MaxHistoryLength` accepts up to 100 entries, up from 10, so the
   dashboard's pulse strip can show a longer window. The default is still 10, and
   out-of-range values are still clamped.
+- Each package's NuGet listing now shows that package's own README. Every package
+  packed the repository README, so all eight advertised the whole framework and
+  linked to files that only exist in the repo. `Healthie.NET.Mcp` and
+  `Healthie.NET.AI` have gained a README of their own.
 
 - The samples run without any external dependency. The console sample uses the
   in-memory provider; the Web API and Blazor samples use CosmosDB only when
