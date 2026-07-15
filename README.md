@@ -3,45 +3,38 @@
 **Trust your uptime.** A lightweight, extensible health monitoring framework for .NET applications.
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Downloads](https://img.shields.io/nuget/dt/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
 [![Build](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml)
+[![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4.svg)](https://dotnet.microsoft.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+```csharp
+// Finds every pulse checker in your app and starts monitoring on the intervals they declare.
+// No scheduler to configure, no storage to stand up.
+builder.Services.AddHealthie(typeof(Program).Assembly);
+```
+
+**Contents**
+
+[Quick Start](#quick-start) · [Packages](#nuget-packages) · [Writing a Checker](#creating-a-pulse-checker) · [Configuration](#configuration) · [REST API](#api-endpoints) · [Dashboard](#ui-dashboard) · [Existing `IHealthCheck`s](#monitoring-existing-health-checks) · [Kubernetes](#kubernetes-probes) · [MCP](#ai-agents-mcp) · [AI Diagnostics](#ai-diagnostics) · [Extensibility](#extensibility) · [Samples](#sample-projects) · [Roadmap](#roadmap) · [Contributing](#contributing)
 
 ---
 
 ## Overview
 
-Healthie.NET lets you define **pulse checkers** -- small classes that monitor the health of databases, APIs, queues, caches, or anything else in your stack. Each checker runs on a configurable interval, tracks consecutive failures with a three-state health model (`Healthy` / `Suspicious` / `Unhealthy`), and persists its state through pluggable providers. Monitor everything through a real-time Blazor dashboard or REST API.
+Healthie.NET lets you define **pulse checkers** -- small classes that monitor a database, an API, a queue, a cache, or anything else in your stack. Each runs on its own interval, and rather than reporting only pass or fail, it counts consecutive failures against a threshold across three states (`Healthy` / `Suspicious` / `Unhealthy`). That is the difference between a blip and an outage, and it is what makes a health signal worth alerting on.
 
-**Why Healthie.NET?**
+Watch it all through a live dashboard, a REST API, Kubernetes probes, or an AI agent.
 
-- **Drop-in and go** -- define a checker, register it, and you're monitoring. No boilerplate.
-- **Pluggable architecture** -- swap schedulers and state providers without changing your health check logic.
-- **Zero-dependency default scheduler** -- get started immediately with the built-in `PeriodicTimer`-based scheduler.
-- **Production-ready CosmosDB persistence** -- persist health check state to Azure CosmosDB for distributed environments.
-- **Zero-dependency Blazor dashboard** -- add a real-time monitoring UI to any ASP.NET Core app with two lines of code. No third-party UI libraries required.
+**What sets it apart**
 
----
+- **It doesn't replace your health checks -- it schedules them.** Already have `IHealthCheck` implementations, yours or the community ones for SQL Server, Redis, RabbitMQ, Azure, or AWS? [One call](#monitoring-existing-health-checks) gives every one of them intervals, thresholds, and history, with nothing rewritten.
+- **Nothing to stand up.** `AddHealthie()` registers a `PeriodicTimer` scheduler and an in-memory store, so it runs on its own. Swap in Quartz or CosmosDB when you outgrow them -- your checker code doesn't change.
+- **Current.** .NET 8 and .NET 10, async throughout, `CancellationToken` everywhere.
+- **A dashboard with no dependencies.** Pure HTML and CSS, no UI framework, no web fonts -- two lines to add, and it runs air-gapped.
+- **Built for agents.** An [MCP server](#ai-agents-mcp) that is read-only until you say otherwise, plus [optional diagnostics](#ai-diagnostics) through any `IChatClient`.
 
-## Features
-
-- Runs on **.NET 8 and .NET 10**
-- Fully async pulse checkers with `CancellationToken` propagation throughout
-- Configurable polling intervals (1 second to 5 minutes via `PulseInterval` enum)
-- Three-state health model: `Healthy`, `Suspicious`, `Unhealthy`
-- Unhealthy threshold with consecutive failure tracking and automatic state promotion
-- **Monitors existing `IHealthCheck` implementations**, so the health checks you already have gain scheduling, thresholds, and history without being rewritten
-- **Works out of the box** -- an in-memory state provider is registered by default; add a durable one when you need it
-- **Kubernetes liveness and readiness probes**
-- **MCP server**, so an AI agent can read and act on service health
-- **Optional AI diagnostics** that explain a checker's recent failures, through any `IChatClient`
-- Thread-safe concurrent execution prevention via `SemaphoreSlim`
-- Real-time state change notifications (`EventHandler<PulseCheckerStateChangedEventArgs>`)
-- Assembly scanning for automatic pulse checker discovery and DI registration
-- Extensible contracts for custom scheduling (`IPulseScheduler`) and state storage (`IStateProvider`)
-- RESTful API controller with configurable routing and authorization
-- Zero-dependency Blazor dashboard with event-driven updates, dark/light mode, and per-checker management
-- Per-checker lifecycle control: start, stop, trigger, reset, change interval, change threshold
-- Comprehensive XML documentation for full IntelliSense support
+Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one dependency, and Quartz, CosmosDB, MCP, AI, and the dashboard are separate packages you add only if you want them.
 
 ---
 
@@ -412,19 +405,19 @@ PATCH /healthie/MyApp.DatabasePulseChecker/reset
 
 ## UI Dashboard
 
-The `Healthie.NET.Dashboard` package provides a zero-dependency Blazor monitoring dashboard as a Razor Class Library. No third-party UI frameworks required -- pure HTML/CSS with a professional built-in theme.
+The `Healthie.NET.Dashboard` package is a pulse monitor for your services, shipped as a Razor Class Library. It is pure HTML and CSS with no third-party UI framework and no web fonts, so it renders the same on an air-gapped network as it does on your laptop.
 
 **Key features:**
 
-- **Event-driven real-time updates** -- The dashboard subscribes to `IPulseChecker.StateChanged` events and updates individual checker states in-place. No polling, no periodic full re-fetches.
-- **Minimalistic row layout** -- Each checker is displayed as a compact inline row showing: status icon, short name, health chip, interval, last run, and trigger button. Click to expand for full details (namespace, failures, error messages, settings, action buttons).
-- **Per-checker management** -- Start, stop, trigger, reset, change interval, change threshold -- all from the dashboard.
-- **Bulk actions** -- Start All, Stop All, and Trigger All buttons in the toolbar for managing all checkers at once.
-- **Summary stat cards** -- Total, healthy, suspicious, and unhealthy counts at a glance with color-coded tints.
-- **Dark/light theme** -- Built-in toggle with professional light and dark palettes via CSS custom properties.
-- **Search and filter** -- Instantly filter checkers by name.
-- **Mobile responsive** -- Clean layout on screens from 375px and up.
-- **CSS-only animations** -- Smooth transitions on status changes, hover effects, and fade-in animations.
+- **Live, event-driven** -- subscribes to `IPulseChecker.StateChanged` and updates one entry in place. No polling; a full state read happens only on first load.
+- **Aggregate pulse trace** -- an EKG across the header, with the combined checks-per-minute of everything you monitor.
+- **A row per checker** -- status light, name, checks per minute, and a pulse strip of the last N runs, one blip per run, coloured by the health it reported.
+- **Detail panel** -- select a checker for its uptime, failure streak, last message, and its interval and failure threshold, editable in place.
+- **Event log** -- state transitions as they happen, so you can see what changed and when without reading logs.
+- **Per-checker and bulk control** -- run, pause, and reset one checker or all of them.
+- **Search** -- filter the list by name as you type.
+- **Dark by default** -- with a light theme a toggle away.
+- **Responsive** -- columns collapse and the panel stacks; usable down to 375px.
 
 ### Setup
 
@@ -480,7 +473,9 @@ In a Blazor application, you can embed the dashboard component directly in a Raz
 
 ### How Real-Time Updates Work
 
-The dashboard subscribes to `IPulseChecker.StateChanged` events via `SubscribeToStateChanges(Action<string, PulseCheckerState>)`. When a checker's state changes, only that single entry is updated in the dashboard's dictionary -- no polling, no full state re-fetch. A full `GetAllStatesAsync()` is only performed on initial load.
+The dashboard subscribes to every checker's `StateChanged` event. A change updates that one entry and nothing else -- there is no polling and no periodic re-fetch, and the only full read of every checker's state happens on first load. A checker's state carries its own history, so the pulse strip costs no extra reads.
+
+The interval and threshold you set from the panel are written through to the checker, so they outlive the page and take effect on the next run.
 
 ---
 
@@ -704,123 +699,9 @@ Both are development-time only. Nothing under `src/` depends on Aspire or Docker
 
 ---
 
-## Migration from v1.x
+## Migration
 
-Healthie.NET v2.0 is a major version with breaking changes. Follow these steps to upgrade.
-
-### Breaking Changes
-
-| Area | v1.x | v2.0 | Action Required |
-|---|---|---|---|
-| Sync APIs | `IPulseChecker`, `PulseChecker` (sync variants) | Removed | Migrate to async equivalents |
-| Async naming | `IAsyncPulseChecker`, `AsyncPulseChecker` | Renamed to `IPulseChecker`, `PulseChecker` | Update type references |
-| `Check()` method | `PulseCheckerResult Check()` | `Task<PulseCheckerResult> CheckAsync(CancellationToken)` | Change method signature |
-| Scheduling | `AddHealthieQuartz()`, `AddHealthieHangfire()` | `AddHealthie()` registers the built-in timer scheduler; call `AddHealthieQuartz()` to override it | Replace registration call |
-| State providers | `AddHealthieMemoryCache()`, `AddHealthieSqlServer()` | `AddHealthieCosmosDb(container)` | Switch provider |
-| API routes | `/sync/*` and `/async/*` prefixes | Fixed at `/healthie/*` | Update client URLs |
-| DI scanning | Scans for both sync and async checkers | Scans only for `IPulseChecker` (async) | Remove sync checker classes |
-| CancellationToken | Not available | Required parameter (with default) on all async methods | Add parameter if overriding |
-| Disposal | `IDisposable` | `IAsyncDisposable` | Update disposal patterns |
-
-### Step-by-Step Migration
-
-**Step 1:** Update NuGet packages to v2.0.0-beta.
-
-**Step 2:** Replace sync pulse checkers. Change the base class and override `CheckAsync` instead of `Check`:
-
-```csharp
-// v1.x
-public class MyChecker : PulseChecker
-{
-    public MyChecker(IStateProvider provider) : base(provider) { }
-    public override PulseCheckerResult Check()
-        => new(PulseCheckerHealth.Healthy);
-}
-
-// v2.0
-public class MyChecker : PulseChecker
-{
-    public MyChecker(IStateProvider provider) : base(provider) { }
-    public override Task<PulseCheckerResult> CheckAsync(
-        CancellationToken cancellationToken = default)
-        => Task.FromResult(new PulseCheckerResult(PulseCheckerHealth.Healthy));
-}
-```
-
-**Step 3:** Replace scheduling registration:
-
-```csharp
-// v1.x
-services.AddHealthie(assemblies).AddHealthieQuartz();
-
-// v2.0 -- choose one:
-services.AddHealthie(assemblies);                     // Built-in timer (registered by default)
-services.AddHealthie(assemblies).AddHealthieQuartz(); // Quartz.NET
-```
-
-**Step 4:** Replace state provider registration:
-
-```csharp
-// v1.x
-services.AddHealthieMemoryCache();
-// or
-services.AddHealthieSqlServer(connectionString);
-
-// v2.0
-services.AddHealthieCosmosDb(cosmosContainer);
-```
-
-**Step 5:** Update API client URLs. Remove `/sync/` and `/async/` prefixes:
-
-```
-// v1.x
-GET  /healthie/async
-PUT  /healthie/async/{name}/interval
-
-// v2.0
-GET  /healthie
-PUT  /healthie/{name}/interval
-```
-
-**Step 6 (optional):** Add the new UI dashboard:
-
-```csharp
-services.AddHealthieUI();
-// ...
-app.MapHealthieUI();  // Serves at /healthie/dashboard
-```
-
----
-
-## Releasing New Versions
-
-Releases are automated via GitHub Actions. To publish a new version:
-
-```shell
-git tag v2.2.0
-git push origin v2.2.0
-```
-
-This triggers the CI pipeline which:
-
-1. Builds and packs all NuGet packages with the version from the tag
-2. Publishes all packages to [NuGet.org](https://www.nuget.org/)
-3. Creates a GitHub Release with auto-generated release notes
-
-For pre-release versions, use a suffix:
-
-```shell
-git tag v2.2.0-beta
-git push origin v2.2.0-beta
-```
-
-Pre-release tags are automatically marked as pre-release on GitHub.
-
----
-
-## Docker Compatibility
-
-Healthie.NET packages are standard .NET NuGet libraries. They work in Docker containers without any special configuration. When your application runs `dotnet restore` and `dotnet publish` inside a Docker build, Healthie.NET packages are restored and included automatically like any other NuGet dependency. The Blazor dashboard static assets (`_content/Healthie.NET.Dashboard/`) are also included automatically via the Razor Class Library mechanism.
+Upgrading from v1.x? See the [v1 to v2 migration guide](docs/migration-v1-to-v2.md).
 
 ---
 
@@ -838,6 +719,30 @@ Planned features for future releases:
 
 ---
 
+## Contributing
+
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers building, testing, the coding standards, and how releases work; [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) applies to everyone taking part.
+
+```shell
+git clone https://github.com/ivanvyd/Healthie.NET.git
+cd Healthie.NET
+dotnet build Healthie.NET.sln
+dotnet test Healthie.NET.sln
+```
+
+The samples need no external infrastructure, so `dotnet run --project samples/Healthie.Sample.Console` is enough to see a change work end to end.
+
+Please open an issue before starting anything large, so the design can be agreed before you spend time on it.
+
+## Support
+
+| | |
+|---|---|
+| **Bug or feature request** | [Open an issue](https://github.com/ivanvyd/Healthie.NET/issues/new/choose) |
+| **Question or idea** | [Start a discussion](https://github.com/ivanvyd/Healthie.NET/discussions) |
+| **Security vulnerability** | Report it privately -- see [SECURITY.md](SECURITY.md). Please don't open a public issue. |
+| **What changed** | [CHANGELOG.md](CHANGELOG.md) |
+
 ## License
 
-This project is licensed under the [MIT License](https://opensource.org/licenses/MIT).
+[MIT](LICENSE) -- do what you like with it, no warranty.
