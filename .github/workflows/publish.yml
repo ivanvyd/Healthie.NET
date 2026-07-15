@@ -122,34 +122,11 @@ jobs:
             ${{ env.NUPKG_DIR }}/*.snupkg
           if-no-files-found: error
 
-      - name: Summarise
-        run: |
-          {
-            echo "### Healthie.NET ${{ steps.version.outputs.VERSION }}"
-            echo
-            if [[ "${{ inputs.dry_run || false }}" == "true" ]]; then
-              echo "**Dry run** — nothing was tagged or published. Packages are attached to this run."
-            else
-              echo "Published to NuGet.org and released as \`${{ steps.version.outputs.TAG }}\`."
-            fi
-            echo
-            echo "| Package |"
-            echo "|---|"
-            for pkg in ${{ env.NUPKG_DIR }}/*.nupkg; do
-              echo "| \`$(basename "$pkg")\` |"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Tag the release
-        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "${{ steps.version.outputs.TAG }}" -m "Healthie.NET ${{ steps.version.outputs.VERSION }}"
-          git push origin "${{ steps.version.outputs.TAG }}"
-
-      # Publishing comes after tagging so a released version always has a commit behind it.
-      # --skip-duplicate keeps a re-run from failing on packages that already went up.
+      # Publishing is the step that cannot be undone, so it goes first: everything after it is
+      # cheap and repeatable. Tagging first would leave a tag behind whenever a push failed, and
+      # "Check the version is unreleased" would then refuse to retry that same version -- turning a
+      # transient failure into a version that can never be released.
+      # --skip-duplicate lets a retry get past packages an earlier attempt already pushed.
       - name: Publish to NuGet.org
         if: ${{ !inputs.dry_run }}
         run: >
@@ -167,6 +144,15 @@ jobs:
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
+      # Only now that the packages are actually on NuGet.org does the version become real.
+      - name: Tag the release
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.TAG }}" -m "Healthie.NET ${{ steps.version.outputs.VERSION }}"
+          git push origin "${{ steps.version.outputs.TAG }}"
+
       - name: Create GitHub Release
         if: ${{ !inputs.dry_run }}
         env:
@@ -182,3 +168,22 @@ jobs:
             --generate-notes \
             $PRERELEASE_FLAG \
             --title "Healthie.NET ${{ steps.version.outputs.VERSION }}"
+
+      # Last, so it reports what happened rather than what was about to be attempted.
+      - name: Summarise
+        run: |
+          {
+            echo "### Healthie.NET ${{ steps.version.outputs.VERSION }}"
+            echo
+            if [[ "${{ inputs.dry_run || false }}" == "true" ]]; then
+              echo "**Dry run** — nothing was tagged or published. Packages are attached to this run."
+            else
+              echo "Published to NuGet.org and released as \`${{ steps.version.outputs.TAG }}\`."
+            fi
+            echo
+            echo "| Package |"
+            echo "|---|"
+            for pkg in ${{ env.NUPKG_DIR }}/*.nupkg; do
+              echo "| \`$(basename "$pkg")\` |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
