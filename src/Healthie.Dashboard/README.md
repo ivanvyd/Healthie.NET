@@ -6,6 +6,8 @@
 
 Zero-dependency Blazor Server dashboard for monitoring Healthie.NET pulse checkers in real time. Delivered as a Razor Class Library with pure HTML/CSS -- no third-party UI frameworks required.
 
+![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/shot-dark.png)
+
 ## Installation
 
 ```shell

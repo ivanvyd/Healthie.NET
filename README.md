@@ -14,6 +14,8 @@
 builder.Services.AddHealthie(typeof(Program).Assembly);
 ```
 
+![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/healthie-v3-dashboard.gif)
+
 **Contents**
 
 [Quick Start](#quick-start) · [Packages](#nuget-packages) · [Writing a Checker](#creating-a-pulse-checker) · [Configuration](#configuration) · [REST API](#api-endpoints) · [Dashboard](#ui-dashboard) · [Existing `IHealthCheck`s](#monitoring-existing-health-checks) · [Kubernetes](#kubernetes-probes) · [MCP](#ai-agents-mcp) · [AI Diagnostics](#ai-diagnostics) · [Extensibility](#extensibility) · [Samples](#sample-projects) · [Roadmap](#roadmap) · [Contributing](#contributing)
@@ -407,6 +409,14 @@ PATCH /healthie/MyApp.DatabasePulseChecker/reset
 
 The `Healthie.NET.Dashboard` package is a pulse monitor for your services, shipped as a Razor Class Library. It is pure HTML and CSS with no third-party UI framework and no web fonts, so it renders the same on an air-gapped network as it does on your laptop.
 
+![The dashboard: a row per checker, its recent runs, and the selected checker's controls](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/shot-dark.png)
+
+*Every checker, its recent runs as a pulse strip, and the selected one's controls. Dark by default; a light theme is a toggle away.*
+
+![The same checkers sectioned by group, each section reporting its own tallies](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/shot-grouped.png)
+
+*Sectioned by group. A checker belongs to one group, so every checker appears exactly once and a section's healthy/suspicious/failing tallies add up to what is under it.*
+
 **Key features:**
 
 - **Live, event-driven** -- subscribes to `IPulseChecker.StateChanged` and updates one entry in place. No polling; a full state read happens only on first load.
@@ -740,7 +750,9 @@ Both are development-time only. Nothing under `src/` depends on Aspire or Docker
 
 ## Migration
 
-Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v1-to-v2.md).
+Upgrading from v2.x? See the [v2 to v3 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v2-to-v3.md). Most applications need no code changes.
+
+Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v1-to-v2.md) first.
 
 ---
 
