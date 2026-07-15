@@ -412,12 +412,51 @@ The `Healthie.NET.Dashboard` package is a pulse monitor for your services, shipp
 - **Live, event-driven** -- subscribes to `IPulseChecker.StateChanged` and updates one entry in place. No polling; a full state read happens only on first load.
 - **Aggregate pulse trace** -- an EKG across the header, with the combined checks-per-minute of everything you monitor.
 - **A row per checker** -- status light, name, checks per minute, and a pulse strip of the last N runs, one blip per run, coloured by the health it reported.
-- **Detail panel** -- select a checker for its uptime, failure streak, last message, and its interval and failure threshold, editable in place.
-- **Event log** -- state transitions as they happen, so you can see what changed and when without reading logs.
+- **Detail panel** -- select a checker for its uptime, failure streak, last message, and its interval, failure threshold, group and tags, all editable in place.
+- **Groups and tags** -- a checker sits in at most one group and carries any number of tags. Sections the list by group, filters it by tag. Both are declared in code and can be changed here; see [Groups and tags](#groups-and-tags).
+- **Pin** -- keep the checkers worth watching at the top. A pin is shared, not personal.
+- **Rows or cards** -- the same list laid out either way, flat or sectioned by group with per-group healthy/suspicious/failing tallies.
+- **Event log** -- state transitions as they happen, so you can see what changed and when without reading logs. The expand icon opens it full size.
+- **Legend and about** -- the `?` in the header explains every colour and control.
 - **Per-checker and bulk control** -- run, pause, and reset one checker or all of them.
 - **Search** -- filter the list by name as you type.
 - **Dark by default** -- with a light theme a toggle away.
+- **UTC throughout** -- the dashboard renders on the server, so a "local" time would be the server's, not yours. Every time it shows reads the same wherever you are.
 - **Responsive** -- columns collapse and the panel stacks; usable down to 375px.
+
+### Groups and tags
+
+They look alike and answer different questions.
+
+A checker belongs to **one group at most** -- that is where it lives. Groups are what the sectioned
+view splits on, so every checker appears exactly once and a section's tallies add up.
+
+A checker carries **any number of tags** -- those describe it and filter the list, and are free to
+cut across groups: a `tier-1` tag can sit on checkers in three different groups.
+
+Declare the defaults in code:
+
+```csharp
+public class RedisCachePulseChecker(IStateProvider stateProvider) : PulseChecker(stateProvider)
+{
+    public override string DisplayName => "Redis Cache";
+
+    public override string DefaultGroup => "Data Stores";
+
+    public override IReadOnlyList<string> DefaultTags => ["tier-1", "cache"];
+
+    public override Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
+        => /* ... */;
+}
+```
+
+Change them later from the dashboard, or in code through `SetGroupAsync` and `SetTagsAsync`. Either
+way the change is stored through the `IStateProvider`, exactly as an interval or threshold change
+is, so it outlives a restart. The defaults only seed a checker that has no stored state yet; they
+never overwrite a change you made.
+
+Tags are trimmed, de-duplicated case-insensitively, and ordered, so `" Tier-1 "` and `"tier-1"` are
+one tag. A checker with no group gathers under `UNGROUPED`.
 
 ### Setup
 

@@ -89,6 +89,24 @@ internal sealed class FakePulseChecker(string name) : IPulseChecker
     public Task SetUnhealthyThresholdAsync(uint threshold, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
+    public Task SetTagsAsync(IReadOnlyList<string> tags, CancellationToken cancellationToken = default)
+    {
+        _state.Tags = [.. tags];
+        return Task.CompletedTask;
+    }
+
+    public Task SetPinnedAsync(bool pinned, CancellationToken cancellationToken = default)
+    {
+        _state.IsPinned = pinned;
+        return Task.CompletedTask;
+    }
+
+    public Task SetGroupAsync(string? group, CancellationToken cancellationToken = default)
+    {
+        _state.Group = group;
+        return Task.CompletedTask;
+    }
+
     public Task ResetAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public Task<bool> StopAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);

@@ -16,6 +16,11 @@ public class PaymentGatewayPulseChecker : PulseChecker
 
     public override string DisplayName => "Payment Gateway (Stripe)";
 
+    public override string DefaultGroup => "Third Party";
+
+    public override IReadOnlyList<string> DefaultTags => ["tier-1"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(100, 500), cancellationToken);

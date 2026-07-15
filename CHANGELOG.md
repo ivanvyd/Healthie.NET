@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Groups and tags on a checker, each answering a different question. A checker belongs
+  to at most one **group** (`PulseChecker.DefaultGroup`, `IPulseChecker.SetGroupAsync`),
+  which is what the dashboard's grouped view sections by -- one group each is what makes
+  that view a partition, where every checker appears exactly once and a group's tallies
+  add up. It may carry any number of **tags** (`PulseChecker.DefaultTags`,
+  `IPulseChecker.SetTagsAsync`), which describe it and filter the list, and are free to
+  cut across groups. Both are declared in code as defaults and can be changed from the
+  dashboard afterwards; both are stored in `PulseCheckerState`, so an edit outlives a
+  restart and the defaults only ever seed a checker that has no stored state yet.
+- Pinning a checker (`PulseChecker.SetPinnedAsync`), which sorts it above the rest.
+  A pin is stored rather than held per-viewer: the checks worth watching are the same
+  for everyone.
+- The dashboard can lay the checkers out as rows or as cards, and can section them by
+  group, with each section collapsible and reporting its own healthy/suspicious/failing
+  tallies.
+- A legend and about panel on the dashboard, behind the `?` in the header, explaining
+  what the colours, the pulse strip, and the controls mean, and linking to the
+  repository, the author, and the license. Every control also explains itself on hover.
+
 - **`Healthie.NET.Mcp`**: a Model Context Protocol server, so an AI agent can read
   and act on service health. `AddHealthieMcp()` + `MapHealthieMcp()` serve it at
   `/healthie/mcp` over Streamable HTTP. Read-only by default; set
@@ -75,6 +94,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Every time the dashboard shows is now UTC, and says so. It renders on the server, so
+  the local time it used to print was the server's, shown to a viewer who may be nowhere
+  near it -- a clock that was right only for the host. UTC reads the same for everyone.
 - The dashboard is redesigned as a pulse monitor: an aggregate EKG trace, one row
   per checker with a per-run pulse strip, a side panel for the selected checker,
   and a live event log of state transitions. It stays a zero-dependency Blazor
@@ -107,6 +129,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The dashboard raised `StateHasChanged` from whichever thread ran the check, which
+  Blazor rejects, so every state change threw and was swallowed by the subscriber's error
+  handling -- roughly one logged exception and stack trace per check, forever, in the
+  host's own logs. The renders were only appearing because the once-a-second clock tick
+  redrew the component and picked up the change on its way past, which meant the
+  dashboard was quietly polling rather than being event-driven as documented. The work is
+  now marshalled onto the renderer's dispatcher.
+- The aggregate pulse trace jumped once per cycle at every window width but one. Its tile
+  was measured in SVG user units while the scroll that loops it moved a fixed number of
+  CSS pixels, and the two only agreed when the window happened to be exactly 1760px wide.
+  The same mismatch squashed the trace horizontally on a narrow window.
+- Icons sat a few pixels below the boxes they were given, because an `<svg>` is an inline
+  element and was aligning to the text baseline.
+- The page served by `MapHealthieUI()` left the browser's default body margin in place,
+  which drew a pale frame around the dashboard.
 - The dashboard fetched each checker's history separately even though a checker's
   state already carries it, costing one extra provider round-trip per checker on
   load and another on every state change. Against a remote provider this dominated

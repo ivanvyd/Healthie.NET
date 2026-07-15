@@ -44,6 +44,30 @@ public interface IPulsesScheduler : IHostedService
     Task SetUnhealthyThresholdAsync(string name, uint threshold, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Replaces the tags on the named pulse checker.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="tags">The tags to apply.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    Task SetTagsAsync(string name, IReadOnlyList<string> tags, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pins or unpins the named pulse checker.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="pinned"><c>true</c> to pin the checker; <c>false</c> to unpin it.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    Task SetPinnedAsync(string name, bool pinned, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the single group the named pulse checker belongs to.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="group">The group name, or <c>null</c> or blank for no group.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    Task SetGroupAsync(string name, string? group, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Resets a specific pulse checker state to healthy.
     /// </summary>
     /// <param name="name">The name of the pulse checker to reset.</param>

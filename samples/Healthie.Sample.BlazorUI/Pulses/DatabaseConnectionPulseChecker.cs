@@ -16,6 +16,11 @@ public class DatabaseConnectionPulseChecker : PulseChecker
 
     public override string DisplayName => "SQL Database";
 
+    public override string DefaultGroup => "Data Stores";
+
+    public override IReadOnlyList<string> DefaultTags => ["tier-1"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(50, 300), cancellationToken);

@@ -5,6 +5,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    @* app.css was never linked, so every page-level style in it -- including the body margin
+       reset that stops a pale frame being drawn around the dashboard -- did nothing. *@
+    <link href="app.css" rel="stylesheet" />
     <link href="Healthie.Sample.BlazorUI.styles.css" rel="stylesheet" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="InteractiveServer" />

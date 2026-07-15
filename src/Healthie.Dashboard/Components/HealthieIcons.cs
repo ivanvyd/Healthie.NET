@@ -52,6 +52,24 @@ internal static class HealthieIcons
     public static MarkupString Search => Svg(
         "<circle cx='11' cy='11' r='8'/><path d='m21 21-4.35-4.35'/>");
 
+    public static MarkupString Pin => Svg(
+        "<path d='M12 17v5'/><path d='M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z'/>");
+
+    public static MarkupString X => Svg(
+        "<path d='M18 6 6 18'/><path d='m6 6 12 12'/>");
+
+    public static MarkupString Rows => Svg(
+        "<rect x='3' y='4' width='18' height='4' rx='1'/><rect x='3' y='10' width='18' height='4' rx='1'/><rect x='3' y='16' width='18' height='4' rx='1'/>");
+
+    public static MarkupString Cards => Svg(
+        "<rect x='3' y='3' width='8' height='8' rx='1'/><rect x='13' y='3' width='8' height='8' rx='1'/><rect x='3' y='13' width='8' height='8' rx='1'/><rect x='13' y='13' width='8' height='8' rx='1'/>");
+
+    public static MarkupString ChevronRight => Svg(
+        "<path d='m9 18 6-6-6-6'/>");
+
+    public static MarkupString Expand => Svg(
+        "<path d='M15 3h6v6'/><path d='M9 21H3v-6'/><path d='M21 3l-7 7'/><path d='M3 21l7-7'/>");
+
     // Theme toggle icons
     public static MarkupString Sun => Svg(
         "<circle cx='12' cy='12' r='5'/><line x1='12' y1='1' x2='12' y2='3'/><line x1='12' y1='21' x2='12' y2='23'/><line x1='4.22' y1='4.22' x2='5.64' y2='5.64'/><line x1='18.36' y1='18.36' x2='19.78' y2='19.78'/><line x1='1' y1='12' x2='3' y2='12'/><line x1='21' y1='12' x2='23' y2='12'/><line x1='4.22' y1='19.78' x2='5.64' y2='18.36'/><line x1='18.36' y1='5.64' x2='19.78' y2='4.22'/>");

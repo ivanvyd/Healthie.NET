@@ -12,6 +12,11 @@ public class StorageBlobPulseChecker(IStateProvider stateProvider)
 
     public override string DisplayName => "Azure Blob Storage";
 
+    public override string DefaultGroup => "Data Stores";
+
+    public override IReadOnlyList<string> DefaultTags => ["cloud"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(40, 180), cancellationToken);

@@ -36,6 +36,17 @@
     font-family: var(--hpm-sans);
 }
 
+/*
+ * An <svg> is an inline element, so it sits on the text baseline and leaves room underneath for
+ * descenders -- which drops every icon below the box it was given and out of alignment with the
+ * text beside it. None of these icons is a letter in a line of prose; each one fills its own box.
+ * Only the flow is corrected here: sizing stays with whatever holds the icon, so this cannot
+ * out-specify the rules that give each one its size.
+ */
+.healthie-dashboard .healthie-icon {
+    display: block;
+}
+
 .healthie-dashboard[data-hpm="light"] {
     --hpm-bg: #EFF3F2;
     --hpm-panel: #FFFFFF;
@@ -234,7 +245,7 @@
     height: 64px;
     /* Overdrawn by exactly one pattern tile so the scroll loops seamlessly. */
     width: calc(100% + 220px);
-    animation: hpm-scroll 3.2s linear infinite;
+    animation: hpm-scroll 4.2s linear infinite;
 }
 
 .hpm-trace-label {
@@ -269,7 +280,7 @@
 .hpm-row,
 .hpm-list-head {
     display: grid;
-    grid-template-columns: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px 70px;
+    grid-template-columns: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px 100px;
     gap: 14px;
     align-items: center;
 }
@@ -753,4 +764,716 @@
         animation: none !important;
         transition: none !important;
     }
+}
+
+/* --------------------------------------------------------------------------
+ * Toolbar: how the list is laid out, and whether it is grouped.
+ * ---------------------------------------------------------------------- */
+
+.hpm-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px 8px;
+}
+
+.hpm-viewswitch {
+    display: flex;
+    gap: 4px;
+}
+
+.hpm-btn--sm {
+    padding: 4px 9px;
+    font-size: 10px;
+}
+
+.hpm-btn--icon.hpm-btn--sm {
+    width: 26px;
+    height: 24px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.hpm-btn--icon.hpm-btn--sm svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* The on state of a toggle, so which view is active is shown rather than implied. */
+.hpm-btn--on {
+    border-color: var(--hpm-ok);
+    color: var(--hpm-ok);
+    background: var(--hpm-ok-bg);
+}
+
+/* --------------------------------------------------------------------------
+ * Tags.
+ * ---------------------------------------------------------------------- */
+
+.hpm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border: 1px solid var(--hpm-line2);
+    border-radius: 999px;
+    background: var(--hpm-panel2);
+    color: var(--hpm-muted);
+    font-family: var(--hpm-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.hpm-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 6px 0 8px;
+}
+
+.hpm-chips .hpm-chip {
+    margin-left: 0;
+}
+
+.hpm-chip--editable {
+    padding-right: 2px;
+}
+
+.hpm-chips-empty {
+    font-size: 11px;
+    color: var(--hpm-faint);
+}
+
+.hpm-chip-x {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 13px;
+    height: 13px;
+    padding: 0;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--hpm-faint);
+    cursor: pointer;
+}
+
+.hpm-chip-x svg {
+    width: 9px;
+    height: 9px;
+}
+
+.hpm-chip-x:hover {
+    background: var(--hpm-crit-bg);
+    color: var(--hpm-crit);
+}
+
+.hpm-tags-editor {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hpm-line);
+}
+
+.hpm-tag-add {
+    display: flex;
+    gap: 6px;
+}
+
+.hpm-tag-add input {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--hpm-line);
+    border-radius: 6px;
+    background: var(--hpm-bg);
+    color: var(--hpm-text);
+    font-family: var(--hpm-mono);
+    font-size: 11.5px;
+    outline: none;
+}
+
+.hpm-tag-add input:focus {
+    border-color: var(--hpm-ok);
+}
+
+.hpm-select {
+    padding: 6px 8px;
+    border: 1px solid var(--hpm-line);
+    border-radius: 6px;
+    background: var(--hpm-bg);
+    color: var(--hpm-text);
+    font-family: var(--hpm-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    outline: none;
+    cursor: pointer;
+}
+
+.hpm-select:focus {
+    border-color: var(--hpm-ok);
+}
+
+.hpm-field--inline {
+    display: flex;
+    align-items: center;
+}
+
+/* --------------------------------------------------------------------------
+ * Pinning.
+ * ---------------------------------------------------------------------- */
+
+.hpm-pin-mark {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 5px;
+    color: var(--hpm-status, var(--hpm-muted));
+    vertical-align: -1px;
+}
+
+.hpm-icon-btn--on {
+    border-color: var(--hpm-status, var(--hpm-ok));
+    color: var(--hpm-status, var(--hpm-ok));
+    background: var(--hpm-status-bg, var(--hpm-ok-bg));
+}
+
+/* --------------------------------------------------------------------------
+ * Tag groups.
+ * ---------------------------------------------------------------------- */
+
+.hpm-group {
+    margin-bottom: 10px;
+    border: 1px solid var(--hpm-line);
+    border-radius: 8px;
+    background: var(--hpm-panel);
+    overflow: hidden;
+}
+
+.hpm-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 9px 12px;
+    border: none;
+    /* Carries the worst health inside it, faint enough that the rows stay the loudest thing. */
+    border-left: 3px solid var(--hpm-status, var(--hpm-line2));
+    background: var(--hpm-panel2);
+    color: var(--hpm-text);
+    font-family: var(--hpm-mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    cursor: pointer;
+}
+
+.hpm-group-head:hover {
+    background: var(--hpm-status-bg, var(--hpm-panel2));
+}
+
+.hpm-group-chevron {
+    display: block;
+    width: 12px;
+    height: 12px;
+    color: var(--hpm-muted);
+    transition: transform 0.15s ease;
+}
+
+.hpm-group-chevron--open {
+    transform: rotate(90deg);
+}
+
+.hpm-group-name {
+    color: var(--hpm-text);
+    font-weight: 600;
+}
+
+.hpm-group-count {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--hpm-bg);
+    color: var(--hpm-muted);
+    font-size: 9.5px;
+}
+
+.hpm-group-stats {
+    display: flex;
+    gap: 4px;
+}
+
+.hpm-gs {
+    min-width: 20px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    text-align: center;
+}
+
+.hpm-gs--ok { background: var(--hpm-ok-bg); color: var(--hpm-ok); }
+.hpm-gs--warn { background: var(--hpm-warn-bg); color: var(--hpm-warn); }
+.hpm-gs--crit { background: var(--hpm-crit-bg); color: var(--hpm-crit); }
+
+.hpm-group-body {
+    padding: 8px;
+}
+
+.hpm-group-body .hpm-row {
+    margin-bottom: 6px;
+}
+
+.hpm-group-body .hpm-row:last-child {
+    margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+ * Card view. The markup is the row's; only the shape changes.
+ * ---------------------------------------------------------------------- */
+
+.hpm-list--cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 10px;
+    align-content: start;
+}
+
+/* The toolbar, the empty state and a group are bands, not cells. */
+.hpm-list--cards > .hpm-toolbar,
+.hpm-list--cards > .hpm-empty,
+.hpm-list--cards > .hpm-group,
+.hpm-list--cards > .hpm-skeleton {
+    grid-column: 1 / -1;
+}
+
+.hpm-list--cards .hpm-row,
+.hpm-group-body--cards .hpm-row {
+    grid-template-columns: 18px 1fr;
+    grid-template-areas:
+        "led name"
+        ". rate"
+        ". blips"
+        ". time"
+        ". actions";
+    gap: 7px 10px;
+    align-items: start;
+    margin-bottom: 0;
+}
+
+.hpm-list--cards .hpm-row-name,
+.hpm-group-body--cards .hpm-row-name { grid-area: name; }
+
+.hpm-list--cards .hpm-rate-cell,
+.hpm-group-body--cards .hpm-rate-cell { grid-area: rate; justify-self: start; }
+
+.hpm-list--cards .hpm-blips,
+.hpm-list--cards .hpm-blips-empty,
+.hpm-group-body--cards .hpm-blips,
+.hpm-group-body--cards .hpm-blips-empty { grid-area: blips; }
+
+.hpm-list--cards .hpm-time,
+.hpm-group-body--cards .hpm-time { grid-area: time; text-align: left; }
+
+.hpm-list--cards .hpm-row-actions,
+.hpm-group-body--cards .hpm-row-actions { grid-area: actions; justify-content: flex-start; }
+
+.hpm-list--cards .hpm-row-sub,
+.hpm-group-body--cards .hpm-row-sub {
+    white-space: normal;
+}
+
+.hpm-group-body--cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    gap: 8px;
+}
+
+/* --------------------------------------------------------------------------
+ * Legend and about.
+ * ---------------------------------------------------------------------- */
+
+.hpm-legend-group {
+    margin-bottom: 14px;
+}
+
+.hpm-legend-group:last-child {
+    margin-bottom: 0;
+}
+
+.hpm-legend {
+    display: grid;
+    grid-template-columns: 14px 1fr;
+    gap: 7px 8px;
+    margin: 6px 0 0;
+    font-size: 11.5px;
+    color: var(--hpm-muted);
+}
+
+.hpm-legend dt {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.hpm-legend dd {
+    margin: 0;
+}
+
+.hpm-legend b {
+    color: var(--hpm-text);
+    font-weight: 600;
+}
+
+.hpm-key {
+    display: block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+}
+
+.hpm-ok-key { background: var(--hpm-ok); }
+.hpm-warn-key { background: var(--hpm-warn); }
+.hpm-crit-key { background: var(--hpm-crit); }
+.hpm-paused-key { background: var(--hpm-paused); }
+
+.hpm-about-list {
+    margin: 6px 0 0;
+    padding-left: 15px;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: var(--hpm-muted);
+}
+
+.hpm-about-list b {
+    color: var(--hpm-text);
+    font-weight: 600;
+}
+
+.hpm-about-text {
+    margin: 6px 0 8px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--hpm-muted);
+}
+
+.hpm-about-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.hpm-about-links a {
+    padding: 4px 9px;
+    border: 1px solid var(--hpm-line2);
+    border-radius: 6px;
+    color: var(--hpm-muted);
+    font-family: var(--hpm-mono);
+    font-size: 10.5px;
+    text-decoration: none;
+}
+
+.hpm-about-links a:hover {
+    border-color: var(--hpm-ok);
+    color: var(--hpm-ok);
+}
+
+.hpm-dot {
+    color: var(--hpm-ok);
+}
+
+/* --------------------------------------------------------------------------
+ * Scrollbars. Styled rather than left to the platform, which paints a wide
+ * light-grey bar straight down the side of a dark panel.
+ * ---------------------------------------------------------------------- */
+
+.hpm-log-body {
+    scrollbar-width: thin;
+    scrollbar-color: var(--hpm-line2) transparent;
+}
+
+.hpm-log-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.hpm-log-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.hpm-log-body::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--hpm-line2);
+    background-clip: padding-box;
+}
+
+.hpm-log-body::-webkit-scrollbar-thumb:hover {
+    background: var(--hpm-faint);
+    background-clip: padding-box;
+}
+
+/* --------------------------------------------------------------------------
+ * Someone who has asked their system for less motion should not be handed a
+ * scrolling heartbeat and a blinking LED.
+ * ---------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    .healthie-dashboard *,
+    .healthie-dashboard *::before,
+    .healthie-dashboard *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+ * Legend and about popover. Hangs off the ? in the header: read once, then in
+ * the way forever if it were given a permanent panel.
+ * ---------------------------------------------------------------------- */
+
+.hpm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.hpm-popover {
+    position: fixed;
+    top: 58px;
+    right: 26px;
+    z-index: 50;
+    width: 370px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    border: 1px solid var(--hpm-line2);
+    border-radius: 10px;
+    background: var(--hpm-panel);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.5);
+    animation: hpm-pop 0.12s ease-out;
+}
+
+.hpm-popover-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 12px 10px 14px;
+    border-bottom: 1px solid var(--hpm-line);
+}
+
+.hpm-popover-body {
+    padding: 14px;
+}
+
+.hpm-popover {
+    scrollbar-width: thin;
+    scrollbar-color: var(--hpm-line2) transparent;
+}
+
+.hpm-popover::-webkit-scrollbar {
+    width: 8px;
+}
+
+.hpm-popover::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.hpm-popover::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--hpm-line2);
+    background-clip: padding-box;
+}
+
+@keyframes hpm-pop {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* A group is where a checker lives and a tag is a label on it, so they must not read as the same
+   thing sitting side by side. */
+.hpm-chip--group {
+    border-color: var(--hpm-line2);
+    background: transparent;
+    color: var(--hpm-text);
+    font-weight: 600;
+}
+
+.hpm-group-select {
+    width: 100%;
+    margin-top: 6px;
+}
+
+/* --------------------------------------------------------------------------
+ * Density. The selected checker's controls are set once and then left alone,
+ * while the event log is read continuously -- so the controls give up their
+ * slack and the log takes it.
+ * ---------------------------------------------------------------------- */
+
+.hpm-side .hpm-panel-body {
+    padding: 12px 14px 14px;
+}
+
+.hpm-stats {
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.hpm-stat {
+    padding: 7px 9px;
+}
+
+.hpm-message {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+}
+
+.hpm-sel-actions {
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.hpm-sel-btn {
+    padding: 7px 10px;
+}
+
+.hpm-fields {
+    gap: 8px;
+}
+
+.hpm-tags-editor {
+    margin-top: 9px;
+    padding-top: 9px;
+}
+
+.hpm-side .hpm-panel-head {
+    padding: 11px 14px 9px;
+}
+
+/* Roughly twice what it had, which is the point of the density above. */
+.hpm-log-body {
+    max-height: 460px;
+}
+
+.hpm-log-expand {
+    width: 22px;
+    height: 22px;
+    margin-left: 8px;
+}
+
+.hpm-log-expand svg {
+    width: 10px;
+    height: 10px;
+}
+
+/* --------------------------------------------------------------------------
+ * The event log at full size.
+ * ---------------------------------------------------------------------- */
+
+.hpm-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: min(980px, calc(100vw - 48px));
+    height: min(720px, calc(100vh - 64px));
+    border: 1px solid var(--hpm-line2);
+    border-radius: 10px;
+    background: var(--hpm-panel);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+    animation: hpm-modal-in 0.12s ease-out;
+}
+
+.hpm-modal-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hpm-line2) transparent;
+}
+
+.hpm-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.hpm-modal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.hpm-modal-body::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--hpm-line2);
+    background-clip: padding-box;
+}
+
+.hpm-modal-note {
+    font-family: var(--hpm-mono);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--hpm-faint);
+    text-transform: uppercase;
+}
+
+.hpm-log-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--hpm-mono);
+    font-size: 11.5px;
+}
+
+.hpm-log-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--hpm-line);
+    background: var(--hpm-panel2);
+    color: var(--hpm-faint);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-align: left;
+}
+
+.hpm-log-table td {
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--hpm-line);
+    vertical-align: top;
+}
+
+.hpm-log-table tbody tr:hover {
+    background: var(--hpm-status-bg, var(--hpm-panel2));
+}
+
+.hpm-log-table td:first-child {
+    white-space: nowrap;
+    color: var(--hpm-faint);
+}
+
+.hpm-log-table td:nth-child(2) {
+    white-space: nowrap;
+}
+
+/* Wraps rather than truncating: the sidebar clips a message to a line, and reading the whole of
+   one is the reason to open this. */
+.hpm-log-detail {
+    width: 100%;
+    color: var(--hpm-text);
+    line-height: 1.5;
+    white-space: normal;
+    word-break: break-word;
+}
+
+@keyframes hpm-modal-in {
+    from { opacity: 0; transform: translate(-50%, calc(-50% - 6px)); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
 }

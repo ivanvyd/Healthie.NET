@@ -16,6 +16,9 @@ public class SearchIndexPulseChecker : PulseChecker
 
     public override string DisplayName => "Elasticsearch Cluster";
 
+    public override string DefaultGroup => "Data Stores";
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(30, 200), cancellationToken);

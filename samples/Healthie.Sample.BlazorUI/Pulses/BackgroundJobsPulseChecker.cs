@@ -16,6 +16,9 @@ public class BackgroundJobsPulseChecker : PulseChecker
 
     public override string DisplayName => "Background Jobs (Hangfire)";
 
+    public override string DefaultGroup => "Messaging";
+
+
     public override Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         var failedJobs = _random.Next(0, 30);

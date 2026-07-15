@@ -67,6 +67,54 @@ internal sealed class HealthieDashboardService(
     }
 
     /// <inheritdoc />
+    public async Task SetTagsAsync(string name, IReadOnlyList<string> tags,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await pulsesScheduler.SetTagsAsync(name, tags, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to set tags for checker '{CheckerName}'.", name);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task SetPinnedAsync(string name, bool pinned,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await pulsesScheduler.SetPinnedAsync(name, pinned, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to pin checker '{CheckerName}'.", name);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task SetGroupAsync(string name, string? group,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await pulsesScheduler.SetGroupAsync(name, group, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to set the group for checker '{CheckerName}'.", name);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task StartAsync(string name, CancellationToken cancellationToken = default)
     {
         try

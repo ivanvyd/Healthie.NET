@@ -16,6 +16,11 @@ public class MessageQueuePulseChecker : PulseChecker
 
     public override string DisplayName => "RabbitMQ Broker";
 
+    public override string DefaultGroup => "Messaging";
+
+    public override IReadOnlyList<string> DefaultTags => ["tier-1"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(20, 150), cancellationToken);

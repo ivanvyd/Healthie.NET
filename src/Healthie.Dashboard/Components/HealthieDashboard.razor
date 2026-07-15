@@ -23,55 +23,321 @@
 
             <div class="hpm-spacer"></div>
 
-            <span class="hpm-clock">@_now.ToString("HH:mm:ss") LOCAL</span>
+            <span class="hpm-clock" title="Every time on this dashboard is UTC, so it reads the same wherever you are">
+                @_now.ToString("HH:mm:ss") UTC
+            </span>
+
+            @if (AllTags.Any())
+            {
+                <div class="hpm-field hpm-field--inline">
+                    <select class="hpm-select hpm-tag-filter" aria-label="Filter checkers by tag"
+                            title="Show only the checkers carrying a tag"
+                            value="@(_tagFilter ?? string.Empty)" @onchange="OnTagFilterChanged">
+                        <option value="">ALL TAGS</option>
+                        @foreach (var tag in AllTags)
+                        {
+                            <option value="@tag" selected="@(tag == _tagFilter)">@tag</option>
+                        }
+                    </select>
+                </div>
+            }
 
             <div class="hpm-search">
                 <span class="hpm-search-icon" aria-hidden="true">@HealthieIcons.Search</span>
                 <input type="text" placeholder="Search" aria-label="Search checkers"
+                       title="Filter the list by checker name"
                        value="@_searchFilter" @oninput="OnSearchInput" />
             </div>
 
             <div class="hpm-actions">
-                <button type="button" class="hpm-btn" title="Run all checks now" @onclick="TriggerAllAsync">RUN ALL</button>
-                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--start" title="Start all checkers" aria-label="Start all checkers" @onclick="StartAllAsync">▶</button>
-                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--stop" title="Pause all checkers" aria-label="Pause all checkers" @onclick="StopAllAsync">❚❚</button>
+                <button type="button" class="hpm-btn" title="Run every checker once, right now, without waiting for its interval" @onclick="TriggerAllAsync">RUN ALL</button>
+                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--start" title="Resume every paused checker" aria-label="Start all checkers" @onclick="StartAllAsync">▶</button>
+                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--stop" title="Pause every checker -- they stop running until started again" aria-label="Pause all checkers" @onclick="StopAllAsync">❚❚</button>
                 @if (Options.EnableDarkModeToggle)
                 {
                     <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--theme"
                             title="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")"
                             @onclick="ToggleThemeAsync">@(_isDarkMode ? "☀" : "☾")</button>
                 }
+                <button type="button" class="hpm-btn hpm-btn--icon @(_showAbout ? "hpm-btn--on" : "")"
+                        title="What the colours and controls mean" aria-label="Legend and about"
+                        aria-expanded="@(_showAbout ? "true" : "false")"
+                        @onclick="ToggleAbout">?</button>
             </div>
         </div>
 
         <div class="hpm-trace-wrap">
             <div class="hpm-trace">
-                @* One tile of the trace, repeated across the width and scrolled by exactly one tile. *@
-                <svg preserveAspectRatio="none" viewBox="0 0 1760 64" aria-hidden="true" focusable="false">
+                @*
+                    One beat, tiled across the width and scrolled by exactly one tile.
+
+                    Deliberately no viewBox: with one, the tile is 220 user units that only measure
+                    220 CSS pixels at one particular window width, so the scroll -- which moves a
+                    fixed 220px -- drifts out of step with the pattern and visibly jumps once a
+                    cycle. Without one, a user unit is a pixel at every width, and the loop is
+                    seamless. It also stops the trace being squashed horizontally on a narrow
+                    window, which is what made the line look jagged.
+
+                    The curves are the P and T waves, which are round in a real trace; only the QRS
+                    spike in the middle is drawn with corners, because that part genuinely is sharp.
+                *@
+                <svg aria-hidden="true" focusable="false">
                     <defs>
                         <pattern id="@_traceId" x="0" y="0" width="220" height="64" patternUnits="userSpaceOnUse">
-                            <polyline points="0,40 58,40 70,40 78,16 88,56 97,32 104,40 148,40 158,31 168,40 220,40"
-                                      fill="none" stroke="@TraceColor" stroke-width="1.8"
-                                      stroke-linejoin="round" stroke-linecap="round" />
+                            <path d="M0,40 L46,40
+                                     C52,40 52,33.5 57,33.5 C62,33.5 62,40 68,40
+                                     L74,40 L78,35 L83,13 L89,55 L93,37 L97,40
+                                     L112,40
+                                     C124,40 126,29.5 133,29.5 C140,29.5 141,40 152,40
+                                     L220,40"
+                                  fill="none" stroke="@TraceColor" stroke-width="1.8"
+                                  stroke-linejoin="round" stroke-linecap="round" />
                         </pattern>
                     </defs>
-                    <rect x="0" y="0" width="1760" height="64" fill="url(#@_traceId)" />
+                    <rect x="0" y="0" width="100%" height="64" fill="url(#@_traceId)" />
                 </svg>
                 <div class="hpm-trace-label">AGGREGATE PULSE · @ChecksPerMinute CHECKS/MIN</div>
             </div>
         </div>
     </header>
 
-    <div class="hpm-body">
-        <div class="hpm-list">
-            <div class="hpm-list-head" aria-hidden="true">
-                <span></span>
-                <span>CHECKER</span>
-                <span>RATE</span>
-                <span>PULSE · LAST @HistoryWindow</span>
-                <span class="hpm-right">LAST RUN</span>
-                <span></span>
+    @*
+        The event log at full size. The sidebar copy is a glance; this is the one to read when
+        something has gone wrong and the interesting line has already scrolled away.
+    *@
+    @if (_showLog)
+    {
+        <div class="hpm-backdrop" @onclick="ToggleLog" aria-hidden="true"></div>
+
+        <div class="hpm-modal" role="dialog" aria-modal="true" aria-label="Event log">
+            <div class="hpm-popover-head">
+                <span class="hpm-sel-name">Event log</span>
+                <span class="hpm-tag">@_events.Count</span>
+                <span class="hpm-modal-note">newest first · UTC</span>
+                <div class="hpm-spacer"></div>
+                <button type="button" class="hpm-icon-btn" title="Close" aria-label="Close"
+                        @onclick="ToggleLog">@HealthieIcons.X</button>
             </div>
+
+            <div class="hpm-modal-body">
+                @if (_events.Count == 0)
+                {
+                    <div class="hpm-log-empty">Quiet so far. Events appear as checks change state.</div>
+                }
+                else
+                {
+                    <table class="hpm-log-table">
+                        <thead>
+                            <tr>
+                                <th>TIME</th>
+                                <th>LEVEL</th>
+                                <th>DETAIL</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in _events)
+                            {
+                                <tr class="@StatusClass(entry.Status)">
+                                    <td class="hpm-event-time">@entry.At.ToString("HH:mm:ss")</td>
+                                    <td><span class="hpm-event-tag">[@entry.Tag]</span></td>
+                                    <td class="hpm-log-detail">@entry.Text</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    }
+
+    @*
+        Legend and about, hanging off the ? in the header rather than sitting in the sidebar: it is
+        read once and then never again, so it must not take a permanent seat next to the thing
+        people actually came to look at. The backdrop is a real element rather than a document
+        click handler, which keeps dismissal working without any JavaScript.
+    *@
+    @if (_showAbout)
+    {
+        <div class="hpm-backdrop" @onclick="ToggleAbout" aria-hidden="true"></div>
+
+        <div class="hpm-popover" role="dialog" aria-modal="true" aria-label="Legend and about">
+            <div class="hpm-popover-head">
+                <span class="hpm-sel-name">Healthie<span class="hpm-dot">·</span>NET</span>
+                <span class="hpm-tag">v@(PackageVersion)</span>
+                <div class="hpm-spacer"></div>
+                <button type="button" class="hpm-icon-btn" title="Close" aria-label="Close"
+                        @onclick="ToggleAbout">@HealthieIcons.X</button>
+            </div>
+
+            <div class="hpm-popover-body">
+                <div class="hpm-legend-group">
+                    <div class="hpm-stat-label">HEALTH</div>
+                    <dl class="hpm-legend">
+                        <dt><span class="hpm-key hpm-ok-key"></span></dt>
+                        <dd><b>Healthy</b> — the last check passed.</dd>
+                        <dt><span class="hpm-key hpm-warn-key"></span></dt>
+                        <dd><b>Suspicious</b> — failing, but not yet past its threshold.</dd>
+                        <dt><span class="hpm-key hpm-crit-key"></span></dt>
+                        <dd><b>Failing</b> — failed more times in a row than its threshold allows.</dd>
+                        <dt><span class="hpm-key hpm-paused-key"></span></dt>
+                        <dd><b>Pending / paused</b> — never run yet, or not running.</dd>
+                    </dl>
+                </div>
+
+                <div class="hpm-legend-group">
+                    <div class="hpm-stat-label">READING THE DASHBOARD</div>
+                    <ul class="hpm-about-list">
+                        <li><b>Pulse</b> is the recent run history, oldest on the left.</li>
+                        <li><b>Rate</b> is how many times a minute the check runs.</li>
+                        <li><b>Uptime</b> is the share of remembered runs that were healthy.</li>
+                        <li><b>Fails</b> counts failures in a row against the threshold.</li>
+                        <li><b>Tags</b> group checkers; filter by one from the header.</li>
+                        <li><b>Pin</b> keeps a checker on top — for everyone, not just you.</li>
+                        <li>All times are <b>UTC</b>.</li>
+                    </ul>
+                </div>
+
+                <div class="hpm-legend-group">
+                    <div class="hpm-stat-label">ABOUT</div>
+                    <p class="hpm-about-text">
+                        Health monitoring for .NET. Checks run on an interval, count failures
+                        against a threshold, and keep their own history.
+                    </p>
+                    <div class="hpm-about-links">
+                        <a href="@ProjectUrl" target="_blank" rel="noopener noreferrer" title="Source, docs, and issues on GitHub">Repository</a>
+                        <a href="@AuthorUrl" target="_blank" rel="noopener noreferrer" title="The author's GitHub profile">@AuthorName</a>
+                        <a href="@LicenseUrl" target="_blank" rel="noopener noreferrer" title="MIT license">MIT</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @*
+        One row, rendered the same whether the list is flat or grouped, table or cards. The two
+        views differ in CSS, not markup: a second copy of this would be a second place to fix
+        every time a row gains a control.
+    *@
+    @{
+        RenderFragment<KeyValuePair<string, PulseCheckerState>> checkerRow = item =>
+    @<text>
+        @{
+            var name = item.Key;
+            var state = item.Value;
+            var isSelected = name == _selected;
+            var status = StatusOf(state);
+            var history = HistoryOf(name);
+        }
+        <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
+             role="button" tabindex="0"
+             aria-pressed="@(isSelected ? "true" : "false")"
+             @onclick="@(() => _selected = name)"
+             @onkeydown="@(e => OnRowKeyDown(e, name))">
+
+                        <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
+                              aria-hidden="true"></span>
+
+                        <div class="hpm-row-name">
+                            <div class="hpm-row-title">
+                                @if (state.IsPinned)
+                                {
+                                    <span class="hpm-pin-mark" title="Pinned to the top" aria-label="Pinned">@HealthieIcons.Pin</span>
+                                }
+                                @DisplayNameOf(name)
+                            </div>
+                            <div class="hpm-row-sub">
+                                @StatusWord(state) · @ShortTypeName(name)
+                                @if (!string.IsNullOrWhiteSpace(state.Group))
+                                {
+                                    <span class="hpm-chip hpm-chip--group" title="In the @state.Group group">@state.Group</span>
+                                }
+                                @foreach (var tag in state.Tags)
+                                {
+                                    <span class="hpm-chip" title="Tagged @tag">@tag</span>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="hpm-rate-cell">
+                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused")">@RatePerMinute(state)</span>
+                            <span class="hpm-rate-unit">per min</span>
+                        </div>
+
+                        @if (history.Count == 0)
+                        {
+                            <span class="hpm-blips-empty">no runs yet</span>
+                        }
+                        else
+                        {
+                            <div class="hpm-blips" title="The last @history.Count runs, oldest on the left. Green healthy, amber suspicious, red failing.">
+                                @foreach (var entry in history)
+                                {
+                                    <span class="hpm-blip @BlipClass(entry.Health) @StatusClass(StatusOf(entry.Health))"
+                                          title="@entry.Health at @entry.ExecutedAt.ToString("HH:mm:ss") UTC"></span>
+                                }
+                            </div>
+                        }
+
+                        <span class="hpm-time">@Relative(state.LastExecutionDateTime)</span>
+
+                        <div class="hpm-row-actions">
+                            <button type="button" class="hpm-icon-btn @(state.IsPinned ? "hpm-icon-btn--on" : "")"
+                                    title="@(state.IsPinned ? "Unpin -- stop keeping this at the top" : "Pin to the top of the list, for everyone")"
+                                    aria-label="@(state.IsPinned ? "Unpin" : "Pin") @DisplayNameOf(name)"
+                                    aria-pressed="@(state.IsPinned ? "true" : "false")"
+                                    @onclick="@(() => TogglePinAsync(name, state.IsPinned))" @onclick:stopPropagation="true">
+                                @HealthieIcons.Pin
+                            </button>
+                            <button type="button" class="hpm-icon-btn hpm-icon-btn--run" title="Run this check once, right now"
+                                    aria-label="Run @DisplayNameOf(name) now"
+                                    @onclick="@(() => TriggerCheckerAsync(name))" @onclick:stopPropagation="true">
+                                @HealthieIcons.Zap
+                            </button>
+                            <button type="button" class="hpm-icon-btn"
+                                    title="@(state.IsActive ? "Pause -- this check stops running on its interval" : "Start running this check on its interval")"
+                                    aria-label="@(state.IsActive ? "Pause" : "Start") @DisplayNameOf(name)"
+                                    @onclick="@(() => ToggleCheckerAsync(name, state.IsActive))" @onclick:stopPropagation="true">
+                                @(state.IsActive ? HealthieIcons.Pause : HealthieIcons.Play)
+                            </button>
+                        </div>
+                    </div>
+    </text>;
+    }
+
+    <div class="hpm-body">
+        <div class="hpm-list @(_asCards ? "hpm-list--cards" : "")">
+
+            <div class="hpm-toolbar">
+                <button type="button" class="hpm-btn hpm-btn--sm @(_groupByTags ? "hpm-btn--on" : "")"
+                        title="@(_groupByTags ? "Show one flat list again" : "Collect the checkers into a section per group")"
+                        aria-pressed="@(_groupByTags ? "true" : "false")"
+                        @onclick="ToggleGrouping">GROUP</button>
+
+                <div class="hpm-spacer"></div>
+
+                <div class="hpm-viewswitch" role="group" aria-label="How to lay the checkers out">
+                    <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--sm @(_asCards ? "" : "hpm-btn--on")"
+                            title="Show the checkers as rows" aria-label="Table view"
+                            aria-pressed="@(_asCards ? "false" : "true")"
+                            @onclick="@(() => _asCards = false)">@HealthieIcons.Rows</button>
+                    <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--sm @(_asCards ? "hpm-btn--on" : "")"
+                            title="Show the checkers as cards" aria-label="Card view"
+                            aria-pressed="@(_asCards ? "true" : "false")"
+                            @onclick="@(() => _asCards = true)">@HealthieIcons.Cards</button>
+                </div>
+            </div>
+
+            @if (!_asCards)
+            {
+                <div class="hpm-list-head" aria-hidden="true">
+                    <span></span>
+                    <span>CHECKER</span>
+                    <span>RATE</span>
+                    <span>PULSE · LAST @HistoryWindow</span>
+                    <span class="hpm-right">LAST RUN</span>
+                    <span></span>
+                </div>
+            }
 
             @if (_isLoading)
             {
@@ -89,72 +355,53 @@
                     }
                     else
                     {
-                        <span>No checkers match the search.</span>
+                        <span>No checkers match the search@(_tagFilter is null ? "" : $" and the {_tagFilter} tag").</span>
                     }
                 </div>
             }
-            else
+            else if (_groupByTags)
             {
-                var delay = 0;
-
-                foreach (var (name, state) in _filtered)
+                foreach (var group in GroupedRows())
                 {
-                    var isSelected = name == _selected;
-                    var status = StatusOf(state);
-                    var history = HistoryOf(name);
+                    var collapsed = _collapsedGroups.Contains(group.Tag);
 
-                    <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
-                         style="animation-delay: @(delay)ms"
-                         role="button" tabindex="0"
-                         aria-pressed="@(isSelected ? "true" : "false")"
-                         @onclick="@(() => _selected = name)"
-                         @onkeydown="@(e => OnRowKeyDown(e, name))">
+                    <div class="hpm-group @StatusClass(group.Worst)">
+                        <button type="button" class="hpm-group-head"
+                                aria-expanded="@(collapsed ? "false" : "true")"
+                                title="@(collapsed ? "Show" : "Hide") the @group.Rows.Count checker(s) in @group.Tag"
+                                @onclick="@(() => ToggleGroup(group.Tag))">
+                            <span class="hpm-group-chevron @(collapsed ? "" : "hpm-group-chevron--open")" aria-hidden="true">
+                                @HealthieIcons.ChevronRight
+                            </span>
+                            <span class="hpm-group-name">@group.Tag</span>
+                            <span class="hpm-group-count">@group.Rows.Count</span>
 
-                        <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
-                              aria-hidden="true"></span>
+                            <div class="hpm-spacer"></div>
 
-                        <div class="hpm-row-name">
-                            <div class="hpm-row-title">@DisplayNameOf(name)</div>
-                            <div class="hpm-row-sub">@StatusWord(state) · @ShortTypeName(name)</div>
-                        </div>
+                            <span class="hpm-group-stats">
+                                <span class="hpm-gs hpm-gs--ok" title="@group.Healthy healthy">@group.Healthy</span>
+                                <span class="hpm-gs hpm-gs--warn" title="@group.Suspicious suspicious">@group.Suspicious</span>
+                                <span class="hpm-gs hpm-gs--crit" title="@group.Failing failing">@group.Failing</span>
+                            </span>
+                        </button>
 
-                        <div class="hpm-rate-cell">
-                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused")">@RatePerMinute(state)</span>
-                            <span class="hpm-rate-unit">per min</span>
-                        </div>
-
-                        @if (history.Count == 0)
+                        @if (!collapsed)
                         {
-                            <span class="hpm-blips-empty">no runs yet</span>
-                        }
-                        else
-                        {
-                            <div class="hpm-blips" title="@history.Count recent run(s), oldest first">
-                                @foreach (var entry in history)
+                            <div class="hpm-group-body @(_asCards ? "hpm-group-body--cards" : "")">
+                                @foreach (var item in group.Rows)
                                 {
-                                    <span class="hpm-blip @BlipClass(entry.Health) @StatusClass(StatusOf(entry.Health))"
-                                          title="@entry.Health at @entry.ExecutedAt.ToLocalTime().ToString("HH:mm:ss")"></span>
+                                    @checkerRow(item)
                                 }
                             </div>
                         }
-
-                        <span class="hpm-time">@Relative(state.LastExecutionDateTime)</span>
-
-                        <div class="hpm-row-actions">
-                            <button type="button" class="hpm-icon-btn hpm-icon-btn--run" title="Run now"
-                                    aria-label="Run @DisplayNameOf(name) now"
-                                    @onclick="@(() => TriggerCheckerAsync(name))" @onclick:stopPropagation="true">
-                                @HealthieIcons.Zap
-                            </button>
-                            <button type="button" class="hpm-icon-btn" title="@(state.IsActive ? "Pause" : "Start")"
-                                    aria-label="@(state.IsActive ? "Pause" : "Start") @DisplayNameOf(name)"
-                                    @onclick="@(() => ToggleCheckerAsync(name, state.IsActive))" @onclick:stopPropagation="true">
-                                @(state.IsActive ? HealthieIcons.Pause : HealthieIcons.Play)
-                            </button>
-                        </div>
                     </div>
-
-                    delay += 30;
+                }
+            }
+            else
+            {
+                foreach (var item in _filtered)
+                {
+                    @checkerRow(item)
                 }
             }
         </div>
@@ -204,7 +451,7 @@
 
                         <div class="hpm-fields">
                             <div class="hpm-field">
-                                <label for="hpm-interval">INTERVAL</label>
+                                <label for="hpm-interval" title="How often this check runs on its own">INTERVAL</label>
                                 <select id="hpm-interval" value="@selected.Interval" @onchange="OnIntervalChanged">
                                     @foreach (var interval in Intervals)
                                     {
@@ -213,8 +460,62 @@
                                 </select>
                             </div>
                             <div class="hpm-field">
-                                <label for="hpm-threshold">FAIL THRESHOLD</label>
+                                <label for="hpm-threshold" title="How many failures in a row before this is called failing rather than suspicious. 0 means the first failure counts.">FAIL THRESHOLD</label>
                                 <input id="hpm-threshold" type="number" min="0" value="@selected.UnhealthyThreshold" @onchange="OnThresholdChanged" />
+                            </div>
+                        </div>
+
+                        <div class="hpm-tags-editor">
+                            <div class="hpm-stat-label" title="The one group this checker belongs to. Groups are sections in the list; a checker sits in one of them.">GROUP</div>
+                            @if (_isNamingGroup)
+                            {
+                                <div class="hpm-tag-add">
+                                    <input type="text" placeholder="New group name" aria-label="New group name"
+                                           title="Name the group and press Enter. Escape to cancel."
+                                           value="@_groupDraft" @oninput="@(e => _groupDraft = e.Value?.ToString())"
+                                           @onkeydown="OnGroupDraftKeyDown" />
+                                    <button type="button" class="hpm-sel-btn" title="Move this checker into the new group"
+                                            @onclick="CommitNewGroupAsync">SET</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <select class="hpm-select hpm-group-select" aria-label="Group"
+                                        title="Move this checker into a group"
+                                        value="@(selected.Group ?? string.Empty)" @onchange="OnGroupChanged">
+                                    <option value="">— none —</option>
+                                    @foreach (var group in AllGroups)
+                                    {
+                                        <option value="@group" selected="@(group == selected.Group)">@group</option>
+                                    }
+                                    <option value="@NewGroupOption">+ new group…</option>
+                                </select>
+                            }
+
+                            <div class="hpm-stat-label" style="margin-top: 12px;" title="Tags describe a checker and filter the list. A checker can carry several; they do not decide its group.">TAGS</div>
+                            <div class="hpm-chips">
+                                @if (selected.Tags.Count == 0)
+                                {
+                                    <span class="hpm-chips-empty">None yet</span>
+                                }
+                                else
+                                {
+                                    @foreach (var tag in selected.Tags)
+                                    {
+                                        <span class="hpm-chip hpm-chip--editable">
+                                            @tag
+                                            <button type="button" class="hpm-chip-x" title="Remove the @tag tag"
+                                                    aria-label="Remove tag @tag" @onclick="@(() => RemoveTagAsync(tag))">@HealthieIcons.X</button>
+                                        </span>
+                                    }
+                                }
+                            </div>
+                            <div class="hpm-tag-add">
+                                <input type="text" placeholder="Add a tag" aria-label="Add a tag"
+                                       title="Type a tag and press Enter. Tags are shared and outlive a restart."
+                                       value="@_tagDraft" @oninput="@(e => _tagDraft = e.Value?.ToString())"
+                                       @onkeydown="OnTagDraftKeyDown" />
+                                <button type="button" class="hpm-sel-btn" title="Add this tag" @onclick="AddTagAsync">ADD</button>
                             </div>
                         </div>
                     </div>
@@ -222,10 +523,13 @@
             }
 
             <section class="hpm-panel">
-                <div class="hpm-log-head">
+                <div class="hpm-log-head" title="State changes as they happen, newest first. Times are UTC.">
                     <span class="hpm-eyebrow" style="margin: 0;">EVENT LOG</span>
                     <div class="hpm-spacer"></div>
                     <span class="hpm-log-led" aria-hidden="true"></span>
+                    <button type="button" class="hpm-icon-btn hpm-log-expand"
+                            title="Open the full event log" aria-label="Expand the event log"
+                            @onclick="ToggleLog">@HealthieIcons.Expand</button>
                 </div>
                 <div class="hpm-log-body">
                     @if (_events.Count == 0)

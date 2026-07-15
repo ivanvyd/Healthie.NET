@@ -12,6 +12,9 @@ public class SmtpServerPulseChecker(IStateProvider stateProvider)
 
     public override string DisplayName => "SMTP Mail Server";
 
+    public override string DefaultGroup => "Messaging";
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(100, 400), cancellationToken);

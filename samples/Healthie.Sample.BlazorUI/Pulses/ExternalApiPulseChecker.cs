@@ -16,6 +16,9 @@ public class ExternalApiPulseChecker : PulseChecker
 
     public override string DisplayName => "Partner REST API";
 
+    public override string DefaultGroup => "Third Party";
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(200, 800), cancellationToken);

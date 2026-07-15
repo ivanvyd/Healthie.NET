@@ -16,6 +16,11 @@ public class CertificateExpiryPulseChecker : PulseChecker
 
     public override string DisplayName => "TLS Certificate";
 
+    public override string DefaultGroup => "Infrastructure";
+
+    public override IReadOnlyList<string> DefaultTags => ["security"];
+
+
     public override Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         var daysUntilExpiry = _random.Next(-2, 120);

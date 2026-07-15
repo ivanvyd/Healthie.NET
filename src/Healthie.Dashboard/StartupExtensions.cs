@@ -71,6 +71,13 @@ public static class StartupExtensions
                     <title>{{title}}</title>
                     <link href="_content/Healthie.NET.Dashboard/healthie.css" rel="stylesheet" />
                     <base href="/" />
+                    <!--
+                        This page is the dashboard and nothing else, so the browser's default 8px
+                        body margin only draws a pale frame around a dark tool. Scoped to this
+                        page rather than put in healthie.css, which is also loaded by hosts that
+                        embed the component in a page of their own and own their own body.
+                    -->
+                    <style>html, body { margin: 0; padding: 0; }</style>
                 </head>
                 <body>
                     <component type="typeof(Healthie.Dashboard.Components.HealthieDashboard)" render-mode="ServerPrerendered" />

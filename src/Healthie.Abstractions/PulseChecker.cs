@@ -85,10 +85,64 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     public virtual string DisplayName => Name;
 
     /// <summary>
+    /// Gets the tags this checker starts with, used the first time it runs and never again.
+    /// </summary>
+    /// <remarks>
+    /// Override to group checkers by whatever matters here -- the team that owns them, the tier
+    /// they sit in, the region they run against. These seed <see cref="PulseCheckerState.Tags"/>
+    /// only when no state has been stored yet; afterwards the stored tags win, so an edit made on
+    /// the dashboard is not overwritten on the next restart.
+    /// </remarks>
+    public virtual IReadOnlyList<string> DefaultTags => [];
+
+    /// <summary>
+    /// Gets the group this checker starts in, used the first time it runs and never again.
+    /// </summary>
+    /// <remarks>
+    /// A checker belongs to one group at most. Override to say where this one sits -- the
+    /// subsystem it is part of, the team that owns it -- and the dashboard can then show a list
+    /// where every checker appears exactly once, under exactly one heading. Use
+    /// <see cref="DefaultTags"/> instead for labels that are allowed to overlap.
+    /// </remarks>
+    public virtual string? DefaultGroup => null;
+
+    /// <summary>
     /// Gets or sets the configured maximum history length from <see cref="HealthieOptions"/>.
     /// Set by the scheduler on startup.
     /// </summary>
     internal int ConfiguredMaxHistoryLength { get; set; } = 10;
+
+    /// <summary>
+    /// Builds the state a checker starts from when the store holds nothing for it yet.
+    /// </summary>
+    private PulseCheckerState CreateInitialState() =>
+        new(_initialInterval, _initialUnhealthyThreshold)
+        {
+            Tags = NormalizeTags(DefaultTags),
+            Group = NormalizeGroup(DefaultGroup),
+        };
+
+    /// <summary>
+    /// Trims, drops blanks, de-duplicates case-insensitively, and orders a set of tags.
+    /// </summary>
+    /// <remarks>
+    /// Used for both the tags declared in code and the tags set later, so that a checker seeded
+    /// from <see cref="DefaultTags"/> and one tagged by hand hold their tags the same way. Ordering
+    /// is what lets two states be compared for equality without the order they were typed in
+    /// counting as a difference.
+    /// </remarks>
+    private static List<string> NormalizeTags(IEnumerable<string> tags) =>
+    [
+        .. tags
+            .Select(tag => tag.Trim())
+            .Where(tag => tag.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+    ];
+
+    /// <summary>Blank, whitespace and null all mean the same thing: no group.</summary>
+    private static string? NormalizeGroup(string? group) =>
+        string.IsNullOrWhiteSpace(group) ? null : group.Trim();
 
     /// <summary>
     /// Performs the pulse check asynchronously.
@@ -107,7 +161,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
         try
         {
             var oldState = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-                ?? new(_initialInterval, _initialUnhealthyThreshold);
+                ?? CreateInitialState();
             await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
             if (!Equals(oldState, state))
             {
@@ -127,7 +181,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
         try
         {
             return await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-                ?? new(_initialInterval, _initialUnhealthyThreshold);
+                ?? CreateInitialState();
         }
         finally
         {
@@ -175,6 +229,51 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     }
 
     /// <inheritdoc />
+    public async Task SetTagsAsync(IReadOnlyList<string> tags, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(tags);
+
+        var normalized = NormalizeTags(tags);
+
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
+        if (state.Tags.SequenceEqual(normalized))
+        {
+            return;
+        }
+
+        state.Tags = normalized;
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetGroupAsync(string? group, CancellationToken cancellationToken = default)
+    {
+        var normalized = NormalizeGroup(group);
+
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
+        if (state.Group == normalized)
+        {
+            return;
+        }
+
+        state.Group = normalized;
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetPinnedAsync(bool pinned, CancellationToken cancellationToken = default)
+    {
+        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
+        if (state.IsPinned == pinned)
+        {
+            return;
+        }
+
+        state.IsPinned = pinned;
+        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task ResetAsync(CancellationToken cancellationToken = default)
     {
         PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
@@ -192,7 +291,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     public async Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(CancellationToken cancellationToken = default)
     {
         var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-            ?? new(_initialInterval, _initialUnhealthyThreshold);
+            ?? CreateInitialState();
         return [.. state.History];
     }
 
@@ -200,7 +299,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     public async Task ClearHistoryAsync(CancellationToken cancellationToken = default)
     {
         var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-            ?? new(_initialInterval, _initialUnhealthyThreshold);
+            ?? CreateInitialState();
         state.History = [];
         await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
     }
@@ -244,7 +343,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
             var result = await RunCheckAsync(cancellationToken).ConfigureAwait(false);
 
             PulseCheckerState state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-                ?? new(_initialInterval, _initialUnhealthyThreshold);
+                ?? CreateInitialState();
 
             // History is a mutable list, so `with` alone would hand out a snapshot that still
             // shares it and would appear to change as this trigger appends to it.

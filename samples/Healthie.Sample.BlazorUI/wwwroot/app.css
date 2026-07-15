@@ -1,5 +1,8 @@
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    /* The browser's default 8px body margin draws a pale frame around the dashboard, which fills
+       the page. */
+    margin: 0;
 }
 
 h1:focus {

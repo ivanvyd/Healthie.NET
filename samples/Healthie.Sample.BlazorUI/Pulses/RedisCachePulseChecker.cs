@@ -16,6 +16,11 @@ public class RedisCachePulseChecker : PulseChecker
 
     public override string DisplayName => "Redis Cache";
 
+    public override string DefaultGroup => "Data Stores";
+
+    public override IReadOnlyList<string> DefaultTags => ["tier-1", "cache"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(10, 80), cancellationToken);

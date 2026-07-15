@@ -12,6 +12,11 @@ public class CdnAvailabilityPulseChecker(IStateProvider stateProvider)
 
     public override string DisplayName => "CDN (CloudFront)";
 
+    public override string DefaultGroup => "Infrastructure";
+
+    public override IReadOnlyList<string> DefaultTags => ["cloud"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(30, 120), cancellationToken);

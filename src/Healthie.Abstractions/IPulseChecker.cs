@@ -54,6 +54,30 @@ public interface IPulseChecker : IPulse, IState, IAsyncDisposable
     Task SetUnhealthyThresholdAsync(uint threshold, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Replaces the tags applied to this pulse checker.
+    /// </summary>
+    /// <param name="tags">
+    /// The tags to apply. Blank entries are dropped, and the rest are trimmed, de-duplicated
+    /// case-insensitively, and ordered.
+    /// </param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    Task SetTagsAsync(IReadOnlyList<string> tags, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pins or unpins this pulse checker, which sorts it above the others on the dashboard.
+    /// </summary>
+    /// <param name="pinned"><c>true</c> to pin the checker; <c>false</c> to unpin it.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    Task SetPinnedAsync(bool pinned, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the single group this pulse checker belongs to.
+    /// </summary>
+    /// <param name="group">The group name, or <c>null</c> or blank for no group.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    Task SetGroupAsync(string? group, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Resets the pulse checker state to healthy asynchronously.
     /// </summary>
     /// <remarks>

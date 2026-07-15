@@ -77,15 +77,52 @@ public record PulseCheckerState
     public List<PulseCheckerHistoryEntry> History { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the tags applied to this pulse checker, used to filter it.
+    /// </summary>
+    /// <remarks>
+    /// A checker can carry any number of tags, and they describe it rather than place it: use them
+    /// to narrow the list down to what you care about. Where a checker <em>belongs</em> is
+    /// <see cref="Group"/>, which is one value, not many.
+    /// <para>
+    /// Seeded from <see cref="Healthie.Abstractions.PulseChecker.DefaultTags"/> the first time a
+    /// checker runs, and editable afterwards. Tags live in state rather than on the checker so that
+    /// an edit made on the dashboard outlives the process, as an interval or threshold edit does.
+    /// </para>
+    /// </remarks>
+    public List<string> Tags { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the single group this pulse checker belongs to, or <c>null</c> for none.
+    /// </summary>
+    /// <remarks>
+    /// A checker belongs to one group at most, which is what makes a grouped list a partition:
+    /// every checker appears once, under exactly one heading. That is the difference from
+    /// <see cref="Tags"/>, of which a checker may carry several and which only filter.
+    /// <para>
+    /// Seeded from <see cref="Healthie.Abstractions.PulseChecker.DefaultGroup"/>.
+    /// </para>
+    /// </remarks>
+    public string? Group { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether this pulse checker is pinned above the others.
+    /// </summary>
+    /// <remarks>
+    /// Pinning is a property of the checker rather than of whoever is looking at it: the checks
+    /// worth watching are the same for everyone, so a pin is stored and shared.
+    /// </remarks>
+    public bool IsPinned { get; set; }
+
+    /// <summary>
     /// Determines whether this state is equal to another by comparing every value it holds.
     /// </summary>
     /// <param name="other">The state to compare against.</param>
     /// <returns><c>true</c> if both states hold the same values; otherwise <c>false</c>.</returns>
     /// <remarks>
-    /// The compiler-generated equality of a record compares <see cref="History"/> by reference,
-    /// which reports two states as different whenever they came from separate reads and as equal
-    /// whenever they happen to share a list. State changes are detected by comparing states, so
-    /// history is compared element by element here instead.
+    /// The compiler-generated equality of a record compares <see cref="History"/> and
+    /// <see cref="Tags"/> by reference, which reports two states as different whenever they came
+    /// from separate reads and as equal whenever they happen to share a list. State changes are
+    /// detected by comparing states, so both lists are compared element by element here instead.
     /// </remarks>
     public virtual bool Equals(PulseCheckerState? other)
     {
@@ -97,7 +134,10 @@ public record PulseCheckerState
             && UnhealthyThreshold == other.UnhealthyThreshold
             && IsActive == other.IsActive
             && IsHistoryEnabled == other.IsHistoryEnabled
-            && History.SequenceEqual(other.History);
+            && IsPinned == other.IsPinned
+            && Group == other.Group
+            && History.SequenceEqual(other.History)
+            && Tags.SequenceEqual(other.Tags);
     }
 
     /// <inheritdoc />
@@ -112,10 +152,17 @@ public record PulseCheckerState
         hashCode.Add(UnhealthyThreshold);
         hashCode.Add(IsActive);
         hashCode.Add(IsHistoryEnabled);
+        hashCode.Add(IsPinned);
+        hashCode.Add(Group);
 
         foreach (var entry in History)
         {
             hashCode.Add(entry);
+        }
+
+        foreach (var tag in Tags)
+        {
+            hashCode.Add(tag);
         }
 
         return hashCode.ToHashCode();

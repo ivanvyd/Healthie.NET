@@ -50,10 +50,37 @@ public class DatabasePulseChecker : PulseChecker
 | `IStateProvider` | Contract for state persistence (`GetStateAsync` / `SetStateAsync`). |
 | `IPulseScheduler` | Contract for scheduling (`ScheduleAsync` / `UnscheduleAsync`). |
 | `PulseCheckerResult` | Record returned from `CheckAsync` with `Health` and `Message`. |
-| `PulseCheckerState` | Record holding interval, threshold, failure count, history, and last result. |
+| `PulseCheckerState` | Record holding interval, threshold, failure count, history, tags, group, pin, and last result. |
 | `PulseCheckerHealth` | Enum: `Healthy`, `Suspicious`, `Unhealthy`. |
 | `PulseInterval` | Enum: 13 intervals from `EverySecond` to `Every5Minutes`. |
 | `HealthieOptions` | Global options (e.g. `MaxHistoryLength`). |
+
+## Describing a checker
+
+A checker can say where it belongs and what it is, and both are picked up by the dashboard.
+
+```csharp
+public class RedisCachePulseChecker(IStateProvider stateProvider) : PulseChecker(stateProvider)
+{
+    public override string DisplayName => "Redis Cache";
+
+    // One group at most: this is where the checker lives.
+    public override string DefaultGroup => "Data Stores";
+
+    // Any number of tags: these describe it, and may cut across groups.
+    public override IReadOnlyList<string> DefaultTags => ["tier-1", "cache"];
+
+    public override Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
+        => /* ... */;
+}
+```
+
+Both seed `PulseCheckerState` the first time a checker runs and are never applied again, so a
+change made later -- through `SetGroupAsync` / `SetTagsAsync`, or on the dashboard -- survives a
+restart rather than being reset to what the code says.
+
+`SetPinnedAsync` sorts a checker above the rest. A pin is stored with the checker rather than per
+viewer, on the grounds that the checks worth watching are the same for everyone.
 
 ## See Also
 

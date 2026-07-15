@@ -12,6 +12,11 @@ public class IdentityProviderPulseChecker(IStateProvider stateProvider)
 
     public override string DisplayName => "Identity Provider (Azure AD)";
 
+    public override string DefaultGroup => "Third Party";
+
+    public override IReadOnlyList<string> DefaultTags => ["tier-1"];
+
+
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         await Task.Delay(_random.Next(80, 250), cancellationToken);

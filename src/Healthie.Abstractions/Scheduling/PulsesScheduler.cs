@@ -69,6 +69,27 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     }
 
     /// <inheritdoc />
+    public async Task SetTagsAsync(string name, IReadOnlyList<string> tags, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.SetTagsAsync(tags, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetPinnedAsync(string name, bool pinned, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.SetPinnedAsync(pinned, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task SetGroupAsync(string name, string? group, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+        await pulseChecker.SetGroupAsync(group, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task ResetAsync(string name, CancellationToken cancellationToken = default)
     {
         var pulseChecker = GetCheckerOrThrow(name);

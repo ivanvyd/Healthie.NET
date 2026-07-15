@@ -55,7 +55,11 @@ public sealed class SampleApp : IAsyncDisposable
         }
     }
 
-    private string OutputSoFar()
+    /// <summary>
+    /// Everything the app has printed so far, which is where a fault the browser cannot see shows
+    /// up -- an exception swallowed by a handler still gets logged.
+    /// </summary>
+    public string OutputSoFar()
     {
         lock (_output)
         {
