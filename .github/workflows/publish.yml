@@ -1,6 +1,21 @@
-name: Publish NuGet Packages
+name: Release
 
+# Two ways in:
+#   - Actions -> Release -> "Run workflow", enter a version. Tags the commit for you.
+#   - Push a v* tag, as before.
+# Either way the packages are built, tested, published to NuGet.org, and attached to a GitHub
+# release. Tick "dry run" to build and pack without publishing anything.
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without a leading v (for example 3.0.0 or 3.0.0-preview.1)"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run: build, test, and pack only. Nothing is tagged or published."
+        type: boolean
+        default: false
   push:
     tags:
       - 'v*'
@@ -13,7 +28,7 @@ env:
   NUPKG_DIR: ./nupkgs
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,13 +46,45 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Extract version from tag
+      - name: Resolve version
         id: version
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=$TAG" >> $GITHUB_OUTPUT
-          echo "TAG=v$TAG" >> $GITHUB_OUTPUT
-          echo "Detected version: $TAG"
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          fi
+
+          # Reject anything NuGet would not accept, before a partial release is published.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::'$VERSION' is not a valid version. Expected 3.0.0 or 3.0.0-preview.1 (no leading v)."
+            exit 1
+          fi
+
+          PRERELEASE=false
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=true
+          fi
+
+          {
+            echo "VERSION=$VERSION"
+            echo "TAG=v$VERSION"
+            echo "PRERELEASE=$PRERELEASE"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Releasing $VERSION (prerelease: $PRERELEASE, dry run: ${{ inputs.dry_run || false }})"
+
+      # A tag that already exists would mean publishing different bits under a version someone may
+      # already have restored. Fail before anything is built.
+      - name: Check the version is unreleased
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.TAG }}" >/dev/null 2>&1; then
+            echo "::error::Tag ${{ steps.version.outputs.TAG }} already exists. Pick a new version."
+            exit 1
+          fi
 
       - name: Restore
         run: dotnet restore
@@ -47,8 +94,8 @@ jobs:
           dotnet build
           --configuration ${{ env.CONFIGURATION }}
           --no-restore
-          /p:Version=${{ steps.version.outputs.VERSION }}
-          /p:ContinuousIntegrationBuild=true
+          -p:Version=${{ steps.version.outputs.VERSION }}
+          -p:ContinuousIntegrationBuild=true
 
       - name: Test
         run: >
@@ -63,9 +110,48 @@ jobs:
           --configuration ${{ env.CONFIGURATION }}
           --no-build
           --output ${{ env.NUPKG_DIR }}
-          /p:PackageVersion=${{ steps.version.outputs.VERSION }}
+          -p:PackageVersion=${{ steps.version.outputs.VERSION }}
 
+      # Attached to the workflow run, so a dry run still leaves something to inspect.
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs-${{ steps.version.outputs.VERSION }}
+          path: |
+            ${{ env.NUPKG_DIR }}/*.nupkg
+            ${{ env.NUPKG_DIR }}/*.snupkg
+          if-no-files-found: error
+
+      - name: Summarise
+        run: |
+          {
+            echo "### Healthie.NET ${{ steps.version.outputs.VERSION }}"
+            echo
+            if [[ "${{ inputs.dry_run || false }}" == "true" ]]; then
+              echo "**Dry run** — nothing was tagged or published. Packages are attached to this run."
+            else
+              echo "Published to NuGet.org and released as \`${{ steps.version.outputs.TAG }}\`."
+            fi
+            echo
+            echo "| Package |"
+            echo "|---|"
+            for pkg in ${{ env.NUPKG_DIR }}/*.nupkg; do
+              echo "| \`$(basename "$pkg")\` |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tag the release
+        if: github.event_name == 'workflow_dispatch' && !inputs.dry_run
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.TAG }}" -m "Healthie.NET ${{ steps.version.outputs.VERSION }}"
+          git push origin "${{ steps.version.outputs.TAG }}"
+
+      # Publishing comes after tagging so a released version always has a commit behind it.
+      # --skip-duplicate keeps a re-run from failing on packages that already went up.
       - name: Publish to NuGet.org
+        if: ${{ !inputs.dry_run }}
         run: >
           dotnet nuget push "${{ env.NUPKG_DIR }}/*.nupkg"
           --api-key ${{ secrets.NUGET_API_KEY }}
@@ -73,27 +159,26 @@ jobs:
           --skip-duplicate
 
       - name: Push symbols to NuGet.org
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
         run: >
           dotnet nuget push "${{ env.NUPKG_DIR }}/*.snupkg"
           --api-key ${{ secrets.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
-        continue-on-error: true
 
       - name: Create GitHub Release
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="${{ steps.version.outputs.TAG }}"
-          VERSION="${{ steps.version.outputs.VERSION }}"
-
           PRERELEASE_FLAG=""
-          if [[ "$VERSION" == *-* ]]; then
+          if [[ "${{ steps.version.outputs.PRERELEASE }}" == "true" ]]; then
             PRERELEASE_FLAG="--prerelease"
           fi
 
-          gh release create "$TAG" \
+          gh release create "${{ steps.version.outputs.TAG }}" \
             ${{ env.NUPKG_DIR }}/*.nupkg \
             --generate-notes \
             $PRERELEASE_FLAG \
-            --title "Healthie.NET $VERSION"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            --title "Healthie.NET ${{ steps.version.outputs.VERSION }}"
