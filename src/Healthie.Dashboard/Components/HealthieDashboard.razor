@@ -1,486 +1,250 @@
-@* Main Healthie.NET dashboard component. *@
+@* Healthie.NET dashboard -- Pulse Monitor. *@
 @implements IAsyncDisposable
+@using Healthie.Abstractions.Extensions
 @using Healthie.Dashboard.Components
 @inject IHealthieDashboardService DashboardService
 @inject HealthieUIOptions Options
 @inject HealthieThemeState ThemeState
-@inject Microsoft.JSInterop.IJSRuntime JS
 
 <PageTitle>@Options.DashboardTitle</PageTitle>
 <HeadContent>
     <link href="_content/Healthie.NET.Dashboard/healthie.css" rel="stylesheet" />
 </HeadContent>
 
-<div class="healthie-dashboard" data-healthie-theme="@(_isDarkMode ? "dark" : "light")">
-    @* Header *@
-    <div class="healthie-header">
-        <h1 class="healthie-title">@Options.DashboardTitle</h1>
-    </div>
+<div class="healthie-dashboard" data-hpm="@(_isDarkMode ? "dark" : "light")">
 
-    @* Toolbar *@
-    <DashboardToolbar OnTriggerAll="@TriggerAllAsync"
-                      OnStartAll="@StartAllAsync"
-                      OnStopAll="@StopAllAsync"
-                      EnableDarkModeToggle="@Options.EnableDarkModeToggle"
-                      IsDarkMode="@_isDarkMode"
-                      OnDarkModeToggled="@OnDarkModeToggled"
-                      SearchFilter="@_searchFilter"
-                      SearchFilterChanged="@OnSearchFilterChanged" />
+    <header class="hpm-header">
+        <div class="hpm-header-inner">
+            <div class="hpm-brand @StatusClass(_overall)">
+                <span class="hpm-led" aria-hidden="true"></span>
+                <span class="hpm-wordmark">@WordMark</span>
+            </div>
+            <span class="hpm-overall @StatusClass(_overall)" role="status">@OverallLabel</span>
 
-    @* Loading *@
-    @if (_isLoading)
-    {
-        <div class="healthie-progress"><div class="healthie-progress-bar"></div></div>
-        <div class="healthie-summary">
-            @for (var i = 0; i < 5; i++)
-            {
-                <div class="healthie-skeleton" style="height: 72px;"></div>
-            }
-        </div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-            @for (var i = 0; i < 3; i++)
-            {
-                <div class="healthie-skeleton" style="height: 48px;"></div>
-            }
-        </div>
-    }
-    else
-    {
-        @* Summary Cards *@
-        <div class="healthie-summary @(_selectedFilter is not null ? "healthie-summary--has-filter" : "")"
-             role="toolbar" aria-label="Filter checkers by status">
-            <div class="healthie-stat healthie-stat--active @(_selectedFilter == "active" ? "healthie-stat--selected" : "")"
-                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "active" ? "true" : "false")"
-                 title="Filter: show active checkers"
-                 @onclick="@(() => OnFilterCardClicked("active"))">
-                <div class="healthie-stat-icon">@HealthieIcons.Play</div>
-                <div>
-                    <div class="healthie-stat-value">@_activeCount</div>
-                    <div class="healthie-stat-label">Active</div>
-                </div>
-            </div>
-            <div class="healthie-stat healthie-stat--stopped @(_selectedFilter == "stopped" ? "healthie-stat--selected" : "")"
-                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "stopped" ? "true" : "false")"
-                 title="Filter: show paused checkers"
-                 @onclick="@(() => OnFilterCardClicked("stopped"))">
-                <div class="healthie-stat-icon">@HealthieIcons.Pause</div>
-                <div>
-                    <div class="healthie-stat-value">@_stoppedCount</div>
-                    <div class="healthie-stat-label">Paused</div>
-                </div>
-            </div>
-            <div class="healthie-stat healthie-stat--healthy @(_selectedFilter == "healthy" ? "healthie-stat--selected" : "")"
-                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "healthy" ? "true" : "false")"
-                 title="Filter: show healthy checkers"
-                 @onclick="@(() => OnFilterCardClicked("healthy"))">
-                <div class="healthie-stat-icon">@HealthieIcons.Heart</div>
-                <div>
-                    <div class="healthie-stat-value">@_healthyCount</div>
-                    <div class="healthie-stat-label">Healthy</div>
-                </div>
-            </div>
-            <div class="healthie-stat healthie-stat--suspicious @(_selectedFilter == "suspicious" ? "healthie-stat--selected" : "")"
-                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "suspicious" ? "true" : "false")"
-                 title="Filter: show suspicious checkers"
-                 @onclick="@(() => OnFilterCardClicked("suspicious"))">
-                <div class="healthie-stat-icon">@HealthieIcons.AlertTriangle</div>
-                <div>
-                    <div class="healthie-stat-value">@_suspiciousCount</div>
-                    <div class="healthie-stat-label">Suspicious</div>
-                </div>
-            </div>
-            <div class="healthie-stat healthie-stat--unhealthy @(_selectedFilter == "unhealthy" ? "healthie-stat--selected" : "")"
-                 role="button" tabindex="0" aria-pressed="@(_selectedFilter == "unhealthy" ? "true" : "false")"
-                 title="Filter: show unhealthy checkers"
-                 @onclick="@(() => OnFilterCardClicked("unhealthy"))">
-                <div class="healthie-stat-icon">@HealthieIcons.XCircle</div>
-                <div>
-                    <div class="healthie-stat-value">@_unhealthyCount</div>
-                    <div class="healthie-stat-label">Unhealthy</div>
-                </div>
-            </div>
-        </div>
+            <div class="hpm-spacer"></div>
 
-        <div class="healthie-divider"></div>
+            <span class="hpm-clock">@_now.ToString("HH:mm:ss") LOCAL</span>
 
-        @* Checker List *@
-        @if (_filteredStates.Count == 0)
-        {
-            <div class="healthie-empty">
-                @if (_states.Count == 0)
+            <div class="hpm-search">
+                <span class="hpm-search-icon" aria-hidden="true">@HealthieIcons.Search</span>
+                <input type="text" placeholder="Search" aria-label="Search checkers"
+                       value="@_searchFilter" @oninput="OnSearchInput" />
+            </div>
+
+            <div class="hpm-actions">
+                <button type="button" class="hpm-btn" title="Run all checks now" @onclick="TriggerAllAsync">RUN ALL</button>
+                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--start" title="Start all checkers" aria-label="Start all checkers" @onclick="StartAllAsync">▶</button>
+                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--stop" title="Pause all checkers" aria-label="Pause all checkers" @onclick="StopAllAsync">❚❚</button>
+                @if (Options.EnableDarkModeToggle)
                 {
-                    <span>No pulse checkers registered. Add a class implementing <code>IPulseChecker</code> to get started.</span>
-                }
-                else
-                {
-                    <span>No checkers match the current filter. Try a different filter.</span>
+                    <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--theme"
+                            title="@(_isDarkMode ? "Switch to light mode" : "Switch to dark mode")"
+                            @onclick="ToggleThemeAsync">@(_isDarkMode ? "☀" : "☾")</button>
                 }
             </div>
-        }
-        else
-        {
-            <div class="healthie-checkers">
-                @{ var delay = 0; }
-                @foreach (var (name, state) in _filteredStates.OrderBy(s => s.Key))
+        </div>
+
+        <div class="hpm-trace-wrap">
+            <div class="hpm-trace">
+                @* One tile of the trace, repeated across the width and scrolled by exactly one tile. *@
+                <svg preserveAspectRatio="none" viewBox="0 0 1760 64" aria-hidden="true" focusable="false">
+                    <defs>
+                        <pattern id="@_traceId" x="0" y="0" width="220" height="64" patternUnits="userSpaceOnUse">
+                            <polyline points="0,40 58,40 70,40 78,16 88,56 97,32 104,40 148,40 158,31 168,40 220,40"
+                                      fill="none" stroke="@TraceColor" stroke-width="1.8"
+                                      stroke-linejoin="round" stroke-linecap="round" />
+                        </pattern>
+                    </defs>
+                    <rect x="0" y="0" width="1760" height="64" fill="url(#@_traceId)" />
+                </svg>
+                <div class="hpm-trace-label">AGGREGATE PULSE · @ChecksPerMinute CHECKS/MIN</div>
+            </div>
+        </div>
+    </header>
+
+    <div class="hpm-body">
+        <div class="hpm-list">
+            <div class="hpm-list-head" aria-hidden="true">
+                <span></span>
+                <span>CHECKER</span>
+                <span>RATE</span>
+                <span>PULSE · LAST @HistoryWindow</span>
+                <span class="hpm-right">LAST RUN</span>
+                <span></span>
+            </div>
+
+            @if (_isLoading)
+            {
+                @for (var i = 0; i < 5; i++)
                 {
-                    <div class="healthie-fade-in" style="animation-delay: @(delay)ms;">
-                        <PulseCheckerCard Name="@name"
-                                          DisplayName="@GetDisplayName(name)"
-                                          State="@state"
-                                          History="@GetHistoryForChecker(name)"
-                                          OnStart="@(() => StartCheckerAsync(name))"
-                                          OnStop="@(() => StopCheckerAsync(name))"
-                                          OnTrigger="@(() => TriggerCheckerAsync(name))"
-                                          OnReset="@(() => ResetCheckerAsync(name))"
-                                          OnIntervalChanged="@(interval => SetIntervalAsync(name, interval))"
-                                          OnThresholdChanged="@(threshold => SetThresholdAsync(name, threshold))"
-                                          OnClearHistory="@(() => ClearHistoryAsync(name))"
-                                          OnHistoryEnabledChanged="@(enabled => SetHistoryEnabledAsync(name, enabled))" />
+                    <div class="hpm-skeleton"></div>
+                }
+            }
+            else if (_filtered.Count == 0)
+            {
+                <div class="hpm-empty">
+                    @if (_states.Count == 0)
+                    {
+                        <span>No pulse checkers registered. Add a class deriving from <code>PulseChecker</code> to get started.</span>
+                    }
+                    else
+                    {
+                        <span>No checkers match the search.</span>
+                    }
+                </div>
+            }
+            else
+            {
+                var delay = 0;
+
+                foreach (var (name, state) in _filtered)
+                {
+                    var isSelected = name == _selected;
+                    var status = StatusOf(state);
+                    var history = HistoryOf(name);
+
+                    <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
+                         style="animation-delay: @(delay)ms"
+                         role="button" tabindex="0"
+                         aria-pressed="@(isSelected ? "true" : "false")"
+                         @onclick="@(() => _selected = name)"
+                         @onkeydown="@(e => OnRowKeyDown(e, name))">
+
+                        <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
+                              aria-hidden="true"></span>
+
+                        <div class="hpm-row-name">
+                            <div class="hpm-row-title">@DisplayNameOf(name)</div>
+                            <div class="hpm-row-sub">@StatusWord(state) · @ShortTypeName(name)</div>
+                        </div>
+
+                        <div class="hpm-rate-cell">
+                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused")">@RatePerMinute(state)</span>
+                            <span class="hpm-rate-unit">per min</span>
+                        </div>
+
+                        @if (history.Count == 0)
+                        {
+                            <span class="hpm-blips-empty">no runs yet</span>
+                        }
+                        else
+                        {
+                            <div class="hpm-blips" title="@history.Count recent run(s), oldest first">
+                                @foreach (var entry in history)
+                                {
+                                    <span class="hpm-blip @BlipClass(entry.Health) @StatusClass(StatusOf(entry.Health))"
+                                          title="@entry.Health at @entry.ExecutedAt.ToLocalTime().ToString("HH:mm:ss")"></span>
+                                }
+                            </div>
+                        }
+
+                        <span class="hpm-time">@Relative(state.LastExecutionDateTime)</span>
+
+                        <div class="hpm-row-actions">
+                            <button type="button" class="hpm-icon-btn hpm-icon-btn--run" title="Run now"
+                                    aria-label="Run @DisplayNameOf(name) now"
+                                    @onclick="@(() => TriggerCheckerAsync(name))" @onclick:stopPropagation="true">
+                                @HealthieIcons.Zap
+                            </button>
+                            <button type="button" class="hpm-icon-btn" title="@(state.IsActive ? "Pause" : "Start")"
+                                    aria-label="@(state.IsActive ? "Pause" : "Start") @DisplayNameOf(name)"
+                                    @onclick="@(() => ToggleCheckerAsync(name, state.IsActive))" @onclick:stopPropagation="true">
+                                @(state.IsActive ? HealthieIcons.Pause : HealthieIcons.Play)
+                            </button>
+                        </div>
                     </div>
-                    delay += 40;
-                }
-            </div>
-        }
-    }
 
-    @* Toast notifications *@
-    @if (_toasts.Count > 0)
-    {
-        <div class="healthie-toasts">
-            @foreach (var toast in _toasts)
-            {
-                <div class="healthie-toast healthie-toast--@toast.Severity">@toast.Message</div>
+                    delay += 30;
+                }
             }
         </div>
-    }
+
+        <aside class="hpm-side">
+            @if (_selectedState is { } selected)
+            {
+                var selectedStatus = StatusOf(selected);
+
+                <section class="hpm-panel @StatusClass(selectedStatus)">
+                    <div class="hpm-panel-head">
+                        <div class="hpm-eyebrow">SELECTED CHECKER</div>
+                        <div class="hpm-sel-title">
+                            <span class="hpm-sel-name">@DisplayNameOf(_selected!)</span>
+                            <span class="hpm-tag">@StatusWord(selected)</span>
+                        </div>
+                        <div class="hpm-sel-fullname">@_selected</div>
+                    </div>
+
+                    <div class="hpm-panel-body">
+                        <div class="hpm-stats">
+                            <div class="hpm-stat">
+                                <div class="hpm-stat-label">UPTIME</div>
+                                <div class="hpm-stat-value" style="color: @UptimeColor(_selected!)">@Uptime(_selected!)</div>
+                            </div>
+                            <div class="hpm-stat">
+                                <div class="hpm-stat-label">FAILS</div>
+                                <div class="hpm-stat-value" style="color: @(selected.ConsecutiveFailureCount > 0 ? "var(--hpm-crit)" : "var(--hpm-text)")">
+                                    @FailuresLabel(selected)
+                                </div>
+                            </div>
+                            <div class="hpm-stat">
+                                <div class="hpm-stat-label">STATE</div>
+                                <div class="hpm-stat-value" style="color: @(selected.IsActive ? "var(--hpm-ok)" : "var(--hpm-faint)")">
+                                    @(selected.IsActive ? "LIVE" : "IDLE")
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hpm-message">@(string.IsNullOrWhiteSpace(selected.LastResult?.Message) ? "No result recorded yet." : selected.LastResult!.Message)</div>
+
+                        <div class="hpm-sel-actions">
+                            <button type="button" class="hpm-sel-btn hpm-sel-btn--primary" @onclick="@(() => TriggerCheckerAsync(_selected!))">RUN NOW</button>
+                            <button type="button" class="hpm-sel-btn" @onclick="@(() => ToggleCheckerAsync(_selected!, selected.IsActive))">@(selected.IsActive ? "PAUSE" : "START")</button>
+                            <button type="button" class="hpm-sel-btn hpm-sel-btn--reset" @onclick="@(() => ResetCheckerAsync(_selected!))">RESET</button>
+                        </div>
+
+                        <div class="hpm-fields">
+                            <div class="hpm-field">
+                                <label for="hpm-interval">INTERVAL</label>
+                                <select id="hpm-interval" value="@selected.Interval" @onchange="OnIntervalChanged">
+                                    @foreach (var interval in Intervals)
+                                    {
+                                        <option value="@interval" selected="@(interval == selected.Interval)">@Describe(interval)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="hpm-field">
+                                <label for="hpm-threshold">FAIL THRESHOLD</label>
+                                <input id="hpm-threshold" type="number" min="0" value="@selected.UnhealthyThreshold" @onchange="OnThresholdChanged" />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            }
+
+            <section class="hpm-panel">
+                <div class="hpm-log-head">
+                    <span class="hpm-eyebrow" style="margin: 0;">EVENT LOG</span>
+                    <div class="hpm-spacer"></div>
+                    <span class="hpm-log-led" aria-hidden="true"></span>
+                </div>
+                <div class="hpm-log-body">
+                    @if (_events.Count == 0)
+                    {
+                        <div class="hpm-log-empty">Quiet so far. Events appear as checks change state.</div>
+                    }
+                    else
+                    {
+                        @foreach (var entry in _events)
+                        {
+                            <div class="hpm-event @StatusClass(entry.Status)">
+                                <span class="hpm-event-time">@entry.At.ToString("HH:mm:ss")</span>
+                                <span class="hpm-event-tag">[@entry.Tag]</span>
+                                <span class="hpm-event-text" title="@entry.Text">@entry.Text</span>
+                            </div>
+                        }
+                    }
+                </div>
+            </section>
+        </aside>
+    </div>
 </div>
-
-@code {
-    private Dictionary<string, PulseCheckerState> _states = new();
-    private Dictionary<string, PulseCheckerState> _filteredStates = new();
-    private Dictionary<string, List<PulseCheckerHistoryEntry>> _histories = new();
-    private Dictionary<string, string> _displayNames = new();
-    private bool _isLoading = true;
-    private bool _isDarkMode;
-    private string? _searchFilter;
-    private string? _selectedFilter;
-    private bool _initialized;
-    private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
-    private readonly List<ToastItem> _toasts = [];
-    private Microsoft.JSInterop.IJSObjectReference? _jsModule;
-
-    private int _activeCount;
-    private int _stoppedCount;
-    private int _healthyCount;
-    private int _suspiciousCount;
-    private int _unhealthyCount;
-
-    protected override async Task OnInitializedAsync()
-    {
-        if (_initialized) return;
-        _initialized = true;
-
-        DashboardService.SubscribeToStateChanges((name, state) => _ = OnStateChangedAsync(name, state));
-
-        if (DashboardService is HealthieDashboardService internalService)
-        {
-            await internalService.InitializeSubscriptionsAsync();
-        }
-
-        await LoadStatesAsync();
-    }
-
-    private async Task LoadStatesAsync()
-    {
-        if (!await _loadSemaphore.WaitAsync(TimeSpan.Zero))
-            return;
-
-        try
-        {
-            _isLoading = true;
-            StateHasChanged();
-
-            _states = await DashboardService.GetAllStatesAsync();
-            _displayNames = await DashboardService.GetDisplayNamesAsync();
-            await LoadAllHistoriesAsync();
-            ApplyFilter();
-            UpdateSummary();
-
-            _isLoading = false;
-        }
-        finally
-        {
-            _loadSemaphore.Release();
-        }
-    }
-
-    private async Task LoadAllHistoriesAsync()
-    {
-        var newHistories = new Dictionary<string, List<PulseCheckerHistoryEntry>>();
-        foreach (var name in _states.Keys)
-        {
-            newHistories[name] = await DashboardService.GetHistoryAsync(name);
-        }
-        _histories = newHistories;
-    }
-
-    private async Task LoadHistoryForCheckerAsync(string name)
-    {
-        _histories[name] = await DashboardService.GetHistoryAsync(name);
-    }
-
-    private List<PulseCheckerHistoryEntry> GetHistoryForChecker(string name)
-    {
-        return _histories.TryGetValue(name, out var history) ? history : [];
-    }
-
-    private void ApplyFilter()
-    {
-        IEnumerable<KeyValuePair<string, PulseCheckerState>> filtered = _states;
-
-        if (!string.IsNullOrWhiteSpace(_searchFilter))
-        {
-            filtered = filtered.Where(s =>
-                GetDisplayName(s.Key).Contains(_searchFilter, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (_selectedFilter is not null)
-        {
-            filtered = _selectedFilter switch
-            {
-                "active" => filtered.Where(s => s.Value.IsActive),
-                "stopped" => filtered.Where(s => !s.Value.IsActive),
-                "healthy" => filtered.Where(s =>
-                    s.Value.LastResult is null || s.Value.LastResult.Health == PulseCheckerHealth.Healthy),
-                "suspicious" => filtered.Where(s =>
-                    s.Value.LastResult?.Health == PulseCheckerHealth.Suspicious),
-                "unhealthy" => filtered.Where(s =>
-                    s.Value.LastResult?.Health == PulseCheckerHealth.Unhealthy),
-                _ => filtered
-            };
-        }
-
-        _filteredStates = filtered.ToDictionary(s => s.Key, s => s.Value);
-    }
-
-    private void UpdateSummary()
-    {
-        _activeCount = _states.Values.Count(s => s.IsActive);
-        _stoppedCount = _states.Values.Count(s => !s.IsActive);
-        _healthyCount = _states.Values.Count(s =>
-            s.LastResult is null || s.LastResult.Health == PulseCheckerHealth.Healthy);
-        _suspiciousCount = _states.Values.Count(s =>
-            s.LastResult?.Health == PulseCheckerHealth.Suspicious);
-        _unhealthyCount = _states.Values.Count(s =>
-            s.LastResult?.Health == PulseCheckerHealth.Unhealthy);
-    }
-
-    private async Task OnStateChangedAsync(string name, PulseCheckerState newState)
-    {
-        try
-        {
-            // Reload history for the changed checker
-            var history = await DashboardService.GetHistoryAsync(name);
-
-            await InvokeAsync(() =>
-            {
-                _states[name] = newState;
-                _histories[name] = history;
-                ApplyFilter();
-                UpdateSummary();
-                StateHasChanged();
-            });
-        }
-        catch (ObjectDisposedException)
-        {
-            // Component disposed
-        }
-    }
-
-    private async Task TriggerAllAsync()
-    {
-        try
-        {
-            var checkers = await DashboardService.GetAllCheckersAsync();
-            var tasks = checkers.Select(c => TriggerCheckerSilentAsync(c.Key));
-            var results = await Task.WhenAll(tasks);
-            var failures = results.Where(r => r is not null).ToList();
-            if (failures.Count > 0)
-                foreach (var msg in failures) ShowToast(msg!, "error");
-            ShowToast("All checkers triggered.", "success");
-        }
-        catch (Exception ex)
-        {
-            ShowToast($"Failed: {ex.Message}", "error");
-        }
-    }
-
-    private async Task<string?> TriggerCheckerSilentAsync(string name)
-    {
-        try { await DashboardService.TriggerAsync(name); return null; }
-        catch (Exception ex) { return $"Failed to trigger '{ShortName(name)}': {ex.Message}"; }
-    }
-
-    private async Task StartAllAsync()
-    {
-        try
-        {
-            await DashboardService.StartAllAsync();
-            ShowToast("All checkers started.", "success");
-        }
-        catch (Exception ex)
-        {
-            ShowToast($"Failed: {ex.Message}", "error");
-        }
-    }
-
-    private async Task StopAllAsync()
-    {
-        try
-        {
-            await DashboardService.StopAllAsync();
-            ShowToast("All checkers paused.", "success");
-        }
-        catch (Exception ex)
-        {
-            ShowToast($"Failed: {ex.Message}", "error");
-        }
-    }
-
-    private async Task StartCheckerAsync(string name)
-    {
-        try { await DashboardService.StartAsync(name); ShowToast($"'{ShortName(name)}' started.", "success"); }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task StopCheckerAsync(string name)
-    {
-        try { await DashboardService.StopAsync(name); ShowToast($"'{ShortName(name)}' paused.", "success"); }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task TriggerCheckerAsync(string name)
-    {
-        try { await DashboardService.TriggerAsync(name); ShowToast($"'{ShortName(name)}' triggered.", "success"); }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task ResetCheckerAsync(string name)
-    {
-        try { await DashboardService.ResetAsync(name); ShowToast($"'{ShortName(name)}' reset.", "success"); }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task SetIntervalAsync(string name, PulseInterval interval)
-    {
-        try { await DashboardService.SetIntervalAsync(name, interval); ShowToast($"Interval updated.", "success"); }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task SetThresholdAsync(string name, uint threshold)
-    {
-        try { await DashboardService.SetThresholdAsync(name, threshold); ShowToast($"Threshold updated.", "success"); }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task ClearHistoryAsync(string name)
-    {
-        try
-        {
-            await DashboardService.ClearHistoryAsync(name);
-            _histories[name] = [];
-            StateHasChanged();
-            ShowToast($"History cleared for '{ShortName(name)}'.", "success");
-        }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task SetHistoryEnabledAsync(string name, bool enabled)
-    {
-        try
-        {
-            await DashboardService.SetHistoryEnabledAsync(name, enabled);
-            ShowToast($"History {(enabled ? "enabled" : "disabled")} for '{ShortName(name)}'.", "success");
-        }
-        catch (Exception ex) { ShowToast($"Failed: {ex.Message}", "error"); }
-    }
-
-    private async Task OnDarkModeToggled(bool isDarkMode)
-    {
-        _isDarkMode = isDarkMode;
-        ThemeState.IsDarkMode = isDarkMode;
-        if (_jsModule is not null)
-            await _jsModule.InvokeVoidAsync("setTheme", isDarkMode ? "dark" : "light");
-    }
-
-    private void OnFilterCardClicked(string filter)
-    {
-        _selectedFilter = _selectedFilter == filter ? null : filter;
-        ApplyFilter();
-    }
-
-    private void OnSearchFilterChanged(string? filter)
-    {
-        _searchFilter = filter;
-        ApplyFilter();
-    }
-
-    private void ShowToast(string message, string severity)
-    {
-        _toasts.Add(new ToastItem(message, severity));
-        StateHasChanged();
-        _ = RemoveToastAfterDelay();
-    }
-
-    private async Task RemoveToastAfterDelay()
-    {
-        await Task.Delay(3000);
-        try
-        {
-            await InvokeAsync(() =>
-            {
-                if (_toasts.Count > 0)
-                    _toasts.RemoveAt(0);
-                StateHasChanged();
-            });
-        }
-        catch (ObjectDisposedException) { }
-    }
-
-    private string GetDisplayName(string name)
-    {
-        return _displayNames.TryGetValue(name, out var displayName) ? displayName : name;
-    }
-
-    private static string ShortName(string fullName)
-    {
-        var lastDot = fullName.LastIndexOf('.');
-        return lastDot >= 0 && lastDot < fullName.Length - 1 ? fullName[(lastDot + 1)..] : fullName;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            _jsModule = await JS.InvokeAsync<Microsoft.JSInterop.IJSObjectReference>(
-                "import", "./_content/Healthie.NET.Dashboard/healthie.js");
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        try { if (_jsModule is not null) await _jsModule.DisposeAsync(); }
-        catch { }
-
-        try
-        {
-            if (DashboardService is IAsyncDisposable disposable)
-                await disposable.DisposeAsync();
-        }
-        catch { }
-
-        _loadSemaphore.Dispose();
-    }
-
-    private record ToastItem(string Message, string Severity);
-}

@@ -196,7 +196,7 @@ await checker.ClearHistoryAsync();           // Clear existing history
 var history = await checker.GetHistoryAsync(); // Get history entries
 ```
 
-The maximum number of history entries is configured globally via `HealthieOptions.MaxHistoryLength` (default: 10, range: 1-10).
+The maximum number of history entries is configured globally via `HealthieOptions.MaxHistoryLength` (default: 10, range: 1-100). Values outside the range are clamped rather than rejected.
 
 ### Constructor Overloads
 

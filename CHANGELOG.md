@@ -73,6 +73,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The dashboard is redesigned as a pulse monitor: an aggregate EKG trace, one row
+  per checker with a per-run pulse strip, a side panel for the selected checker,
+  and a live event log of state transitions. It stays a zero-dependency Blazor
+  component library with no web fonts, so it runs air-gapped. Dark mode is now the
+  default.
+- `HealthieOptions.MaxHistoryLength` accepts up to 100 entries, up from 10, so the
+  dashboard's pulse strip can show a longer window. The default is still 10, and
+  out-of-range values are still clamped.
+
 - The samples run without any external dependency. The console sample uses the
   in-memory provider; the Web API and Blazor samples use CosmosDB only when
   `ConnectionStrings:CosmosDb` is configured and fall back to in-memory
@@ -91,6 +100,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   supplies on every supported target.
 
 ### Fixed
+
+- The dashboard fetched each checker's history separately even though a checker's
+  state already carries it, costing one extra provider round-trip per checker on
+  load and another on every state change. Against a remote provider this dominated
+  load time; with 14 checkers on Azure CosmosDB the dashboard took ~3.5s to render
+  and now takes ~0.4s.
 
 - A check that failed because this library could not reach its own state store was
   recorded as a failed health check, reporting a healthy component as down. Only

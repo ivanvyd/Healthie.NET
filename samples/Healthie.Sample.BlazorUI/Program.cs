@@ -11,7 +11,7 @@ builder.Services.AddRazorComponents()
     .AddCircuitOptions(options => options.DetailedErrors = true);
 
 builder.Services
-    .AddHealthie(options => options.MaxHistoryLength = 10, typeof(Program).Assembly)
+    .AddHealthie(options => options.MaxHistoryLength = 20, typeof(Program).Assembly)
     .AddHealthieUI(options =>
     {
         options.DashboardTitle = "Healthie.NET Test Dashboard";

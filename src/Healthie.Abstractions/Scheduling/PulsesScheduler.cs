@@ -123,7 +123,8 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var maxHistory = (int)Math.Clamp(_options.MaxHistoryLength, 1, 10);
+        // HealthieOptions.MaxHistoryLength already clamps what it accepts.
+        var maxHistory = (int)_options.MaxHistoryLength;
 
         // Configure max history length on all checkers and trim existing histories
         await Task.WhenAll(_pulseCheckers.OfType<PulseChecker>().Select(async checker =>

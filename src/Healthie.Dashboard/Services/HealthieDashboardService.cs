@@ -14,8 +14,9 @@ internal sealed class HealthieDashboardService(
     IPulsesScheduler pulsesScheduler,
     ILogger<HealthieDashboardService>? logger = null) : IHealthieDashboardService
 {
-    private Action<string, PulseCheckerState>? _onStateChanged;
+    private readonly List<Func<string, PulseCheckerState, Task>> _handlers = [];
     private readonly List<(IPulseChecker Checker, EventHandler<PulseCheckerStateChangedEventArgs> Handler)> _subscriptions = [];
+    private readonly SemaphoreSlim _handlersLock = new(1, 1);
 
     /// <inheritdoc />
     public async Task<Dictionary<string, PulseCheckerState>> GetAllStatesAsync(
@@ -30,22 +31,6 @@ internal sealed class HealthieDashboardService(
         {
             logger?.LogError(ex, "Failed to retrieve pulse checker states.");
             return new Dictionary<string, PulseCheckerState>();
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task<Dictionary<string, IPulseChecker>> GetAllCheckersAsync(
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await pulsesScheduler.GetPulseCheckersAsync(cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "Failed to retrieve pulse checkers.");
-            return new Dictionary<string, IPulseChecker>();
         }
     }
 
@@ -151,37 +136,6 @@ internal sealed class HealthieDashboardService(
     }
 
     /// <inheritdoc />
-    public async Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(string name,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await pulsesScheduler.GetHistoryAsync(name, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "Failed to get history for checker '{CheckerName}'.", name);
-            return [];
-        }
-    }
-
-    /// <inheritdoc />
-    public async Task ClearHistoryAsync(string name, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await pulsesScheduler.ClearHistoryAsync(name, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "Failed to clear history for checker '{CheckerName}'.", name);
-            throw;
-        }
-    }
-
-    /// <inheritdoc />
     public async Task StartAllAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -244,22 +198,6 @@ internal sealed class HealthieDashboardService(
     }
 
     /// <inheritdoc />
-    public async Task SetHistoryEnabledAsync(string name, bool enabled,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await pulsesScheduler.SetHistoryEnabledAsync(name, enabled, cancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "Failed to set history enabled for checker '{CheckerName}'.", name);
-            throw;
-        }
-    }
-
-    /// <inheritdoc />
     public async Task<Dictionary<string, string>> GetDisplayNamesAsync(
         CancellationToken cancellationToken = default)
     {
@@ -278,30 +216,82 @@ internal sealed class HealthieDashboardService(
     }
 
     /// <inheritdoc />
-    public void SubscribeToStateChanges(Action<string, PulseCheckerState> onStateChanged)
-    {
-        _onStateChanged = onStateChanged;
-    }
-
-    /// <summary>
-    /// Subscribes to state change events on all registered pulse checkers.
-    /// Should be called after the service is initialized and checkers are available.
-    /// </summary>
-    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    internal async Task InitializeSubscriptionsAsync(CancellationToken cancellationToken = default)
+    public async Task TriggerAllAsync(CancellationToken cancellationToken = default)
     {
         var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        foreach (var (name, checker) in checkers)
-        {
-            EventHandler<PulseCheckerStateChangedEventArgs> handler = (_, args) =>
-            {
-                _onStateChanged?.Invoke(name, args.NewState);
-            };
+        await Task.WhenAll(checkers.Keys.Select(name => TriggerCheckerAsync(name, cancellationToken)))
+            .ConfigureAwait(false);
+    }
 
-            checker.StateChanged += handler;
-            _subscriptions.Add((checker, handler));
+    private async Task TriggerCheckerAsync(string name, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await TriggerAsync(name, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to trigger checker '{CheckerName}'.", name);
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task SubscribeToStateChangesAsync(
+        Func<string, PulseCheckerState, Task> onStateChanged,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onStateChanged);
+
+        await _handlersLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _handlers.Add(onStateChanged);
+
+            // The checkers are attached to once, however many handlers register.
+            if (_subscriptions.Count > 0)
+            {
+                return;
+            }
+
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            foreach (var (name, checker) in checkers)
+            {
+                EventHandler<PulseCheckerStateChangedEventArgs> handler = (_, args) =>
+                    _ = NotifyAsync(name, args.NewState);
+
+                checker.StateChanged += handler;
+                _subscriptions.Add((checker, handler));
+            }
+        }
+        finally
+        {
+            _handlersLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Hands a state change to every subscriber.
+    /// </summary>
+    /// <remarks>
+    /// Raised from whichever thread ran the check, and a subscriber that throws must not take down
+    /// that thread, so each is isolated.
+    /// </remarks>
+    private async Task NotifyAsync(string name, PulseCheckerState state)
+    {
+        foreach (var handler in _handlers.ToArray())
+        {
+            try
+            {
+                await handler(name, state).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "A subscriber threw while handling a state change for '{CheckerName}'.", name);
+            }
         }
     }
 
@@ -321,7 +311,8 @@ internal sealed class HealthieDashboardService(
         }
 
         _subscriptions.Clear();
-        _onStateChanged = null;
+        _handlers.Clear();
+        _handlersLock.Dispose();
 
         return ValueTask.CompletedTask;
     }

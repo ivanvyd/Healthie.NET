@@ -26,7 +26,8 @@ namespace Healthie.Dashboard.Services;
 /// </remarks>
 public sealed class HealthieThemeState
 {
-    private bool _isDarkMode;
+    // Dark-first: the dashboard is built for wall displays and on-call use.
+    private bool _isDarkMode = true;
 
     /// <summary>
     /// Gets or sets whether dark mode is active.
