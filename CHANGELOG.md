@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-07-15
+
 ### Added
 
 - **`Healthie.NET.Mcp`**: a Model Context Protocol server, so an AI agent can read
@@ -165,5 +167,6 @@ Blazor dashboard, and the CosmosDB and Quartz.NET providers.
 
 - Dashboard UI improvements and additional sample pulse checkers.
 
-[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v2.3.0...v3.0.0
 [2.3.0]: https://github.com/ivanvyd/Healthie.NET/releases/tag/v2.3.0
