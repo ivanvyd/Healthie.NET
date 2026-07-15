@@ -22,6 +22,9 @@ on:
 
 permissions:
   contents: write
+  # Lets this workflow ask GitHub for the signed OIDC token that NuGet.org trades for a
+  # short-lived publishing key. Without it the login step below cannot get a token at all.
+  id-token: write
 
 env:
   CONFIGURATION: Release
@@ -129,6 +132,21 @@ jobs:
             ${{ env.NUPKG_DIR }}/*.snupkg
           if-no-files-found: error
 
+      # Trusted publishing: NuGet.org trades GitHub's signed OIDC token for a key that lives one
+      # hour, rather than this repository holding a long-lived one. Requested here, immediately
+      # before the pushes, because that hour starts now -- asking any earlier risks it expiring
+      # behind a slow test run.
+      # Requires a policy on nuget.org naming this repository and `publish.yml`.
+      - name: Get a publishing key from NuGet.org
+        if: ${{ !inputs.dry_run }}
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          # The nuget.org profile name, not an email address. Not a secret: it is on every package
+          # page already. Keeping it in the open means a missing secret cannot silently break a
+          # release.
+          user: ivanvyd
+
       # Publishing is the step that cannot be undone, so it goes first: everything after it is
       # cheap and repeatable. Tagging first would leave a tag behind whenever a push failed, and
       # "Check the version is unreleased" would then refuse to retry that same version -- turning a
@@ -138,7 +156,7 @@ jobs:
         if: ${{ !inputs.dry_run }}
         run: >
           dotnet nuget push "${{ env.NUPKG_DIR }}/*.nupkg"
-          --api-key ${{ secrets.NUGET_API_KEY }}
+          --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 
@@ -147,7 +165,7 @@ jobs:
         continue-on-error: true
         run: >
           dotnet nuget push "${{ env.NUPKG_DIR }}/*.snupkg"
-          --api-key ${{ secrets.NUGET_API_KEY }}
+          --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
 

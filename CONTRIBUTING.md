@@ -153,9 +153,27 @@ run builds, tests, and packs, and uploads the `.nupkg` files as a run artifact
 without tagging or publishing anything — do that first and download the artifact
 if you want to inspect what would ship.
 
-A real run tags the commit, pushes every package plus symbols to NuGet.org, and
-creates a GitHub release. Tests gate the pack in both modes, so a release cannot
-publish a build that does not pass.
+A real run publishes every package plus symbols to NuGet.org, then tags the
+commit and creates a GitHub release. Publishing comes first deliberately: it is
+the only step that cannot be undone, and tagging ahead of it would leave a tag
+behind whenever a push failed, which the "version is unreleased" check would
+then read as "already released" and refuse to retry. The unit and end-to-end
+suites gate the pack in both modes, so a release cannot publish a build that
+does not pass, or a dashboard that does not work in a browser.
+
+### How publishing authenticates
+
+There is no API key to manage. The workflow uses
+[Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing):
+GitHub issues a signed OIDC token, NuGet.org checks it against a policy naming
+this repository, and hands back a key that lives one hour. Nothing long-lived is
+stored, so there is nothing to rotate or leak.
+
+The policy lives on nuget.org under your username → **Trusted Publishing**, and
+names Repository Owner `ivanvyd`, Repository `Healthie.NET`, Workflow File
+`publish.yml` (file name only, no path). If publishing starts failing with an
+authentication error, that policy is the first thing to check — it can go
+inactive if the account that owns it changes.
 
 Pushing a `v*` tag by hand triggers the same workflow, which is the older path
 and still supported:
