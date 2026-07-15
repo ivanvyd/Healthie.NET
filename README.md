@@ -14,9 +14,7 @@
 builder.Services.AddHealthie(typeof(Program).Assembly);
 ```
 
-<video src="https://github.com/ivanvyd/Healthie.NET/raw/main/docs/assets/healthie-v3-release-film.mp4" controls muted loop playsinline width="900">
-  <a href="https://github.com/ivanvyd/Healthie.NET/raw/main/docs/assets/healthie-v3-release-film.mp4">Watch the Healthie.NET v3 dashboard film</a>
-</video>
+![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/healthie-v3-film-1080-cut.gif)
 
 **Contents**
 
