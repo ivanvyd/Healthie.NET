@@ -19,9 +19,9 @@ using Healthie.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    .AddHealthie(typeof(Program).Assembly)   // Scan for PulseChecker implementations
-    .AddHealthieDefaultScheduler();          // Built-in PeriodicTimer scheduler
+// Scans for PulseChecker implementations and registers the built-in PeriodicTimer
+// scheduler and in-memory state provider.
+builder.Services.AddHealthie(typeof(Program).Assembly);
 
 var app = builder.Build();
 app.Run();

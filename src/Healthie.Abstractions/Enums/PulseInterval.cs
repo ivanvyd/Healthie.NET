@@ -1,4 +1,3 @@
-using Newtonsoft.Json.Converters;
 using System.ComponentModel;
 using System.Text.Json.Serialization;
 
@@ -7,8 +6,11 @@ namespace Healthie.Abstractions.Enums;
 /// <summary>
 /// Defines the available execution intervals for pulse checkers.
 /// </summary>
+/// <remarks>
+/// The values are assigned explicitly and must stay stable: state providers may persist them
+/// numerically, and renumbering would silently reinterpret stored state.
+/// </remarks>
 [JsonConverter(typeof(JsonStringEnumConverter))]
-[Newtonsoft.Json.JsonConverter(typeof(StringEnumConverter))]
 public enum PulseInterval
 {
     /// <summary>

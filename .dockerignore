@@ -1,0 +1,22 @@
+# Build outputs are rebuilt inside the image; copying them in invalidates layers and can leak host
+# artifacts into the container.
+**/bin/
+**/obj/
+**/out/
+
+**/.git/
+**/.github/
+**/.vs/
+**/.vscode/
+**/.idea/
+
+**/*.user
+**/*.suo
+**/.dockerignore
+**/Dockerfile
+**/docker-compose*.yml
+
+**/node_modules/
+**/TestResults/
+artifacts/
+nupkgs/

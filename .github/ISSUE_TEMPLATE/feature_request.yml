@@ -1,0 +1,54 @@
+name: Feature Request
+description: Suggest an enhancement or new capability for Healthie.NET
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the suggestion. Check the Roadmap section of the
+        [README](https://github.com/ivanvyd/Healthie.NET#roadmap) first —
+        your idea may already be planned.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or limitation you've run into.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        What would you like to see? If it affects the public API (a new
+        interface, extension method, or option), sketch out what it would
+        look like from a consumer's perspective.
+      placeholder: |
+        builder.Services.AddHealthie(assembly)
+            .AddHealthieSomeNewThing(options => { ... });
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect?
+      multiple: true
+      options:
+        - Abstractions / core (PulseChecker, PulsesScheduler)
+        - DependencyInjection
+        - Api
+        - Dashboard
+        - Scheduling.Quartz
+        - StateProviding.CosmosDb
+        - New provider (scheduler or state)
+        - Documentation
+        - Other
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you're using today, or other approaches you considered.

@@ -9,7 +9,6 @@ permissions:
   contents: write
 
 env:
-  DOTNET_VERSION: '8.0.x'
   CONFIGURATION: Release
   NUPKG_DIR: ./nupkgs
 
@@ -23,10 +22,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The 10.0 SDK builds every target framework the libraries ship for; the 8.0 runtime is
+      # needed to also run the tests against net8.0 before publishing.
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Extract version from tag
         id: version
@@ -46,6 +49,13 @@ jobs:
           --no-restore
           /p:Version=${{ steps.version.outputs.VERSION }}
           /p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: >
+          dotnet test
+          --configuration ${{ env.CONFIGURATION }}
+          --no-build
+          --verbosity normal
 
       - name: Pack
         run: >

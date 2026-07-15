@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  DOTNET_VERSION: '8.0.x'
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,13 +14,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # The 10.0 SDK builds every target framework the libraries ship for; the 8.0 runtime is
+      # needed to also run the tests against net8.0.
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          dotnet-version: |
+            8.0.x
+            10.0.x
 
       - name: Restore
         run: dotnet restore
 
       - name: Build
         run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
+
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal

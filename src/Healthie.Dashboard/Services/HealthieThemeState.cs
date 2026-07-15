@@ -7,16 +7,20 @@ namespace Healthie.Dashboard.Services;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Subscribe to <see cref="OnChanged"/> in your layout to update the <c>MudThemeProvider</c>:
+/// Subscribe to <see cref="OnChanged"/> in your layout to follow the dashboard's theme:
 /// </para>
 /// <code>
 /// @inject HealthieThemeState ThemeState
+/// @implements IDisposable
 ///
-/// &lt;MudThemeProvider @bind-IsDarkMode="@ThemeState.IsDarkMode" /&gt;
+/// &lt;div class="@(ThemeState.IsDarkMode ? "my-app-dark" : "my-app-light")"&gt;
+///     @Body
+/// &lt;/div&gt;
 ///
-/// protected override void OnInitialized()
-/// {
-///     ThemeState.OnChanged += StateHasChanged;
+/// @code {
+///     protected override void OnInitialized() =&gt; ThemeState.OnChanged += StateHasChanged;
+///
+///     public void Dispose() =&gt; ThemeState.OnChanged -= StateHasChanged;
 /// }
 /// </code>
 /// </remarks>

@@ -18,9 +18,18 @@ internal class StateDocument<TState>
     public TState? Value { get; set; }
 
     /// <summary>
-    /// Gets or sets the assembly-qualified type name of the stored state for safe deserialization.
+    /// Gets or sets the name of the stored state's type, compared against the requested type on read
+    /// so a state written as one type is never returned as another.
+    /// Documents written before this property existed deserialize to <c>null</c>.
     /// </summary>
-    public string StateType { get; set; }
+    /// <remarks>
+    /// This records <see cref="System.Type.FullName"/> rather than
+    /// <see cref="System.Type.AssemblyQualifiedName"/>, because the assembly-qualified name embeds
+    /// the assembly version and this library's assembly version changes with every release.
+    /// Recording it would make state written by one release unreadable by the next. Releases up to
+    /// 2.3.0 wrote the assembly-qualified name, which begins with the full name.
+    /// </remarks>
+    public string? StateType { get; set; }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="StateDocument{TState}"/> class.
@@ -31,6 +40,6 @@ internal class StateDocument<TState>
     {
         id = name;
         Value = state;
-        StateType = typeof(TState).AssemblyQualifiedName!;
+        StateType = typeof(TState).FullName;
     }
 }

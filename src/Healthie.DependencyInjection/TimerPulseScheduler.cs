@@ -14,7 +14,7 @@ namespace Healthie.DependencyInjection;
 /// For advanced scheduling (persistent jobs, CRON expressions, clustering),
 /// use a dedicated scheduling provider like Healthie.NET.Quartz.
 /// </summary>
-public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable
+public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDisposable
 {
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _timers = new();
     private readonly ILogger<TimerPulseScheduler>? _logger;
@@ -90,7 +90,12 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable
     /// <summary>
     /// Disposes all active timers and cancellation token sources.
     /// </summary>
-    public ValueTask DisposeAsync()
+    /// <remarks>
+    /// <see cref="IDisposable"/> is implemented alongside <see cref="IAsyncDisposable"/> because
+    /// this scheduler is registered as a singleton and disposal is synchronous work. Containers
+    /// disposed synchronously reject services that are only asynchronously disposable.
+    /// </remarks>
+    public void Dispose()
     {
         foreach (var kvp in _timers)
         {
@@ -99,6 +104,13 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable
         }
 
         _timers.Clear();
+    }
+
+    /// <inheritdoc />
+    public ValueTask DisposeAsync()
+    {
+        Dispose();
+
         return ValueTask.CompletedTask;
     }
 }

@@ -79,9 +79,9 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     public async Task ActivateAsync(string name, CancellationToken cancellationToken = default)
     {
         var pulseChecker = GetCheckerOrThrow(name);
-        bool wasAlreadyActive = await pulseChecker.StartAsync(cancellationToken).ConfigureAwait(false);
+        bool wasActivated = await pulseChecker.StartAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!wasAlreadyActive)
+        if (wasActivated)
         {
             await ScheduleAsync(pulseChecker, cancellationToken).ConfigureAwait(false);
         }

@@ -24,10 +24,16 @@ Healthie.NET lets you define **pulse checkers** -- small classes that monitor th
 
 ## Features
 
+- Runs on **.NET 8 and .NET 10**
 - Fully async pulse checkers with `CancellationToken` propagation throughout
 - Configurable polling intervals (1 second to 5 minutes via `PulseInterval` enum)
 - Three-state health model: `Healthy`, `Suspicious`, `Unhealthy`
 - Unhealthy threshold with consecutive failure tracking and automatic state promotion
+- **Monitors existing `IHealthCheck` implementations**, so the health checks you already have gain scheduling, thresholds, and history without being rewritten
+- **Works out of the box** -- an in-memory state provider is registered by default; add a durable one when you need it
+- **Kubernetes liveness and readiness probes**
+- **MCP server**, so an AI agent can read and act on service health
+- **Optional AI diagnostics** that explain a checker's recent failures, through any `IChatClient`
 - Thread-safe concurrent execution prevention via `SemaphoreSlim`
 - Real-time state change notifications (`EventHandler<PulseCheckerStateChangedEventArgs>`)
 - Assembly scanning for automatic pulse checker discovery and DI registration
@@ -44,11 +50,15 @@ Healthie.NET lets you define **pulse checkers** -- small classes that monitor th
 | Package | Description | Install |
 |---|---|---|
 | **[Healthie.NET.Abstractions](https://www.nuget.org/packages/Healthie.NET.Abstractions)** | Core interfaces, models, enums, and the `PulseChecker` abstract base class. | `dotnet add package Healthie.NET.Abstractions` |
-| **[Healthie.NET.DependencyInjection](https://www.nuget.org/packages/Healthie.NET.DependencyInjection)** | DI registration (`AddHealthie`), assembly scanning, and the built-in `TimerPulseScheduler`. | `dotnet add package Healthie.NET.DependencyInjection` |
-| **[Healthie.NET.Api](https://www.nuget.org/packages/Healthie.NET.Api)** | ASP.NET Core API controller for managing pulse checkers via REST endpoints. | `dotnet add package Healthie.NET.Api` |
+| **[Healthie.NET.DependencyInjection](https://www.nuget.org/packages/Healthie.NET.DependencyInjection)** | DI registration (`AddHealthie`), assembly scanning, the built-in `TimerPulseScheduler`, the in-memory state provider, and the `IHealthCheck` bridge. | `dotnet add package Healthie.NET.DependencyInjection` |
+| **[Healthie.NET.Api](https://www.nuget.org/packages/Healthie.NET.Api)** | ASP.NET Core API controller for managing pulse checkers via REST, plus liveness and readiness probe endpoints. | `dotnet add package Healthie.NET.Api` |
 | **[Healthie.NET.CosmosDb](https://www.nuget.org/packages/Healthie.NET.CosmosDb)** | Azure CosmosDB `IStateProvider` implementation for persisting pulse checker state. | `dotnet add package Healthie.NET.CosmosDb` |
 | **[Healthie.NET.Dashboard](https://www.nuget.org/packages/Healthie.NET.Dashboard)** | Blazor health monitoring dashboard (Razor Class Library, zero third-party dependencies). | `dotnet add package Healthie.NET.Dashboard` |
-| **[Healthie.NET.Scheduling.Quartz](https://www.nuget.org/packages/Healthie.NET.Scheduling.Quartz)** | Quartz.NET `IPulseScheduler` implementation for persistent, CRON-based scheduling. | `dotnet add package Healthie.NET.Scheduling.Quartz` |
+| **[Healthie.NET.Quartz](https://www.nuget.org/packages/Healthie.NET.Quartz)** | Quartz.NET `IPulseScheduler` implementation for CRON-based scheduling. | `dotnet add package Healthie.NET.Quartz` |
+| **[Healthie.NET.Mcp](https://www.nuget.org/packages/Healthie.NET.Mcp)** | Model Context Protocol server, so an AI agent can read and act on service health. | `dotnet add package Healthie.NET.Mcp` |
+| **[Healthie.NET.AI](https://www.nuget.org/packages/Healthie.NET.AI)** | Optional AI diagnostics that explain a checker's recent failures. Bring any `IChatClient`. | `dotnet add package Healthie.NET.AI` |
+
+All packages target **.NET 8** and **.NET 10**.
 
 ---
 
@@ -107,9 +117,9 @@ using Healthie.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    .AddHealthie(typeof(Program).Assembly)   // Scan assembly for pulse checkers
-    .AddHealthieDefaultScheduler();          // Built-in PeriodicTimer scheduler
+// Scans the assembly for pulse checkers and registers the built-in PeriodicTimer
+// scheduler and in-memory state provider.
+builder.Services.AddHealthie(typeof(Program).Assembly);
 
 var app = builder.Build();
 app.Run();
@@ -194,6 +204,7 @@ The maximum number of history entries is configured globally via `HealthieOption
 |---|---|
 | `PulseChecker(IStateProvider)` | Default interval (`EveryMinute`), threshold `0`. |
 | `PulseChecker(IStateProvider, PulseInterval)` | Custom interval, threshold `0`. |
+| `PulseChecker(IStateProvider, PulseInterval, uint, ILogger?)` | Custom interval and threshold, with a logger for diagnostics. |
 | `PulseChecker(IStateProvider, PulseInterval, uint)` | Custom interval and unhealthy threshold. |
 
 ### Health Statuses
@@ -246,9 +257,7 @@ The simplest configuration uses the built-in `TimerPulseScheduler`, which runs h
 ```csharp
 using Healthie.DependencyInjection;
 
-builder.Services
-    .AddHealthie(typeof(Program).Assembly)
-    .AddHealthieDefaultScheduler();
+builder.Services.AddHealthie(typeof(Program).Assembly);
 ```
 
 ### With Quartz.NET Scheduling
@@ -256,7 +265,7 @@ builder.Services
 For persistent, CRON-based scheduling with clustering support, use the Quartz provider:
 
 ```shell
-dotnet add package Healthie.NET.Scheduling.Quartz
+dotnet add package Healthie.NET.Quartz
 ```
 
 ```csharp
@@ -296,7 +305,6 @@ var container = cosmosClient.GetContainer("your-database", "healthie-state");
 
 builder.Services
     .AddHealthie(typeof(Program).Assembly)
-    .AddHealthieDefaultScheduler()
     .AddHealthieCosmosDb(container);
 ```
 
@@ -476,6 +484,107 @@ The dashboard subscribes to `IPulseChecker.StateChanged` events via `SubscribeTo
 
 ---
 
+## Monitoring Existing Health Checks
+
+If you already have health checks written for `Microsoft.Extensions.Diagnostics.HealthChecks` -- your own, or any of the community ones for SQL Server, Redis, RabbitMQ, Azure, AWS and so on -- Healthie.NET can monitor them as they are. One call adopts every health check you have registered:
+
+```csharp
+builder.Services.AddHealthChecks()
+    .AddSqlServer(connectionString, name: "orders-db")
+    .AddRedis(redisConnectionString, name: "cache");
+
+builder.Services.AddHealthie();
+
+// Schedules every health check above, with a failure threshold, history, and the dashboard.
+builder.Services.AddHealthieForHealthChecks(PulseInterval.Every30Seconds, unhealthyThreshold: 2);
+```
+
+Call it after the `AddHealthChecks()` calls that register them. To monitor one health check on its own terms, use `AddHealthieHealthCheck<TCheck>("name", ...)`.
+
+A health check reports the state it is in right now; the threshold, the history, and the three-state model are what Healthie.NET adds on top.
+
+> **On `Degraded`:** `HealthStatus.Degraded` maps to `Suspicious`, but the two do not mean quite the same thing. `Degraded` means impaired but working, whereas `Suspicious` means a failure that has not yet been confirmed by enough consecutive failures. With the default threshold of `0`, a degraded check is therefore reported as `Unhealthy` on its first failure. Give it a threshold of at least `1` to keep it reading as suspicious.
+
+---
+
+## Kubernetes Probes
+
+```csharp
+app.MapHealthieLiveness();   // GET /healthie/live  -- 200 while the process is up
+app.MapHealthieReadiness();  // GET /healthie/ready -- 503 while any active checker is unhealthy
+```
+
+Liveness deliberately ignores checker state: it answers "is this process alive", not "is everything it monitors healthy". A liveness probe that fails because a database is down would have the orchestrator restart a process that is working correctly and correctly reporting a problem elsewhere. Readiness is the one that takes an instance out of rotation.
+
+Pass `failOnSuspicious: true` to `MapHealthieReadiness()` to also refuse traffic while a checker is suspicious.
+
+---
+
+## AI Agents (MCP)
+
+`Healthie.NET.Mcp` serves a [Model Context Protocol](https://modelcontextprotocol.io) endpoint, so an agent such as Claude or Copilot can read your service health and ask questions about it in plain language.
+
+```shell
+dotnet add package Healthie.NET.Mcp
+```
+
+```csharp
+builder.Services.AddHealthieMcp();
+
+var app = builder.Build();
+app.MapHealthieMcp();   // /healthie/mcp
+```
+
+| Tool | Kind | Description |
+|---|---|---|
+| `get_health_states` | read | The current health of every monitored component. |
+| `get_unhealthy_checkers` | read | Only the components that are unhealthy or suspicious. |
+| `get_checker` | read | One component's health and configuration. |
+| `get_check_history` | read | A component's recent run history, newest first, paged. |
+| `run_check` | action | Runs a check now and returns the fresh result. |
+| `reset_checker` | action | Clears a component's failure streak. |
+
+The server is **read-only by default**. The two action tools appear only when you ask for them:
+
+```csharp
+builder.Services.AddHealthieMcp(options => options.AllowMutations = true);
+
+app.MapHealthieMcp().RequireAuthorization();   // anything that reaches this can trigger checks
+```
+
+---
+
+## AI Diagnostics
+
+`Healthie.NET.AI` explains what a checker's recent history shows: whether it is failing consistently or intermittently, when it started, and what the errors point to. It is provider-agnostic -- it works against any `Microsoft.Extensions.AI` `IChatClient`, so the model is your choice.
+
+```shell
+dotnet add package Healthie.NET.AI
+```
+
+```csharp
+// Any IChatClient: Anthropic, OpenAI, Azure OpenAI, or a local model via Ollama.
+builder.Services.AddSingleton<IChatClient>(
+    new AnthropicClient().AsIChatClient("claude-opus-4-8"));
+
+builder.Services.AddHealthieAI();
+```
+
+```csharp
+var diagnosis = await diagnostician.DiagnoseAsync("orders-db");
+
+Console.WriteLine(diagnosis.Summary);
+Console.WriteLine($"Failure rate rose: {diagnosis.Anomaly.IsAnomalous}");
+```
+
+The anomaly comparison alongside the summary is arithmetic, not a model call, so it is worth trusting on its own.
+
+> **What leaves your process:** diagnosing a checker sends its name, health, and the messages its checks reported to whichever model you configured. Those messages are written by your own checkers, which is a good reason to keep credentials out of check results.
+
+If your only consumer is an AI agent, you may not need this package at all: an agent talking to the MCP endpoint can read `get_check_history` and reason about it itself. This package is for the surfaces where there is no model in the loop.
+
+---
+
 ## Extensibility
 
 Healthie.NET is designed around extensible contracts. You can create custom providers for both scheduling and state storage without modifying library internals.
@@ -563,13 +672,35 @@ builder.Services.AddSingleton<IPulseScheduler, HangfirePulseScheduler>();
 
 ## Sample Projects
 
-The repository includes three sample applications demonstrating different usage patterns:
+The repository includes three sample applications demonstrating different usage patterns. All three run with **no external dependency**: without a CosmosDB connection string they use the in-memory state provider.
 
 | Sample | Description | Path |
 |---|---|---|
 | **Console** | Minimal console application with interactive menu | [`samples/Healthie.Sample.Console`](samples/Healthie.Sample.Console) |
-| **WebAPI** | ASP.NET Core Web API with REST endpoints and Swagger | [`samples/Healthie.Sample.WebApi`](samples/Healthie.Sample.WebApi) |
+| **WebAPI** | REST endpoints, Swagger, Kubernetes probes, and the MCP endpoint | [`samples/Healthie.Sample.WebApi`](samples/Healthie.Sample.WebApi) |
 | **BlazorUI** | Blazor Server app with the Healthie.NET UI dashboard | [`samples/Healthie.Sample.BlazorUI`](samples/Healthie.Sample.BlazorUI) |
+
+```shell
+dotnet run --project samples/Healthie.Sample.WebApi     # http://localhost:5199/healthie
+```
+
+Set `ConnectionStrings:CosmosDb` on the WebAPI or BlazorUI sample to exercise the durable path instead.
+
+### Running everything together
+
+To run the samples against a real CosmosDB, either use the [Aspire](https://aspire.dev) host, which starts the emulator and both samples and puts them on one dashboard:
+
+```shell
+aspire run --project samples/Healthie.AppHost
+```
+
+or Docker, which needs no .NET or Aspire tooling installed:
+
+```shell
+docker compose up --build     # API on :8080, dashboard on :8081
+```
+
+Both are development-time only. Nothing under `src/` depends on Aspire or Docker.
 
 ---
 
@@ -584,7 +715,7 @@ Healthie.NET v2.0 is a major version with breaking changes. Follow these steps t
 | Sync APIs | `IPulseChecker`, `PulseChecker` (sync variants) | Removed | Migrate to async equivalents |
 | Async naming | `IAsyncPulseChecker`, `AsyncPulseChecker` | Renamed to `IPulseChecker`, `PulseChecker` | Update type references |
 | `Check()` method | `PulseCheckerResult Check()` | `Task<PulseCheckerResult> CheckAsync(CancellationToken)` | Change method signature |
-| Scheduling | `AddHealthieQuartz()`, `AddHealthieHangfire()` | `AddHealthieDefaultScheduler()` or `AddHealthieQuartz()` | Replace registration call |
+| Scheduling | `AddHealthieQuartz()`, `AddHealthieHangfire()` | `AddHealthie()` registers the built-in timer scheduler; call `AddHealthieQuartz()` to override it | Replace registration call |
 | State providers | `AddHealthieMemoryCache()`, `AddHealthieSqlServer()` | `AddHealthieCosmosDb(container)` | Switch provider |
 | API routes | `/sync/*` and `/async/*` prefixes | Fixed at `/healthie/*` | Update client URLs |
 | DI scanning | Scans for both sync and async checkers | Scans only for `IPulseChecker` (async) | Remove sync checker classes |
@@ -623,8 +754,8 @@ public class MyChecker : PulseChecker
 services.AddHealthie(assemblies).AddHealthieQuartz();
 
 // v2.0 -- choose one:
-services.AddHealthie(assemblies).AddHealthieDefaultScheduler();  // Built-in timer
-services.AddHealthie(assemblies).AddHealthieQuartz();            // Quartz.NET
+services.AddHealthie(assemblies);                     // Built-in timer (registered by default)
+services.AddHealthie(assemblies).AddHealthieQuartz(); // Quartz.NET
 ```
 
 **Step 4:** Replace state provider registration:
@@ -697,11 +828,13 @@ Healthie.NET packages are standard .NET NuGet libraries. They work in Docker con
 
 Planned features for future releases:
 
-- **Email/mailing notification support** -- configurable notifications when checkers change state (e.g., healthy to unhealthy)
-- **Checker grouping** -- organize pulse checkers into logical groups with group-level actions (trigger all in group, stop all in group, start all in group)
-- **Additional state providers** -- SQL Server, PostgreSQL, Redis, and other popular databases
-- **Additional scheduling providers** -- Hangfire integration and other scheduling libraries
-- **Webhook notifications** -- push state changes to external systems via configurable webhooks
+- **Notifications on state transitions** -- webhooks in [CloudEvents](https://cloudevents.io) format, and recipes for Slack, Teams, and email. Firing on transitions rather than on every check is what the failure threshold makes possible.
+- **OpenTelemetry** -- checker state, transition counts, and check duration as metrics and traces over OTLP, rather than an exporter per vendor.
+- **Concurrency tokens on `IStateProvider`** -- state writes are currently last-write-wins, so a setting changed from the dashboard can be overwritten by a check that read the state first. Resolving it needs the interface to carry a version.
+- **Arbitrary intervals** -- `PulseInterval` currently tops out at five minutes; a `TimeSpan` would remove the ceiling.
+- **Checker grouping** -- organize pulse checkers into logical groups with group-level actions.
+- **Additional state providers** -- SQL Server, PostgreSQL, Redis.
+- **Additional scheduling providers** -- Temporal, for teams already running it and wanting durable, distributed scheduling.
 
 ---
 

@@ -15,6 +15,5 @@ public class HealthieUIOptions
     /// Gets or sets a value indicating whether the dark/light mode toggle is visible.
     /// </summary>
     /// <remarks>Defaults to <c>true</c>.</remarks>
-    /// TODO: Will be implemented in a future release. Currently always returns <c>false</c>.
-    public bool EnableDarkModeToggle => false;
+    public bool EnableDarkModeToggle { get; set; } = true;
 }

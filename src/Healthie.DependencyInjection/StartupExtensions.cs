@@ -1,7 +1,9 @@
 using Healthie.Abstractions;
 using Healthie.Abstractions.Initialization;
 using Healthie.Abstractions.Scheduling;
+using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using System.Reflection;
 
 namespace Healthie.DependencyInjection;
@@ -50,9 +52,13 @@ public static class StartupExtensions
         configure?.Invoke(options);
         services.AddSingleton(options);
 
+        // Hosted services start in registration order, so state providers finish initializing
+        // (creating a container, say) before the scheduler triggers the first check against them.
+        // Registering the scheduler first would let checkers race that initialization, and a
+        // checker that cannot reach its store records the failure as a failed health check.
         services.AddHostedService<StateProviderInitializationService>();
 
-        services.AddSingleton<IPulsesScheduler, PulsesScheduler>();
+        services.TryAddSingleton<IPulsesScheduler, PulsesScheduler>();
         services.AddHostedService(sp =>
             (PulsesScheduler)sp.GetRequiredService<IPulsesScheduler>());
 
@@ -61,7 +67,10 @@ public static class StartupExtensions
             services.RegisterCheckers(assembly, typeof(IPulseChecker), typeof(PulseChecker));
         }
 
-        services.AddSingleton<IPulseScheduler, TimerPulseScheduler>();
+        // Registered with TryAdd so a provider package wins regardless of the order in which
+        // AddHealthie and AddHealthie{Quartz,CosmosDb,...} are called.
+        services.TryAddSingleton<IPulseScheduler, TimerPulseScheduler>();
+        services.TryAddSingleton<IStateProvider, InMemoryStateProvider>();
 
         return services;
     }
@@ -72,8 +81,7 @@ public static class StartupExtensions
         Type checkerInterfaceType,
         Type checkerAbstractClassType)
     {
-        var implementations = scanAssembly
-            .GetTypes()
+        var implementations = GetLoadableTypes(scanAssembly)
             .Where(type => !type.IsAbstract
                 && !type.IsInterface
                 && checkerInterfaceType.IsAssignableFrom(type)
@@ -81,7 +89,24 @@ public static class StartupExtensions
 
         foreach (var implementation in implementations)
         {
-            services.AddSingleton(checkerInterfaceType, implementation);
+            // TryAddEnumerable de-duplicates by implementation type, so scanning the same
+            // assembly more than once cannot register a checker twice. Duplicates would
+            // otherwise surface as a duplicate-key failure when checkers are keyed by name.
+            services.TryAddEnumerable(ServiceDescriptor.Singleton(checkerInterfaceType, implementation));
+        }
+    }
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            // A type failed to load (typically a missing transitive dependency). Register the
+            // checkers that did load rather than failing host startup outright.
+            return ex.Types.OfType<Type>();
         }
     }
 }

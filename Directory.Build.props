@@ -1,13 +1,35 @@
 <Project>
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    Classify each project by where it lives, anchored to this file's directory (the repository
+    root). A plain Contains('src') would also match every project when the repository happens to
+    be cloned under a path containing "src", which would publish the samples as packages.
+  -->
+  <PropertyGroup>
+    <IsShippedProject Condition="$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)src'))">true</IsShippedProject>
+    <IsSampleProject Condition="$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)samples'))">true</IsSampleProject>
+  </PropertyGroup>
+
+  <!--
+    Shipped libraries target both supported LTS releases. .NET 9 is skipped deliberately: it and
+    .NET 8 both leave support on 2026-11-10, so it would add a target without adding reach.
+    Everything not shipped (samples, tests) builds against the current LTS only.
+  -->
+  <PropertyGroup Condition="'$(IsShippedProject)' == 'true'">
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsShippedProject)' != 'true'">
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+
   <!-- Shared NuGet package metadata for src/ projects -->
-  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('src'))">
+  <PropertyGroup Condition="'$(IsShippedProject)' == 'true'">
     <IsPackable>true</IsPackable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -33,15 +55,15 @@
   </PropertyGroup>
 
   <!-- Samples are not packable -->
-  <PropertyGroup Condition="$(MSBuildProjectDirectory.Contains('samples'))">
+  <PropertyGroup Condition="'$(IsSampleProject)' == 'true'">
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <!-- Pack shared assets for src/ projects -->
-  <ItemGroup Condition="$(MSBuildProjectDirectory.Contains('src'))">
+  <ItemGroup Condition="'$(IsShippedProject)' == 'true'">
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
     <None Include="$(MSBuildThisFileDirectory)healthie.net.png" Pack="true" PackagePath="\" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,91 @@
+name: Bug Report
+description: Report a problem with a Healthie.NET package
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please do **not** use this
+        form for security vulnerabilities — see [SECURITY.md](https://github.com/ivanvyd/Healthie.NET/blob/main/SECURITY.md)
+        for private reporting instead.
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Package and version
+      description: e.g. Healthie.NET.Api 2.1.0-beta
+      placeholder: Healthie.NET.Abstractions 2.1.0-beta
+    validations:
+      required: true
+
+  - type: input
+    id: dotnet-version
+    attributes:
+      label: .NET version
+      placeholder: .NET 8.0.10
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: packages-in-use
+    attributes:
+      label: Packages in use
+      description: Which Healthie.NET packages does your project reference?
+      options:
+        - label: Healthie.NET.Abstractions
+        - label: Healthie.NET.DependencyInjection
+        - label: Healthie.NET.Api
+        - label: Healthie.NET.Dashboard
+        - label: Healthie.NET.Quartz
+        - label: Healthie.NET.CosmosDb
+
+  - type: dropdown
+    id: scheduler
+    attributes:
+      label: Scheduler in use
+      options:
+        - TimerPulseScheduler (built-in default)
+        - Quartz.NET (AddHealthieQuartz)
+        - Custom IPulseScheduler
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: state-provider
+    attributes:
+      label: State provider in use
+      options:
+        - InMemoryStateProvider (built-in default)
+        - CosmosDB (AddHealthieCosmosDb)
+        - Custom IStateProvider
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps, ideally with a code snippet, to reproduce the issue.
+      placeholder: |
+        1. Register a pulse checker with ...
+        2. Call ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include stack traces, error messages, or logs if available.
+    validations:
+      required: true

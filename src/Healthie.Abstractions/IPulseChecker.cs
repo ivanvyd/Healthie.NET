@@ -67,14 +67,20 @@ public interface IPulseChecker : IPulse, IState, IAsyncDisposable
     /// Stops the pulse checker asynchronously.
     /// </summary>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous stop operation. The task result is <c>true</c> if the checker was already stopped; <c>false</c> if it was newly deactivated.</returns>
+    /// <returns>
+    /// A task that represents the asynchronous stop operation. The task result is <c>true</c> if the
+    /// checker was newly deactivated; <c>false</c> if it was already stopped.
+    /// </returns>
     Task<bool> StopAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Starts the pulse checker asynchronously.
     /// </summary>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous start operation. The task result is <c>true</c> if the checker was already active; <c>false</c> if it was newly activated.</returns>
+    /// <returns>
+    /// A task that represents the asynchronous start operation. The task result is <c>true</c> if the
+    /// checker was newly activated; <c>false</c> if it was already active.
+    /// </returns>
     Task<bool> StartAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -2,8 +2,6 @@ using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.DependencyInjection;
-using Healthie.StateProviding.CosmosDb;
-using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using static System.Console;
@@ -17,17 +15,13 @@ public static class Program
 
     public static async Task Main(string[] args)
     {
-        // CONSIDER: This is a sample code. In Prod, handle it via DI.
-        CosmosClient client = new("");
-        Database db = await client.CreateDatabaseIfNotExistsAsync("Healthie");
-        Container container = await db.CreateContainerIfNotExistsAsync("HealthieState", "/id");
-
         _host = Microsoft.Extensions.Hosting.Host.CreateDefaultBuilder(args)
             .ConfigureServices((context, services) =>
             {
-                services
-                    .AddHealthie(typeof(Program).Assembly)
-                    .AddHealthieCosmosDb(container);
+                // No state provider is registered, so checkers use the built-in in-memory one and
+                // this sample runs with no external dependency. State is lost on restart; add a
+                // durable provider such as AddHealthieCosmosDb to keep it.
+                services.AddHealthie(typeof(Program).Assembly);
             })
             .Build();
 

@@ -75,4 +75,49 @@ public record PulseCheckerState
     /// Gets or sets the list of historical trigger execution entries for this pulse checker.
     /// </summary>
     public List<PulseCheckerHistoryEntry> History { get; set; } = [];
+
+    /// <summary>
+    /// Determines whether this state is equal to another by comparing every value it holds.
+    /// </summary>
+    /// <param name="other">The state to compare against.</param>
+    /// <returns><c>true</c> if both states hold the same values; otherwise <c>false</c>.</returns>
+    /// <remarks>
+    /// The compiler-generated equality of a record compares <see cref="History"/> by reference,
+    /// which reports two states as different whenever they came from separate reads and as equal
+    /// whenever they happen to share a list. State changes are detected by comparing states, so
+    /// history is compared element by element here instead.
+    /// </remarks>
+    public virtual bool Equals(PulseCheckerState? other)
+    {
+        return other is not null
+            && LastExecutionDateTime == other.LastExecutionDateTime
+            && LastResult == other.LastResult
+            && Interval == other.Interval
+            && ConsecutiveFailureCount == other.ConsecutiveFailureCount
+            && UnhealthyThreshold == other.UnhealthyThreshold
+            && IsActive == other.IsActive
+            && IsHistoryEnabled == other.IsHistoryEnabled
+            && History.SequenceEqual(other.History);
+    }
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hashCode = new HashCode();
+
+        hashCode.Add(LastExecutionDateTime);
+        hashCode.Add(LastResult);
+        hashCode.Add(Interval);
+        hashCode.Add(ConsecutiveFailureCount);
+        hashCode.Add(UnhealthyThreshold);
+        hashCode.Add(IsActive);
+        hashCode.Add(IsHistoryEnabled);
+
+        foreach (var entry in History)
+        {
+            hashCode.Add(entry);
+        }
+
+        return hashCode.ToHashCode();
+    }
 }

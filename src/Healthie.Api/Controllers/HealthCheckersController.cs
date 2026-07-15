@@ -73,7 +73,7 @@ public class HealthCheckersController(
     /// <param name="checkerName">The name of the pulse checker.</param>
     /// <param name="interval">The new interval to apply.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-    /// <returns>204 No Content on success, 404 if the checker is not found, or 400 if the name is empty.</returns>
+    /// <returns>204 No Content on success, 404 if the checker is not found, or 400 if the name is empty or the interval is not a defined value.</returns>
     [HttpPut("{checkerName}/interval")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -85,15 +85,26 @@ public class HealthCheckersController(
             return BadRequest("Checker name cannot be empty.");
         }
 
+        // Model binding normally rejects an undefined interval before this runs, but a host that
+        // sets ApiBehaviorOptions.SuppressModelStateInvalidFilter handles validation itself and
+        // binds the parameter to its default instead. This controller ships into someone else's
+        // MVC pipeline, so it cannot assume that filter is in place.
+        if (!Enum.IsDefined(interval))
+        {
+            return BadRequest($"Invalid interval: {interval}. Use one of the intervals returned by the 'intervals' endpoint.");
+        }
+
         try
         {
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
+            if (!checkers.ContainsKey(checkerName))
+            {
+                logger?.LogWarning("Checker '{CheckerName}' not found for setting interval.", checkerName);
+                return NotFound($"Checker '{checkerName}' not found.");
+            }
+
             await pulsesScheduler.SetIntervalAsync(checkerName, interval, cancellationToken).ConfigureAwait(false);
             return NoContent();
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
-        {
-            logger?.LogWarning("Checker '{CheckerName}' not found for setting interval.", checkerName);
-            return NotFound($"Checker '{checkerName}' not found.");
         }
         catch (Exception ex)
         {
@@ -122,13 +133,15 @@ public class HealthCheckersController(
 
         try
         {
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
+            if (!checkers.ContainsKey(checkerName))
+            {
+                logger?.LogWarning("Checker '{CheckerName}' not found for setting threshold.", checkerName);
+                return NotFound($"Checker '{checkerName}' not found.");
+            }
+
             await pulsesScheduler.SetUnhealthyThresholdAsync(checkerName, threshold, cancellationToken).ConfigureAwait(false);
             return NoContent();
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
-        {
-            logger?.LogWarning("Checker '{CheckerName}' not found for setting threshold.", checkerName);
-            return NotFound($"Checker '{checkerName}' not found.");
         }
         catch (Exception ex)
         {
@@ -156,13 +169,15 @@ public class HealthCheckersController(
 
         try
         {
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
+            if (!checkers.ContainsKey(checkerName))
+            {
+                logger?.LogWarning("Checker '{CheckerName}' not found for starting.", checkerName);
+                return NotFound($"Checker '{checkerName}' not found.");
+            }
+
             await pulsesScheduler.ActivateAsync(checkerName, cancellationToken).ConfigureAwait(false);
             return NoContent();
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
-        {
-            logger?.LogWarning("Checker '{CheckerName}' not found for starting.", checkerName);
-            return NotFound($"Checker '{checkerName}' not found.");
         }
         catch (Exception ex)
         {
@@ -190,13 +205,15 @@ public class HealthCheckersController(
 
         try
         {
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
+            if (!checkers.ContainsKey(checkerName))
+            {
+                logger?.LogWarning("Checker '{CheckerName}' not found for stopping.", checkerName);
+                return NotFound($"Checker '{checkerName}' not found.");
+            }
+
             await pulsesScheduler.DeactivateAsync(checkerName, cancellationToken).ConfigureAwait(false);
             return NoContent();
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
-        {
-            logger?.LogWarning("Checker '{CheckerName}' not found for stopping.", checkerName);
-            return NotFound($"Checker '{checkerName}' not found.");
         }
         catch (Exception ex)
         {
@@ -260,14 +277,16 @@ public class HealthCheckersController(
 
         try
         {
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
+            if (!checkers.ContainsKey(checkerName))
+            {
+                logger?.LogWarning("Checker '{CheckerName}' not found for resetting.", checkerName);
+                return NotFound($"Checker '{checkerName}' not found.");
+            }
+
             await pulsesScheduler.ResetAsync(checkerName, cancellationToken).ConfigureAwait(false);
 
             return NoContent();
-        }
-        catch (ArgumentException ex) when (ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase))
-        {
-            logger?.LogWarning("Checker '{CheckerName}' not found for resetting.", checkerName);
-            return NotFound($"Checker '{checkerName}' not found.");
         }
         catch (Exception ex)
         {

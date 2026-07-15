@@ -26,8 +26,10 @@ public static class StartupExtensions
     /// <see cref="QuartzPulseScheduler"/> as a singleton <see cref="IPulseScheduler"/>.
     /// </para>
     /// <para>
-    /// Use this instead of <c>AddHealthieDefaultScheduler</c> when you need persistent job storage,
-    /// CRON-based scheduling, or Quartz clustering.
+    /// Call this after <c>AddHealthie</c> to replace the built-in timer scheduler when you need
+    /// CRON-based scheduling or Quartz clustering. Persistent job storage additionally requires
+    /// configuring a Quartz job store through <paramref name="configureQuartz"/>; by default
+    /// Quartz keeps schedules in memory.
     /// </para>
     /// </remarks>
     /// <example>

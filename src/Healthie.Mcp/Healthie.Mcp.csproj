@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Mcp</PackageId>
+    <Description>Model Context Protocol server for Healthie.NET -- exposes pulse checker state, history, and controls as MCP tools, so an AI agent can inspect and act on the health of your services.</Description>
+    <PackageTags>health-check;monitoring;pulse;dotnet;mcp;model-context-protocol;ai;agent</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
