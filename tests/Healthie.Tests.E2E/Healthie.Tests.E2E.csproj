@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!--
+      One framework is enough: these drive the sample app through a browser, and the sample is what
+      picks a framework to run on. The unit suite is what covers every shipped target.
+      Clears the single-target default from Directory.Build.props.
+    -->
+    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks />
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.Playwright" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    Not referenced for its types. This makes the build order explicit, so the sample the tests
+    launch is always built from the same sources as the run.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\samples\Healthie.Sample.BlazorUI\Healthie.Sample.BlazorUI.csproj"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

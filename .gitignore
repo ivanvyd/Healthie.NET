@@ -120,6 +120,10 @@ ipch/
 
 # Visual Studio Trace Files
 *.e2e
+# ...which also matches this project's directory, since the match is case-insensitive here and the
+# pattern does not say "file". Git then never descends into it and the whole test project is
+# silently untracked, so un-ignore the directory itself.
+!tests/Healthie.Tests.E2E/
 
 # TFS 2012 Local Workspace
 $tf/
