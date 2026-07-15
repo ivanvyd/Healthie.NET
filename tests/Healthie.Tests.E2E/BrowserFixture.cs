@@ -15,7 +15,16 @@ public sealed class BrowserFixture : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        Program.Main(["install", "chromium", "--with-deps"]);
+        // Fetches the browser on a machine that has never run these, and no-ops once it is there,
+        // so a contributor's first `dotnet test` just works. Deliberately without --with-deps: that
+        // reaches for sudo to install system libraries, which is not this process's business. CI
+        // installs those in its own step.
+        var exitCode = Program.Main(["install", "chromium"]);
+        if (exitCode != 0)
+        {
+            throw new InvalidOperationException(
+                $"Installing Chromium failed with exit code {exitCode}. Run 'pwsh playwright.ps1 install chromium --with-deps' from this project's build output.");
+        }
 
         _playwright = await Playwright.CreateAsync();
         _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
