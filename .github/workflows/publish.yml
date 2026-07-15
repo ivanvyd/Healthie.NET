@@ -137,8 +137,10 @@ jobs:
       # before the pushes, because that hour starts now -- asking any earlier risks it expiring
       # behind a slow test run.
       # Requires a policy on nuget.org naming this repository and `publish.yml`.
+      # Runs on dry runs too, deliberately: the policy is the likeliest thing to be wrong, and a
+      # rehearsal that skipped it would prove everything except the part worth rehearsing. On a dry
+      # run the key simply goes unused and expires.
       - name: Get a publishing key from NuGet.org
-        if: ${{ !inputs.dry_run }}
         id: nuget_login
         uses: NuGet/login@v1
         with:
