@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-18
+
 ### Added
 
 - `HealthieUIOptions.AllowMutations`, which decides whether the dashboard renders the
