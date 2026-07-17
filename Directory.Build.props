@@ -42,6 +42,13 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Copyright>Copyright (c) Ivan Vydrin 2024-2026</Copyright>
     <!--
+      The terms every package wants to be found under; each project appends what makes it
+      different. "healthchecks" is what the IHealthCheck ecosystem searches on, which the bridge
+      serves. "pulse" is this library's own vocabulary and would find nobody by itself, but it is
+      the word the whole API uses, so it sits alongside the terms people do search for.
+    -->
+    <HealthieCommonTags>health-check;healthchecks;monitoring;watchdog;uptime;observability;dotnet;pulse</HealthieCommonTags>
+    <!--
       Pinned to the tag being released, not to main: someone reading an older package's notes should
       see what that release changed, not what a later one did. $(Version) comes from the release
       workflow. A local build has none, which leaves a link to a tag that does not exist, which is

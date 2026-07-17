@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.CosmosDb</PackageId>
     <Description>Azure CosmosDB state provider for Healthie.NET -- persists pulse checker state to CosmosDB for durable cross-restart storage.</Description>
-    <PackageTags>health-check;monitoring;pulse;dotnet;cosmosdb;azure</PackageTags>
+    <PackageTags>$(HealthieCommonTags);cosmosdb;azure</PackageTags>
     <AzureCosmosDisableNewtonsoftJsonCheck>true</AzureCosmosDisableNewtonsoftJsonCheck>
   </PropertyGroup>
 

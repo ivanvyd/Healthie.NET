@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.Dashboard</PackageId>
     <Description>Blazor health monitoring dashboard for Healthie.NET -- zero-dependency UI with real-time event-driven state updates, checker management, and configurable authorization.</Description>
-    <PackageTags>health-check;monitoring;pulse;dotnet;blazor;dashboard</PackageTags>
+    <PackageTags>$(HealthieCommonTags);blazor;dashboard;ui</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

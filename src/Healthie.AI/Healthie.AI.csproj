@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.AI</PackageId>
     <Description>AI diagnostics for Healthie.NET -- summarises a pulse checker's recent failures and suggests likely causes. Provider-agnostic: bring any Microsoft.Extensions.AI IChatClient (Anthropic, OpenAI, Azure OpenAI, Ollama).</Description>
-    <PackageTags>health-check;monitoring;pulse;dotnet;ai;llm;diagnostics;rca</PackageTags>
+    <PackageTags>$(HealthieCommonTags);ai;llm;diagnostics;rca</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

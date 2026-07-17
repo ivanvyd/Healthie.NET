@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.Quartz</PackageId>
     <Description>Quartz.NET scheduling provider for Healthie.NET -- persistent, CRON-based pulse check scheduling with clustering support.</Description>
-    <PackageTags>health-check;monitoring;pulse;dotnet;quartz;scheduling</PackageTags>
+    <PackageTags>$(HealthieCommonTags);quartz;scheduling</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

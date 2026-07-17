@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.Mcp</PackageId>
     <Description>Model Context Protocol server for Healthie.NET -- exposes pulse checker state, history, and controls as MCP tools, so an AI agent can inspect and act on the health of your services.</Description>
-    <PackageTags>health-check;monitoring;pulse;dotnet;mcp;model-context-protocol;ai;agent</PackageTags>
+    <PackageTags>$(HealthieCommonTags);mcp;model-context-protocol;ai;agent</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

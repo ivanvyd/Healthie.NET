@@ -3,7 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.Api</PackageId>
     <Description>ASP.NET Core API endpoints for Healthie.NET -- exposes RESTful endpoints for managing pulse checkers with configurable routing and authorization.</Description>
-    <PackageTags>health-check;monitoring;pulse;dotnet;api;aspnetcore</PackageTags>
+    <PackageTags>$(HealthieCommonTags);api;aspnetcore;rest</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

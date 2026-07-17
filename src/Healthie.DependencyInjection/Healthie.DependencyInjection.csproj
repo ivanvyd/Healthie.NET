@@ -3,8 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.DependencyInjection</PackageId>
     <Description>Dependency injection registration helpers for Healthie.NET -- assembly scanning, service registration, and a built-in timer scheduler.</Description>
-    <!-- healthchecks: this package carries the IHealthCheck bridge, so it belongs in that search. -->
-    <PackageTags>health-check;healthchecks;monitoring;pulse;dotnet;dependency-injection</PackageTags>
+    <PackageTags>$(HealthieCommonTags);dependency-injection</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

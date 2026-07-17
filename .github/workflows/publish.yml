@@ -154,19 +154,14 @@ jobs:
       # "Check the version is unreleased" would then refuse to retry that same version -- turning a
       # transient failure into a version that can never be released.
       # --skip-duplicate lets a retry get past packages an earlier attempt already pushed.
+      # This pushes the symbols too: `dotnet nuget push` uploads each .snupkg sitting next to its
+      # .nupkg unless --no-symbols is passed. A second step for *.snupkg only re-pushes what this
+      # one already sent, and 3.0.0 proved it -- eight `Conflict ... already exists` errors that
+      # were survivable only because that step carried continue-on-error.
       - name: Publish to NuGet.org
         if: ${{ !inputs.dry_run }}
         run: >
           dotnet nuget push "${{ env.NUPKG_DIR }}/*.nupkg"
-          --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
-          --source https://api.nuget.org/v3/index.json
-          --skip-duplicate
-
-      - name: Push symbols to NuGet.org
-        if: ${{ !inputs.dry_run }}
-        continue-on-error: true
-        run: >
-          dotnet nuget push "${{ env.NUPKG_DIR }}/*.snupkg"
           --api-key ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate

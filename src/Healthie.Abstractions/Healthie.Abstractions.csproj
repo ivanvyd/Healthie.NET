@@ -3,8 +3,7 @@
   <PropertyGroup>
     <PackageId>Healthie.NET.Abstractions</PackageId>
     <Description>Core interfaces, models, enums, and abstract base classes for Healthie.NET -- a lightweight health monitoring framework for .NET applications.</Description>
-    <!-- healthchecks: the tag the IHealthCheck ecosystem searches on, which the bridge serves. -->
-    <PackageTags>health-check;healthchecks;monitoring;pulse;dotnet;async</PackageTags>
+    <PackageTags>$(HealthieCommonTags);async</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
