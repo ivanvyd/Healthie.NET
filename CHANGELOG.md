@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `HealthieUIOptions.AllowMutations`, which decides whether the dashboard renders the
+  controls that change a checker. It defaults to `true`, so an existing dashboard is
+  unchanged. Setting it to `false` leaves a board that only reports: every state,
+  sparkline, group, tag, and event stays, and nothing that would run, pause, reset,
+  retime, or retag a checker is rendered -- which is what makes the dashboard safe to
+  show to an audience wider than the people trusted to stop a production check. Nothing
+  is lost to the reader, because the values behind the editors are already on the board:
+  the interval is the row's rate, the threshold is the denominator in `FAILS`, and the
+  group and tags are the chips under each name.
+
+  It is one setting for the whole application and it is not authorization -- it decides
+  what the board can do, never who is looking. It composes with `RequireAuthorization`
+  on the endpoint, which decides the latter.
+
+  This closes a gap against the project's own read-only-by-default principle, which
+  `Healthie.NET.Mcp` already honoured through `HealthieMcpOptions.AllowMutations`.
+  `Healthie.NET.Api` still exposes its six mutating endpoints ungated, and is left for
+  its own change.
+
+### Changed
+
+- Package tags now lead with the terms people search for -- `watchdog`, `uptime`,
+  `healthchecks`, `observability` -- rather than `pulse`, which is this library's own
+  vocabulary. They are declared once in `Directory.Build.props` and appended to per
+  project, which is also how `healthchecks` came to be missing from six of the eight:
+  the list was written out by hand each time and drifted.
+
+### Fixed
+
+- The release workflow no longer pushes symbol packages twice. `dotnet nuget push`
+  already uploads each `.snupkg` next to its `.nupkg`, so the separate step only
+  re-sent what had just been sent, and survived the resulting eight `Conflict ...
+  already exists` errors by carrying `continue-on-error`.
+
 ## [3.0.0] - 2026-07-15
 
 ### Added

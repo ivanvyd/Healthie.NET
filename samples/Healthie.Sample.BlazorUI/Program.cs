@@ -16,6 +16,11 @@ builder.Services
     .AddHealthieUI(options =>
     {
         options.DashboardTitle = "Healthie.NET Test Dashboard";
+
+        // Healthie:AllowMutations=false serves the read-only board -- every state still visible,
+        // no control to change one. Left at its default of true otherwise, which is this sample's
+        // point: showing what the dashboard can do.
+        options.AllowMutations = builder.Configuration.GetValue("Healthie:AllowMutations", true);
     });
 
 // Swap the scheduler with Healthie:Scheduler=Quartz. AddHealthie has already registered the

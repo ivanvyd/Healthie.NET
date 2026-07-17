@@ -75,7 +75,15 @@ public sealed class SampleApp : IAsyncDisposable
     public static string? CosmosConnectionString =>
         Environment.GetEnvironmentVariable("HEALTHIE_TEST_COSMOS") is { Length: > 0 } value ? value : null;
 
-    public static async Task<SampleApp> StartAsync(ProviderSetup setup, CancellationToken cancellationToken = default)
+    /// <param name="allowMutations">
+    /// What the sample passes to <c>HealthieUIOptions.AllowMutations</c>. Defaults to <c>true</c>,
+    /// matching the option's own default, so only the tests that care about the read-only board
+    /// say so.
+    /// </param>
+    public static async Task<SampleApp> StartAsync(
+        ProviderSetup setup,
+        CancellationToken cancellationToken = default,
+        bool allowMutations = true)
     {
         var port = FreePort();
         var url = $"http://127.0.0.1:{port}";
@@ -95,6 +103,7 @@ public sealed class SampleApp : IAsyncDisposable
         info.Environment["ASPNETCORE_URLS"] = url;
         info.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
         info.Environment["Healthie__Scheduler"] = setup.Scheduler;
+        info.Environment["Healthie__AllowMutations"] = allowMutations ? "true" : "false";
         // Always set, so a developer's own user-secrets connection string cannot silently decide
         // which provider a test ran against.
         info.Environment["ConnectionStrings__CosmosDb"] = setup.UseCosmos ? CosmosConnectionString ?? "" : "";

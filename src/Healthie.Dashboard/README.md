@@ -57,6 +57,7 @@ app.MapHealthieUI().RequireAuthorization("AdminPolicy"); // With auth
 - Event-driven real-time updates via `IPulseChecker.StateChanged` (no polling)
 - Per-checker management: start, stop, trigger, reset, change interval, change threshold
 - Bulk actions: Start All, Stop All, Trigger All
+- A read-only mode that reports everything and changes nothing — see below
 - Groups and tags, both editable here and seeded from code — see below
 - Pin a checker to the top of the list
 - Rows or cards, flat or sectioned by group with per-group tallies
@@ -67,6 +68,34 @@ app.MapHealthieUI().RequireAuthorization("AdminPolicy"); // With auth
 - Mobile responsive (375px+)
 - CSS-only animations, and no JavaScript of its own
 - Every time shown is UTC
+
+## Read-only mode
+
+By default the dashboard can change what it shows: run a check, pause one, reset it, retime it,
+retag it. That is what it is for, and it is also more than you want to hand to everyone who can
+reach the URL.
+
+```csharp
+builder.Services.AddHealthieUI(options => options.AllowMutations = false);
+```
+
+That leaves a board that only reports. Every state, sparkline, group, tag, and event stays exactly
+where it was; the controls that would change any of it are not rendered. Nothing is lost to the
+reader, because the values behind the editors are on the board already — the interval is the row's
+rate, the threshold is the denominator in `FAILS`, and the group and tags are the chips under each
+name. Searching, filtering, grouping, switching to cards, opening the event log, and the theme
+toggle all still work: they change your view, not the checker.
+
+**This is not authorization.** It is one setting for the whole application, applied to every viewer
+alike, so it cannot hand the controls to an admin and withhold them from everyone else. It answers
+*what can this board do*, never *who is looking* — for that, gate the endpoint, which composes with
+it:
+
+```csharp
+// Nobody unauthenticated gets in, and nobody at all gets the buttons.
+builder.Services.AddHealthieUI(options => options.AllowMutations = false);
+app.MapHealthieUI().RequireAuthorization();
+```
 
 ## Groups and tags
 
@@ -107,6 +136,7 @@ are one tag. A blank group means no group, and those checkers gather under `UNGR
 |---|---|---|---|
 | `DashboardTitle` | `string` | `"System Health"` | Title displayed at the top of the dashboard. |
 | `EnableDarkModeToggle` | `bool` | `true` | Whether the dark/light mode toggle is visible. |
+| `AllowMutations` | `bool` | `true` | Whether the controls that change a checker are rendered. `false` leaves a board that only reports. |
 
 ## See Also
 

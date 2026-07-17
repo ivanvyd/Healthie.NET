@@ -285,6 +285,16 @@
     align-items: center;
 }
 
+/*
+    A read-only board renders no per-row controls, so the track they sat in goes too. Leaving it
+    would reserve 100px of nothing down the right of every row -- and, because the header shares
+    this definition, it has to be dropped from both at once or the two stop lining up.
+*/
+.hpm-list--readonly .hpm-row,
+.hpm-list--readonly .hpm-list-head {
+    grid-template-columns: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px;
+}
+
 .hpm-list-head {
     padding: 2px 16px 6px;
     font-family: var(--hpm-mono);
@@ -1062,6 +1072,16 @@
     gap: 7px 10px;
     align-items: start;
     margin-bottom: 0;
+}
+
+/* Same as above: no controls to lay out, so the card loses the row that held them. */
+.hpm-list--readonly.hpm-list--cards .hpm-row,
+.hpm-list--readonly .hpm-group-body--cards .hpm-row {
+    grid-template-areas:
+        "led name"
+        ". rate"
+        ". blips"
+        ". time";
 }
 
 .hpm-list--cards .hpm-row-name,

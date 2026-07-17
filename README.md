@@ -485,6 +485,7 @@ builder.Services.AddHealthieUI(options =>
 {
     options.DashboardTitle = "System Health";       // Default: "System Health"
     options.EnableDarkModeToggle = true;            // Default: true
+    options.AllowMutations = true;                  // Default: true. false = a board that only reports.
 });
 ```
 
@@ -502,12 +503,28 @@ app.MapHealthieUI();
 app.MapHealthieUI().RequireAuthorization("AdminPolicy");
 ```
 
+**5. (Optional) Show it without letting anyone change it:**
+
+```csharp
+builder.Services.AddHealthieUI(options => options.AllowMutations = false);
+```
+
+The board still reports everything -- states, sparklines, groups, tags, the event log -- and none of
+the controls that would run, pause, reset, retime, or retag a checker are rendered. Nothing is lost
+to the reader: the interval is the row's rate, the threshold is the denominator in `FAILS`, and the
+group and tags are the chips under each name.
+
+It is one setting for the whole application, not authorization: it decides what the board can do,
+never who is looking. The two compose -- `RequireAuthorization` picks who gets in, `AllowMutations`
+picks what they find when they do.
+
 ### Dashboard Options
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `DashboardTitle` | `string` | `"System Health"` | Title displayed at the top of the dashboard. |
 | `EnableDarkModeToggle` | `bool` | `true` | Whether the dark/light mode toggle is visible. |
+| `AllowMutations` | `bool` | `true` | Whether the controls that change a checker are rendered. `false` leaves a board that only reports. |
 
 ### Using the Component Directly
 

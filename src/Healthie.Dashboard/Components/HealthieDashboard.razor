@@ -50,9 +50,12 @@
             </div>
 
             <div class="hpm-actions">
-                <button type="button" class="hpm-btn" title="Run every checker once, right now, without waiting for its interval" @onclick="TriggerAllAsync">RUN ALL</button>
-                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--start" title="Resume every paused checker" aria-label="Start all checkers" @onclick="StartAllAsync">▶</button>
-                <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--stop" title="Pause every checker -- they stop running until started again" aria-label="Pause all checkers" @onclick="StopAllAsync">❚❚</button>
+                @if (Options.AllowMutations)
+                {
+                    <button type="button" class="hpm-btn" title="Run every checker once, right now, without waiting for its interval" @onclick="TriggerAllAsync">RUN ALL</button>
+                    <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--start" title="Resume every paused checker" aria-label="Start all checkers" @onclick="StartAllAsync">▶</button>
+                    <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--stop" title="Pause every checker -- they stop running until started again" aria-label="Pause all checkers" @onclick="StopAllAsync">❚❚</button>
+                }
                 @if (Options.EnableDarkModeToggle)
                 {
                     <button type="button" class="hpm-btn hpm-btn--icon hpm-btn--theme"
@@ -280,32 +283,35 @@
 
                         <span class="hpm-time">@Relative(state.LastExecutionDateTime)</span>
 
-                        <div class="hpm-row-actions">
-                            <button type="button" class="hpm-icon-btn @(state.IsPinned ? "hpm-icon-btn--on" : "")"
-                                    title="@(state.IsPinned ? "Unpin -- stop keeping this at the top" : "Pin to the top of the list, for everyone")"
-                                    aria-label="@(state.IsPinned ? "Unpin" : "Pin") @DisplayNameOf(name)"
-                                    aria-pressed="@(state.IsPinned ? "true" : "false")"
-                                    @onclick="@(() => TogglePinAsync(name, state.IsPinned))" @onclick:stopPropagation="true">
-                                @HealthieIcons.Pin
-                            </button>
-                            <button type="button" class="hpm-icon-btn hpm-icon-btn--run" title="Run this check once, right now"
-                                    aria-label="Run @DisplayNameOf(name) now"
-                                    @onclick="@(() => TriggerCheckerAsync(name))" @onclick:stopPropagation="true">
-                                @HealthieIcons.Zap
-                            </button>
-                            <button type="button" class="hpm-icon-btn"
-                                    title="@(state.IsActive ? "Pause -- this check stops running on its interval" : "Start running this check on its interval")"
-                                    aria-label="@(state.IsActive ? "Pause" : "Start") @DisplayNameOf(name)"
-                                    @onclick="@(() => ToggleCheckerAsync(name, state.IsActive))" @onclick:stopPropagation="true">
-                                @(state.IsActive ? HealthieIcons.Pause : HealthieIcons.Play)
-                            </button>
-                        </div>
+                        @if (Options.AllowMutations)
+                        {
+                            <div class="hpm-row-actions">
+                                <button type="button" class="hpm-icon-btn @(state.IsPinned ? "hpm-icon-btn--on" : "")"
+                                        title="@(state.IsPinned ? "Unpin -- stop keeping this at the top" : "Pin to the top of the list, for everyone")"
+                                        aria-label="@(state.IsPinned ? "Unpin" : "Pin") @DisplayNameOf(name)"
+                                        aria-pressed="@(state.IsPinned ? "true" : "false")"
+                                        @onclick="@(() => TogglePinAsync(name, state.IsPinned))" @onclick:stopPropagation="true">
+                                    @HealthieIcons.Pin
+                                </button>
+                                <button type="button" class="hpm-icon-btn hpm-icon-btn--run" title="Run this check once, right now"
+                                        aria-label="Run @DisplayNameOf(name) now"
+                                        @onclick="@(() => TriggerCheckerAsync(name))" @onclick:stopPropagation="true">
+                                    @HealthieIcons.Zap
+                                </button>
+                                <button type="button" class="hpm-icon-btn"
+                                        title="@(state.IsActive ? "Pause -- this check stops running on its interval" : "Start running this check on its interval")"
+                                        aria-label="@(state.IsActive ? "Pause" : "Start") @DisplayNameOf(name)"
+                                        @onclick="@(() => ToggleCheckerAsync(name, state.IsActive))" @onclick:stopPropagation="true">
+                                    @(state.IsActive ? HealthieIcons.Pause : HealthieIcons.Play)
+                                </button>
+                            </div>
+                        }
                     </div>
     </text>;
     }
 
     <div class="hpm-body">
-        <div class="hpm-list @(_asCards ? "hpm-list--cards" : "")">
+        <div class="hpm-list @(_asCards ? "hpm-list--cards" : "") @(Options.AllowMutations ? "" : "hpm-list--readonly")">
 
             <div class="hpm-toolbar">
                 <button type="button" class="hpm-btn hpm-btn--sm @(_groupByTags ? "hpm-btn--on" : "")"
@@ -443,40 +449,48 @@
 
                         <div class="hpm-message">@(string.IsNullOrWhiteSpace(selected.LastResult?.Message) ? "No result recorded yet." : selected.LastResult!.Message)</div>
 
-                        <div class="hpm-sel-actions">
-                            <button type="button" class="hpm-sel-btn hpm-sel-btn--primary" @onclick="@(() => TriggerCheckerAsync(_selected!))">RUN NOW</button>
-                            <button type="button" class="hpm-sel-btn" @onclick="@(() => ToggleCheckerAsync(_selected!, selected.IsActive))">@(selected.IsActive ? "PAUSE" : "START")</button>
-                            <button type="button" class="hpm-sel-btn hpm-sel-btn--reset" @onclick="@(() => ResetCheckerAsync(_selected!))">RESET</button>
-                        </div>
-
-                        <div class="hpm-fields">
-                            <div class="hpm-field">
-                                <label for="hpm-interval" title="How often this check runs on its own">INTERVAL</label>
-                                <select id="hpm-interval" value="@selected.Interval" @onchange="OnIntervalChanged">
-                                    @foreach (var interval in Intervals)
-                                    {
-                                        <option value="@interval" selected="@(interval == selected.Interval)">@Describe(interval)</option>
-                                    }
-                                </select>
+                        @*
+                            Everything in here changes the checker rather than reporting it, so a
+                            read-only board stops at the message above. What it drops is still
+                            legible elsewhere: the interval is the rate on the row, the threshold is
+                            the denominator in FAILS, and the group and tags are chips on the row.
+                        *@
+                        @if (Options.AllowMutations)
+                        {
+                            <div class="hpm-sel-actions">
+                                <button type="button" class="hpm-sel-btn hpm-sel-btn--primary" @onclick="@(() => TriggerCheckerAsync(_selected!))">RUN NOW</button>
+                                <button type="button" class="hpm-sel-btn" @onclick="@(() => ToggleCheckerAsync(_selected!, selected.IsActive))">@(selected.IsActive ? "PAUSE" : "START")</button>
+                                <button type="button" class="hpm-sel-btn hpm-sel-btn--reset" @onclick="@(() => ResetCheckerAsync(_selected!))">RESET</button>
                             </div>
-                            <div class="hpm-field">
-                                <label for="hpm-threshold" title="How many failures in a row before this is called failing rather than suspicious. 0 means the first failure counts.">FAIL THRESHOLD</label>
-                                <input id="hpm-threshold" type="number" min="0" value="@selected.UnhealthyThreshold" @onchange="OnThresholdChanged" />
-                            </div>
-                        </div>
 
-                        <div class="hpm-tags-editor">
-                            <div class="hpm-stat-label" title="The one group this checker belongs to. Groups are sections in the list; a checker sits in one of them.">GROUP</div>
-                            @if (_isNamingGroup)
-                            {
-                                <div class="hpm-tag-add">
-                                    <input type="text" placeholder="New group name" aria-label="New group name"
-                                           title="Name the group and press Enter. Escape to cancel."
-                                           value="@_groupDraft" @oninput="@(e => _groupDraft = e.Value?.ToString())"
-                                           @onkeydown="OnGroupDraftKeyDown" />
-                                    <button type="button" class="hpm-sel-btn" title="Move this checker into the new group"
-                                            @onclick="CommitNewGroupAsync">SET</button>
+                            <div class="hpm-fields">
+                                <div class="hpm-field">
+                                    <label for="hpm-interval" title="How often this check runs on its own">INTERVAL</label>
+                                    <select id="hpm-interval" value="@selected.Interval" @onchange="OnIntervalChanged">
+                                        @foreach (var interval in Intervals)
+                                        {
+                                            <option value="@interval" selected="@(interval == selected.Interval)">@Describe(interval)</option>
+                                        }
+                                    </select>
                                 </div>
+                                <div class="hpm-field">
+                                    <label for="hpm-threshold" title="How many failures in a row before this is called failing rather than suspicious. 0 means the first failure counts.">FAIL THRESHOLD</label>
+                                    <input id="hpm-threshold" type="number" min="0" value="@selected.UnhealthyThreshold" @onchange="OnThresholdChanged" />
+                                </div>
+                            </div>
+
+                            <div class="hpm-tags-editor">
+                                <div class="hpm-stat-label" title="The one group this checker belongs to. Groups are sections in the list; a checker sits in one of them.">GROUP</div>
+                                @if (_isNamingGroup)
+                                {
+                                    <div class="hpm-tag-add">
+                                        <input type="text" placeholder="New group name" aria-label="New group name"
+                                               title="Name the group and press Enter. Escape to cancel."
+                                               value="@_groupDraft" @oninput="@(e => _groupDraft = e.Value?.ToString())"
+                                               @onkeydown="OnGroupDraftKeyDown" />
+                                        <button type="button" class="hpm-sel-btn" title="Move this checker into the new group"
+                                                @onclick="CommitNewGroupAsync">SET</button>
+                                    </div>
                             }
                             else
                             {
@@ -518,6 +532,7 @@
                                 <button type="button" class="hpm-sel-btn" title="Add this tag" @onclick="AddTagAsync">ADD</button>
                             </div>
                         </div>
+                        }
                     </div>
                 </section>
             }
