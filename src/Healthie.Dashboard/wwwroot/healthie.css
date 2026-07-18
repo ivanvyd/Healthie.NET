@@ -36,6 +36,11 @@
      * the one part of the board that never matched it. dvh over vh so a mobile browser's chrome does
      * not clip the last row; overscroll-behavior keeps a flick at the end from scrolling the host
      * behind an embedded board.
+     *
+     * The board is a full-viewport surface by design -- it is served on its own route and shown as
+     * the whole page -- so it claims the viewport height here. A host that instead frames it in a
+     * shorter region should override the height on .healthie-dashboard; the internal scroll and its
+     * theming then apply to whatever height it is given.
      */
     height: 100vh;
     height: 100dvh;

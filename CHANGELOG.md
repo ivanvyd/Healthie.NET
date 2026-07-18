@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   The board owns a full-viewport (`100dvh`) scroll region, and a scroll that reaches its end no
   longer drags the page behind an embedded board.
 
+## [3.1.2] - 2026-07-18
+
 ### Fixed
 
 - The prerendered dashboard no longer risks dropping its own circuit on a board with much state.
@@ -28,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   already) and only a short-lived token travels to the browser and back, so the wire cost is constant
   whatever the size of the board. A token that no longer resolves falls back to a fresh read. No
   SignalR limit needs raising, so no extra memory or denial-of-service exposure comes with it.
+
+## [3.1.1] - 2026-07-18
 
 ### Fixed
 
