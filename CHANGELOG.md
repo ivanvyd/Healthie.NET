@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.1.1] - 2026-07-18
+## [3.1.2] - 2026-07-18
+
+### Fixed
+
+- The prerendered dashboard no longer risks dropping its own circuit on a board with much state.
+  3.1.1 carried the states from prerender to the interactive render by persisting them into the
+  page, which put the whole board -- every checker and all its history -- on the SignalR circuit.
+  That payload grows with each checker, and past SignalR's default 32&#160;KB message limit the hub
+  rejects it and the circuit never starts: the board freezes on the prerendered snapshot, styled but
+  not live. The states now stay on the server between the two renders (Blazor Server holds them there
+  already) and only a short-lived token travels to the browser and back, so the wire cost is constant
+  whatever the size of the board. A token that no longer resolves falls back to a fresh read. No
+  SignalR limit needs raising, so no extra memory or denial-of-service exposure comes with it.
 
 ### Fixed
 

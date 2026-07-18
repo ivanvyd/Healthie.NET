@@ -35,6 +35,9 @@ public static class StartupExtensions
         configure?.Invoke(options);
 
         services.AddSingleton(options);
+        // One per application: it bridges each prerender to its interactive circuit, which are
+        // separate scopes on the same server, so the store that connects them must outlive both.
+        services.AddSingleton<DashboardStateHandoff>();
         services.AddScoped<IHealthieDashboardService, HealthieDashboardService>();
         services.AddScoped<HealthieThemeState>();
 
