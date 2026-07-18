@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.1] - 2026-07-18
+
+### Fixed
+
+- The dashboard no longer flickers on load when it is prerendered. Hosted the usual
+  way -- `<HealthieDashboard />` on an interactive-server page, which prerenders by
+  default -- the server rendered the full board, then the circuit connected a moment
+  later and the component started again from an empty state, read every checker afresh,
+  and briefly replaced the board already on screen. In that gap a status icon, which the
+  dashboard stylesheet sizes against its surroundings, painted for a frame before those
+  rules applied and filled the board as one large ring. The states the prerender reads
+  are now carried across to the interactive render through `PersistentComponentState`,
+  so the first interactive render matches the prerendered one: nothing is replaced, no
+  frame shows an unsized icon, and the redundant second read of every checker is gone.
+
 ## [3.1.0] - 2026-07-18
 
 ### Added
