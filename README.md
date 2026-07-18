@@ -16,9 +16,11 @@ builder.Services.AddHealthie(typeof(Program).Assembly);
 
 ![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/healthie-v3-film-1080-cut.gif)
 
+> **▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only dashboard watching the real status pages of Anthropic, OpenAI, Cursor, GitHub, Cloudflare, npm, Datadog, and more. Built from these NuGet packages.
+
 **Contents**
 
-[Quick Start](#quick-start) · [Packages](#nuget-packages) · [Writing a Checker](#creating-a-pulse-checker) · [Configuration](#configuration) · [REST API](#api-endpoints) · [Dashboard](#ui-dashboard) · [Existing `IHealthCheck`s](#monitoring-existing-health-checks) · [Kubernetes](#kubernetes-probes) · [MCP](#ai-agents-mcp) · [AI Diagnostics](#ai-diagnostics) · [Extensibility](#extensibility) · [Samples](#sample-projects) · [Roadmap](#roadmap) · [Contributing](#contributing)
+[Live Demo](https://healthie.compiletheory.com) · [Quick Start](#quick-start) · [Packages](#nuget-packages) · [Writing a Checker](#creating-a-pulse-checker) · [Configuration](#configuration) · [REST API](#api-endpoints) · [Dashboard](#ui-dashboard) · [Existing `IHealthCheck`s](#monitoring-existing-health-checks) · [Kubernetes](#kubernetes-probes) · [MCP](#ai-agents-mcp) · [AI Diagnostics](#ai-diagnostics) · [Extensibility](#extensibility) · [Samples](#sample-projects) · [Roadmap](#roadmap) · [Contributing](#contributing)
 
 ---
 

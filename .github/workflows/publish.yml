@@ -185,9 +185,28 @@ jobs:
             PRERELEASE_FLAG="--prerelease"
           fi
 
+          # Release notes come straight from CHANGELOG.md, so the release, the tagged changelog, and
+          # every package's PackageReleaseNotes link tell one story. Take the section for this
+          # version; if it hasn't been renamed from "Unreleased" yet, take that; and if the changelog
+          # has nothing, fall back to GitHub's generated notes rather than shipping an empty body.
+          VER="${{ steps.version.outputs.VERSION }}"
+          awk -v h="## [$VER]" 'index($0,h)==1{f=1;next} f&&/^## \[/{exit} f{print}' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            awk '/^## \[Unreleased\]/{f=1;next} f&&/^## \[/{exit} f{print}' CHANGELOG.md > notes.md
+          fi
+          sed -i -e '/./,$!d' notes.md   # drop leading blank lines
+
+          if [ -s notes.md ]; then
+            NOTES_FLAG=(--notes-file notes.md)
+            echo "Using release notes from CHANGELOG.md:"; cat notes.md
+          else
+            NOTES_FLAG=(--generate-notes)
+            echo "No CHANGELOG entry found; using generated notes."
+          fi
+
           gh release create "${{ steps.version.outputs.TAG }}" \
             ${{ env.NUPKG_DIR }}/*.nupkg \
-            --generate-notes \
+            "${NOTES_FLAG[@]}" \
             $PRERELEASE_FLAG \
             --title "Healthie.NET ${{ steps.version.outputs.VERSION }}"
 

@@ -6,6 +6,8 @@
 
 Zero-dependency Blazor Server dashboard for monitoring Healthie.NET pulse checkers in real time. Delivered as a Razor Class Library with pure HTML/CSS -- no third-party UI frameworks required.
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — this dashboard, read-only, watching the real status pages of Anthropic, OpenAI, Cursor, GitHub, Cloudflare, and more.
+
 ![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/shot-dark.png)
 
 ## Installation
