@@ -30,7 +30,20 @@
     --hpm-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --hpm-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-    min-height: 100vh;
+    /*
+     * The board scrolls itself rather than the page, so its scrollbar is one this stylesheet can
+     * theme -- otherwise the platform paints a wide light bar straight down the side of a dark tool,
+     * the one part of the board that never matched it. dvh over vh so a mobile browser's chrome does
+     * not clip the last row; overscroll-behavior keeps a flick at the end from scrolling the host
+     * behind an embedded board.
+     */
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--hpm-line2) transparent;
+
     background: var(--hpm-bg);
     color: var(--hpm-text);
     font-family: var(--hpm-sans);
@@ -1209,6 +1222,28 @@
  * Scrollbars. Styled rather than left to the platform, which paints a wide
  * light-grey bar straight down the side of a dark panel.
  * ---------------------------------------------------------------------- */
+
+/* The board's own scrollbar; scrollbar-width and -color are set on the root rule. A little wider
+   than the panels' because it runs the full height of the page. */
+.healthie-dashboard::-webkit-scrollbar {
+    width: 12px;
+}
+
+.healthie-dashboard::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.healthie-dashboard::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--hpm-line2);
+    background-clip: padding-box;
+}
+
+.healthie-dashboard::-webkit-scrollbar-thumb:hover {
+    background: var(--hpm-faint);
+    background-clip: padding-box;
+}
 
 .hpm-log-body {
     scrollbar-width: thin;

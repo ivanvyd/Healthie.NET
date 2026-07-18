@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.1.2] - 2026-07-18
+## [3.1.3] - 2026-07-18
+
+### Changed
+
+- The dashboard now scrolls within its own board rather than the page, so its scrollbar is themed to
+  match the board -- a thin, rounded bar in the board's own line colour, on both the dark and light
+  themes -- instead of the platform's wide light-grey default running down the side of a dark tool.
+  The board owns a full-viewport (`100dvh`) scroll region, and a scroll that reaches its end no
+  longer drags the page behind an embedded board.
 
 ### Fixed
 
