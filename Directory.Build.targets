@@ -1,0 +1,37 @@
+<Project>
+
+  <!--
+    Fill PackageReleaseNotes with the CHANGELOG section for the version being packed, so a package's
+    nuget.org page shows the actual notes for that release rather than a bare link. Directory.Build.props
+    still sets the link, which stays as the fallback: this target only overrides it when the changelog
+    has a matching section, so a local build (version 1.0.0) or a version still under "Unreleased"
+    keeps the link instead of shipping an empty notes field.
+
+    The section is read straight from the file, not passed on a command line, so nothing has to be
+    shell- or MSBuild-escaped. The pattern captures everything between "## [<version>]" and the next
+    "## [" heading (or end of file).
+  -->
+  <Target Name="_ReleaseNotesFromChangelog"
+          BeforeTargets="GenerateNuspec"
+          Condition="'$(IsShippedProject)' == 'true' and Exists('$(MSBuildThisFileDirectory)CHANGELOG.md')">
+
+    <PropertyGroup>
+      <_PackVersion>$(PackageVersion)</_PackVersion>
+      <_PackVersion Condition="'$(_PackVersion)' == ''">$(Version)</_PackVersion>
+
+      <_ChangelogText>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)CHANGELOG.md'))</_ChangelogText>
+      <_SectionPattern>(?s)##\s*\[$(_PackVersion)\][^\r\n]*[\r\n]+(.*?)(?=[\r\n]+##\s*\[|$)</_SectionPattern>
+      <_Section>$([System.Text.RegularExpressions.Regex]::Match($(_ChangelogText), $(_SectionPattern)).Groups[1].Value.Trim())</_Section>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(_Section)' != ''">
+      <PackageReleaseNotes>$(_Section)
+
+Full changelog: https://github.com/ivanvyd/Healthie.NET/blob/v$(_PackVersion)/CHANGELOG.md</PackageReleaseNotes>
+    </PropertyGroup>
+
+    <Message Importance="high" Condition="'$(_Section)' != ''"
+             Text="Release notes for $(MSBuildProjectName) taken from CHANGELOG.md section [$(_PackVersion)]." />
+  </Target>
+
+</Project>
