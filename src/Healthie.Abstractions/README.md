@@ -4,6 +4,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+
 Core interfaces, models, enums, and the `PulseChecker` abstract base class for the Healthie.NET health monitoring framework. This package contains no implementations -- only the contracts and types that all other Healthie.NET packages depend on.
 
 ## Installation

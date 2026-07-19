@@ -4,6 +4,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.DependencyInjection.svg)](https://www.nuget.org/packages/Healthie.NET.DependencyInjection)
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+
 DI registration and the built-in `TimerPulseScheduler` for Healthie.NET. This package scans assemblies for `PulseChecker` implementations, registers them as singletons, and provides a zero-dependency `PeriodicTimer`-based scheduler.
 
 ## Installation

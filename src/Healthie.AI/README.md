@@ -4,6 +4,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.AI.svg)](https://www.nuget.org/packages/Healthie.NET.AI)
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+
 Explains what a pulse checker's recent history shows: whether it is failing consistently or intermittently, when it started, and what the errors point to. Provider-agnostic -- it depends on `Microsoft.Extensions.AI.Abstractions` and nothing else, so the model is your choice.
 
 ## Installation

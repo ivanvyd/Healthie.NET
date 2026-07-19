@@ -4,6 +4,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.CosmosDb.svg)](https://www.nuget.org/packages/Healthie.NET.CosmosDb)
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+
 Azure CosmosDB `IStateProvider` implementation for Healthie.NET. Persists pulse checker state to CosmosDB for durable storage across application restarts and distributed environments.
 
 ## Installation

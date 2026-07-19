@@ -4,6 +4,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Quartz.svg)](https://www.nuget.org/packages/Healthie.NET.Quartz)
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+
 Quartz.NET `IPulseScheduler` implementation for Healthie.NET. Provides persistent, CRON-based scheduling with support for clustering and advanced job store configurations.
 
 ## Installation

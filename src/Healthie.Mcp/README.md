@@ -4,6 +4,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Mcp.svg)](https://www.nuget.org/packages/Healthie.NET.Mcp)
 
+**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+
 A [Model Context Protocol](https://modelcontextprotocol.io) server for Healthie.NET, so an AI agent such as Claude, Copilot, or Cursor can read your service health and act on it in plain language. Read-only until you say otherwise.
 
 ## Installation
