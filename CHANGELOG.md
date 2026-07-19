@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.4] - 2026-07-19
+
+### Changed
+
+- Each shipped package's README now links the live demo -- `healthie.compiletheory.com`, a read-only
+  hosted instance of the dashboard -- so the link appears on the package's listing on nuget.org.
+
 ## [3.1.3] - 2026-07-18
 
 ### Changed
