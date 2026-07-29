@@ -1,0 +1,58 @@
+name: Scorecard
+
+# OpenSSF Scorecard grades this repository against the supply-chain practices consumers can
+# check before taking a dependency: are actions pinned, is the release signed, is there a
+# security policy, is code reviewed. The results land in the Security tab, and publishing them
+# also makes the badge on the README meaningful rather than decorative.
+
+on:
+  branch_protection_rule:
+  schedule:
+    # Weekly. The checks grade repository configuration, which moves on the scale of months.
+    - cron: '41 5 * * 2'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  analysis:
+    name: Analyse
+    runs-on: ubuntu-latest
+    permissions:
+      # Uploads the SARIF that populates the Security tab.
+      security-events: write
+      # Lets Scorecard read workflow run history for its Branch-Protection and CI-Tests checks.
+      actions: read
+      contents: read
+      # Publishing to the public OpenSSF API is what allows the README badge to resolve. Scorecard
+      # asks GitHub for a signed OIDC token rather than holding a credential to do it.
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      # Kept for the 90 days GitHub allows, so a regression in the score can be traced back to the
+      # run that introduced it rather than guessed at.
+      - name: Upload results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 90
+
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          sarif_file: results.sarif
