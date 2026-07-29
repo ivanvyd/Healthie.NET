@@ -75,6 +75,28 @@ public class CosmosDbStateProvider(Container container) : IStateProvider
             .ConfigureAwait(false);
     }
 
+    /// <inheritdoc />
+    public async Task<bool> DeleteStateAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        try
+        {
+            await _container.DeleteItemAsync<object>(
+                name,
+                new PartitionKey(name),
+                cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            return true;
+        }
+        catch (CosmosException ex) when (ex.StatusCode is HttpStatusCode.NotFound)
+        {
+            // Nothing stored for this checker, which is the state the caller wanted anyway.
+            return false;
+        }
+    }
+
     /// <summary>
     /// Verifies that the type recorded when the state was written is the type it is being read as.
     /// </summary>

@@ -32,8 +32,8 @@ public sealed class PulseCheckerJob(
         if (checker is null)
         {
             logger?.LogError(
-                "Pulse checker '{CheckerName}' is not registered; its Hangfire recurring job is stale " +
-                "and can be removed.",
+                "Pulse checker '{CheckerName}' is not registered; its Hangfire recurring job is stale. " +
+                "Remove it, and its leftover state with IStateProvider.DeleteStateAsync.",
                 checkerName);
             return;
         }

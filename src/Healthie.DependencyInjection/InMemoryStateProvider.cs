@@ -49,6 +49,15 @@ public sealed class InMemoryStateProvider : IStateProvider
     }
 
     /// <inheritdoc />
+    public Task<bool> DeleteStateAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.FromResult(_states.TryRemove(name, out _));
+    }
+
+    /// <inheritdoc />
     /// <remarks>
     /// Reads straight from the dictionary. There is no round trip to save here, but the default
     /// walks the same store one name at a time for no reason, and this is the provider every
