@@ -60,6 +60,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.Alerting", "src\He
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.Uptime", "src\Healthie.Uptime\Healthie.Uptime.csproj", "{3EBC7FD4-A662-47D1-975F-7CDD9E6B3180}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.Scheduling.Coravel", "src\Healthie.Scheduling.Coravel\Healthie.Scheduling.Coravel.csproj", "{A1ABC955-B526-4C9A-B75C-194795FD4D33}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -334,6 +336,18 @@ Global
 		{3EBC7FD4-A662-47D1-975F-7CDD9E6B3180}.Release|x64.Build.0 = Release|Any CPU
 		{3EBC7FD4-A662-47D1-975F-7CDD9E6B3180}.Release|x86.ActiveCfg = Release|Any CPU
 		{3EBC7FD4-A662-47D1-975F-7CDD9E6B3180}.Release|x86.Build.0 = Release|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Debug|x64.Build.0 = Debug|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Debug|x86.Build.0 = Debug|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Release|x64.ActiveCfg = Release|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Release|x64.Build.0 = Release|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Release|x86.ActiveCfg = Release|Any CPU
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -361,6 +375,7 @@ Global
 		{9F2F52E4-581A-4FD6-BFD9-396ADEB55302} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{0EAA36F6-75C5-4CCE-BA15-D566E031F0A6} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{3EBC7FD4-A662-47D1-975F-7CDD9E6B3180} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
+		{A1ABC955-B526-4C9A-B75C-194795FD4D33} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0EE98644-4A9C-4D31-8145-997C8B5A8119}
