@@ -1,6 +1,7 @@
 using Healthie.Abstractions.Diagnostics;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
@@ -28,6 +29,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly PulseInterval _initialInterval;
     private readonly uint _initialUnhealthyThreshold;
+    private readonly PulseSchedule? _initialSchedule;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PulseChecker"/> class with default interval and threshold.
@@ -70,6 +72,36 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     {
         _stateProvider = stateProvider ?? throw new ArgumentNullException(nameof(stateProvider));
         _initialInterval = initialInterval;
+        _initialUnhealthyThreshold = unhealthyThreshold;
+        _logger = logger;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PulseChecker"/> class on a schedule a
+    /// <see cref="PulseInterval"/> may not be able to express.
+    /// </summary>
+    /// <param name="stateProvider">The state provider used to manage pulse checker state.</param>
+    /// <param name="initialSchedule">The schedule the checker starts on.</param>
+    /// <param name="unhealthyThreshold">The number of consecutive failures needed to consider the pulse checker unhealthy.</param>
+    /// <param name="logger">An optional logger for diagnostic output.</param>
+    /// <remarks>
+    /// Seeds <see cref="PulseCheckerState.Schedule"/> the first time the checker runs, and never
+    /// again -- so a schedule changed later is not reset on the next restart, exactly as an
+    /// interval is not. A certificate-expiry check wants to run daily, which the interval enum
+    /// stops well short of.
+    /// </remarks>
+    protected PulseChecker(
+        IStateProvider stateProvider,
+        PulseSchedule initialSchedule,
+        uint unhealthyThreshold = 0,
+        ILogger? logger = null)
+    {
+        _stateProvider = stateProvider ?? throw new ArgumentNullException(nameof(stateProvider));
+        _initialSchedule = initialSchedule ?? throw new ArgumentNullException(nameof(initialSchedule));
+
+        // Kept in step for anything still reading the interval, and only meaningful when the
+        // schedule happens to be one the enum can name.
+        _initialInterval = initialSchedule.TryToInterval(out var interval) ? interval : PulseInterval.EveryMinute;
         _initialUnhealthyThreshold = unhealthyThreshold;
         _logger = logger;
     }
@@ -120,6 +152,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     private PulseCheckerState CreateInitialState() =>
         new(_initialInterval, _initialUnhealthyThreshold)
         {
+            Schedule = _initialSchedule,
             Tags = NormalizeTags(DefaultTags),
             Group = NormalizeGroup(DefaultGroup),
         };
