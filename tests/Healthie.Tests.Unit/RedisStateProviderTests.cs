@@ -31,7 +31,7 @@ public sealed class RedisStateProviderTests : IAsyncLifetime
     {
         try
         {
-            _redis = new RedisBuilder().WithImage("redis:7-alpine").Build();
+            _redis = new RedisBuilder("redis:7-alpine").Build();
             await _redis.StartAsync(Ct);
             _connection = await ConnectionMultiplexer.ConnectAsync(_redis.GetConnectionString());
         }

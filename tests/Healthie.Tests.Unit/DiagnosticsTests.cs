@@ -178,7 +178,7 @@ public sealed class DiagnosticsTests : IDisposable
 
         Assert.Equal(1, afterTheChange);
         Assert.Equal(3, For("healthie.check.results", name).Count);
-        Assert.Equal(1, For("healthie.check.transitions", name).Count);
+        Assert.Single(For("healthie.check.transitions", name));
     }
 
     /// <summary>
