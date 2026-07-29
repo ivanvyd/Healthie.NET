@@ -15,6 +15,14 @@ namespace Healthie.DependencyInjection;
 /// </summary>
 public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDisposable
 {
+    /// <summary>The longest this scheduler waits in one go before re-checking the clock.</summary>
+    /// <remarks>
+    /// Well inside the roughly fifty days <see cref="Task.Delay(TimeSpan, CancellationToken)"/>
+    /// accepts, and short enough that a clock change is noticed within a day rather than slept
+    /// through to the far side of it.
+    /// </remarks>
+    private static readonly TimeSpan MaxDelay = TimeSpan.FromHours(1);
+
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _timers = new();
     private readonly ILogger<TimerPulseScheduler>? _logger;
 
@@ -128,9 +136,25 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
                 }
 
                 var delay = next.Value - DateTime.UtcNow;
-                if (delay > TimeSpan.Zero)
+
+                // Task.Delay refuses anything past uint.MaxValue milliseconds, a little under 50
+                // days, and throws rather than waiting. That is not an OperationCanceledException,
+                // so the catch below would not see it, and this loop runs detached -- the checker
+                // would stop forever with nothing logged. A yearly certificate-expiry check is
+                // exactly the case that reaches it. Waiting in bounded steps and recomputing keeps
+                // the wait short enough to be legal, and re-anchors on the clock each time so a
+                // system clock change or a DST shift is picked up rather than slept through.
+                var wait = BoundedDelay(delay);
+
+                if (wait > TimeSpan.Zero)
                 {
-                    await Task.Delay(delay, token).ConfigureAwait(false);
+                    await Task.Delay(wait, token).ConfigureAwait(false);
+                }
+
+                // Still short of the occurrence, so go round and recompute rather than firing early.
+                if (wait < delay)
+                {
+                    continue;
                 }
 
                 await TriggerAsync(checker, token).ConfigureAwait(false);
@@ -141,6 +165,16 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
             // Expected when unscheduling or shutting down.
         }
     }
+
+    /// <summary>
+    /// Caps how long a single wait may be, so it stays inside what <see cref="Task.Delay(TimeSpan, CancellationToken)"/> accepts.
+    /// </summary>
+    /// <remarks>
+    /// Anything longer is waited out in steps. Returning the remainder unchanged when it already
+    /// fits keeps the common case exact rather than rounding every wait up to the cap.
+    /// </remarks>
+    internal static TimeSpan BoundedDelay(TimeSpan remaining) =>
+        remaining > MaxDelay ? MaxDelay : remaining;
 
     /// <summary>
     /// Triggers one check, letting cancellation through and swallowing everything else.
