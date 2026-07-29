@@ -33,6 +33,14 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
     internal const string SelectFormat =
         "SELECT state_type, value FROM {0} WHERE name = @name";
 
+    /// <summary>Reads many rows at once. The parameter list is built per call, from its length.</summary>
+    /// <remarks>
+    /// The names go in as parameters rather than as an interpolated list, so a checker name can
+    /// contain anything at all without it becoming SQL.
+    /// </remarks>
+    internal const string SelectManyFormat =
+        "SELECT name, state_type, value FROM {0} WHERE name IN ({1})";
+
     /// <summary>
     /// A table name, optionally schema-qualified. Anything else is refused rather than interpolated.
     /// </summary>
@@ -112,6 +120,13 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
     internal string Upsert(string tableName) => Format(UpsertFormat, tableName);
 
     internal static string Select(string tableName) => Format(SelectFormat, tableName);
+
+    internal static string SelectMany(string tableName, int count) =>
+        string.Format(
+            CultureInfo.InvariantCulture,
+            SelectManyFormat,
+            tableName,
+            string.Join(", ", Enumerable.Range(0, count).Select(i => $"@name{i}")));
 
     private static string Format(string format, string tableName) =>
         string.Format(CultureInfo.InvariantCulture, format, tableName);

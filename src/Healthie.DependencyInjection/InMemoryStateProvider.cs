@@ -47,4 +47,31 @@ public sealed class InMemoryStateProvider : IStateProvider
 
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Reads straight from the dictionary. There is no round trip to save here, but the default
+    /// walks the same store one name at a time for no reason, and this is the provider every
+    /// application starts on.
+    /// </remarks>
+    public Task<IReadOnlyDictionary<string, TState>> GetStatesAsync<TState>(
+        IEnumerable<string> names,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var states = new Dictionary<string, TState>(StringComparer.Ordinal);
+
+        foreach (var name in names)
+        {
+            if (_states.TryGetValue(name, out var json)
+                && JsonSerializer.Deserialize<TState>(json, SerializerOptions) is { } state)
+            {
+                states[name] = state;
+            }
+        }
+
+        return Task.FromResult<IReadOnlyDictionary<string, TState>>(states);
+    }
 }

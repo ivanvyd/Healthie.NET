@@ -26,4 +26,48 @@ public interface IStateProvider
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous save operation.</returns>
     Task SetStateAsync<TState>(string name, TState state, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the state of several pulse checkers at once.
+    /// </summary>
+    /// <typeparam name="TState">The type of state to retrieve.</typeparam>
+    /// <param name="names">The names to read. May be empty.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// The states that were found, keyed by name. A name with nothing stored for it is absent from
+    /// the result rather than present with a <c>default</c> value.
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// Every load of the dashboard and every call to the REST API's list endpoint reads the state of
+    /// every checker. Done one at a time that is a round trip per checker on every page load, which
+    /// a store measured in milliseconds turns into a page measured in seconds.
+    /// </para>
+    /// <para>
+    /// Defaulted rather than abstract, so a provider written against the older interface keeps
+    /// compiling and keeps working: the default does exactly what the caller used to do, one read
+    /// per name. Override it where the store can answer in one query -- a single <c>SELECT ... IN</c>
+    /// or one CosmosDB query -- and the saving is real.
+    /// </para>
+    /// </remarks>
+    async Task<IReadOnlyDictionary<string, TState>> GetStatesAsync<TState>(
+        IEnumerable<string> names,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+
+        var states = new Dictionary<string, TState>(StringComparer.Ordinal);
+
+        foreach (var name in names)
+        {
+            var state = await GetStateAsync<TState>(name, cancellationToken).ConfigureAwait(false);
+
+            if (state is not null)
+            {
+                states[name] = state;
+            }
+        }
+
+        return states;
+    }
 }
