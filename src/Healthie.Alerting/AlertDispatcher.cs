@@ -141,10 +141,10 @@ public sealed class AlertDispatcher : BackgroundService
     /// </summary>
     private void OnStateChanged(IPulseChecker checker, PulseCheckerStateChangedEventArgs args)
     {
-        var previous = args.OldState.LastResult?.Health;
-        var current = args.NewState.LastResult?.Health;
+        // StateChanged fires on every check; only a change of health is worth waking somebody for.
+        var previous = args.PreviousHealth;
 
-        if (current is not { } health || previous == health || !ShouldAlert(previous, health))
+        if (args.CurrentHealth is not { } health || previous == health || !ShouldAlert(previous, health))
         {
             return;
         }

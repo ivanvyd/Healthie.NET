@@ -122,12 +122,9 @@ public sealed class UptimeRecorder : BackgroundService
     private void OnStateChanged(IPulseChecker checker, PulseCheckerStateChangedEventArgs args)
     {
         // Only a change of health starts a new segment. StateChanged fires on every check, because
-        // state equality includes the last execution time, so recording every one of them would
+        // a stored result always moves the execution time, so recording every one of them would
         // turn a day into 86,400 segments that all say the same thing.
-        var previous = args.OldState.LastResult?.Health;
-        var current = args.NewState.LastResult?.Health;
-
-        if (current is not { } health || previous == health)
+        if (args.CurrentHealth is not { } health || args.PreviousHealth == health)
         {
             return;
         }

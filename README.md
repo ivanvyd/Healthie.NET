@@ -252,9 +252,14 @@ Subscribe to state transitions on any pulse checker:
 ```csharp
 checker.StateChanged += (sender, args) =>
 {
-    Console.WriteLine(
-        $"Health changed from {args.OldState.LastResult?.Health} " +
-        $"to {args.NewState.LastResult?.Health}");
+    // Fires on every check, because a stored result always moves the execution time.
+    // HealthChanged is the narrower question: did the component itself move?
+    if (!args.HealthChanged)
+    {
+        return;
+    }
+
+    Console.WriteLine($"Health changed from {args.PreviousHealth} to {args.CurrentHealth}");
 };
 ```
 
@@ -818,12 +823,9 @@ Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanv
 
 Shipped since 3.1.4: alerting on transitions, OpenTelemetry metrics and traces, arbitrary intervals
 and cron, PostgreSQL / SQL Server / SQLite state providers, Hangfire / Coravel / Temporal
-scheduling, ready-made checkers, uptime reporting, leader election, and optimistic concurrency on
-`IStateProvider`. What is left:
+scheduling, ready-made checkers, uptime reporting, leader election, optimistic concurrency
+on `IStateProvider`, and `HealthChanged` on the state-changed event. What is left:
 
-- **`StateChanged` fires on every check** rather than only when state changes, because state
-  equality includes the last execution time. Anything reacting to it should compare the health
-  itself, which the alerting and uptime packages do.
 - **A Redis state provider** -- the fastest option for state written on every tick, and a natural
   lease store for leader election.
 - **Alert sinks beyond the webhook** -- Slack, Teams and PagerDuty as packages rather than as a

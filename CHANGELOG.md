@@ -30,6 +30,13 @@ its code behaves exactly as it did.
   reports `SupportsOptimisticConcurrency == false` rather than pretending. CosmosDB uses ETags,
   the relational providers a version column added to existing tables on startup, and the in-memory
   provider a compare-and-swap.
+- **`HealthChanged` on `PulseCheckerStateChangedEventArgs`**, with `PreviousHealth` and
+  `CurrentHealth` beside it. `StateChanged` fires on every check -- a stored result always moves the
+  execution time -- which was listed as a known issue and is not one: the dashboard redraws from
+  exactly those events. What was missing was a way to ask the narrower question, so every handler
+  that only cared about a component going down reached into `OldState`/`NewState.LastResult?.Health`
+  and worked it out again. The alerting and uptime packages were doing that identically; both now
+  read `PreviousHealth` and `CurrentHealth` from the event instead of digging for them.
 - **Schedules.** `PulseSchedule` says either "every this long" or "on this cron expression", and
   sits alongside `PulseInterval` rather than replacing it. The enum stopped at five minutes, which
   is short of what a certificate-expiry or disk-space check wants. Cron is standard Unix syntax and
@@ -88,12 +95,6 @@ its code behaves exactly as it did.
 - Four high-severity advisories resolved: `SQLitePCLRaw.lib.e_sqlite3` (GHSA-2m69-gcr7-jv3q),
   `Newtonsoft.Json` reached through Hangfire (GHSA-5crp-9r3c-p9vr), and `System.Text.Json` in the
   console sample (CVE-2024-30105 and CVE-2024-43485). The solution reports no vulnerable packages.
-
-### Known issues
-
-- `StateChanged` is raised on **every** check rather than only when state changes, because
-  `PulseCheckerState` equality includes the last execution time. Anything reacting to it should
-  compare the health itself, which the alerting and uptime packages do.
 
 ## [3.1.4] - 2026-07-19
 

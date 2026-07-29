@@ -99,6 +99,34 @@ public class AlertingTests
     }
 
     /// <summary>
+    /// A change carrying no result says nothing about health, so it must not alert. This is the one
+    /// branch of the health-change test that the other tests here cannot reach: every other way of
+    /// raising the event puts a result on both sides.
+    /// </summary>
+    [Fact]
+    public async Task ASettingChangedBeforeTheFirstCheck_ReachesNoSink()
+    {
+        var sink = new RecordingSink();
+        var (dispatcher, checker) = await StartAsync(sink);
+
+        try
+        {
+            Assert.Equal(1, checker.SubscriberCount);
+            checker.RaiseSettingChanged("Tier 1");
+
+            // A failure raised straight after must be the first thing the sink sees.
+            checker.RaiseStateChanged(PulseCheckerHealth.Unhealthy);
+
+            Assert.True(await WaitUntilAsync(() => sink.Received.Count == 1, TimeSpan.FromSeconds(5)));
+            Assert.Equal(PulseCheckerHealth.Unhealthy, sink.Received[0].CurrentHealth);
+        }
+        finally
+        {
+            await ((IHostedService)dispatcher).StopAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>
     /// Suspicious is the state a checker passes through on its way to unhealthy, so alerting on it
     /// by default would page somebody for every blip the threshold exists to absorb.
     /// </summary>

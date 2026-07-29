@@ -65,6 +65,17 @@ internal sealed class FakePulseChecker(string name) : IPulseChecker
         StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, _state));
     }
 
+    /// <summary>
+    /// Raises <see cref="StateChanged"/> for a change that carries no result at all, which is what a
+    /// setting changed before the checker has ever run looks like.
+    /// </summary>
+    public void RaiseSettingChanged(string group)
+    {
+        var oldState = _state;
+        _state = new PulseCheckerState(PulseInterval.EveryMinute, 0) { Group = group };
+        StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, _state));
+    }
+
     public Task TriggerAsync(CancellationToken cancellationToken = default)
     {
         TriggerCount++;
