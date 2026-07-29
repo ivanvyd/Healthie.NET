@@ -38,8 +38,11 @@ Watch it all through a live dashboard, a REST API, Kubernetes probes, or an AI a
 - **Current.** .NET 8 and .NET 10, async throughout, `CancellationToken` everywhere.
 - **A dashboard with no dependencies.** Pure HTML and CSS, no UI framework, no web fonts -- two lines to add, and it runs air-gapped.
 - **Built for agents.** An [MCP server](#ai-agents-mcp) that is read-only until you say otherwise, plus [optional diagnostics](#ai-diagnostics) through any `IChatClient`.
+- **It tells someone.** [Alerting](https://www.nuget.org/packages/Healthie.NET.Alerting) fires on a health change rather than on every check, with recovery notices and flap suppression -- and a webhook that is down cannot delay a check or make a healthy component look unhealthy.
+- **It reports on itself.** A `Meter` and an `ActivitySource` OpenTelemetry finds by name, with no package to install. Plus [uptime over any window](https://www.nuget.org/packages/Healthie.NET.Uptime), which the hundred-entry history cannot answer.
+- **It scales out.** [Leader election](https://www.nuget.org/packages/Healthie.NET.LeaderElection) runs the checks on one replica at a time, so three replicas do not check everything three times.
 
-Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one dependency, and Quartz, CosmosDB, MCP, AI, and the dashboard are separate packages you add only if you want them.
+Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one dependency, and every provider, scheduler, sink and the dashboard is a separate package you add only if you want it.
 
 ---
 
@@ -813,15 +816,20 @@ Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanv
 
 ## Roadmap
 
-Planned features for future releases:
+Shipped since 3.1.4: alerting on transitions, OpenTelemetry metrics and traces, arbitrary intervals
+and cron, PostgreSQL / SQL Server / SQLite state providers, Hangfire / Coravel / Temporal
+scheduling, ready-made checkers, uptime reporting, and leader election. What is left:
 
-- **Notifications on state transitions** -- webhooks in [CloudEvents](https://cloudevents.io) format, and recipes for Slack, Teams, and email. Firing on transitions rather than on every check is what the failure threshold makes possible.
-- **OpenTelemetry** -- checker state, transition counts, and check duration as metrics and traces over OTLP, rather than an exporter per vendor.
-- **Concurrency tokens on `IStateProvider`** -- state writes are currently last-write-wins, so a setting changed from the dashboard can be overwritten by a check that read the state first. Resolving it needs the interface to carry a version.
-- **Arbitrary intervals** -- `PulseInterval` currently tops out at five minutes; a `TimeSpan` would remove the ceiling.
-- **Checker grouping** -- organize pulse checkers into logical groups with group-level actions.
-- **Additional state providers** -- SQL Server, PostgreSQL, Redis.
-- **Additional scheduling providers** -- Temporal, for teams already running it and wanting durable, distributed scheduling.
+- **Concurrency tokens on `IStateProvider`** -- state writes are last-write-wins, so a setting
+  changed from the dashboard can be overwritten by a check that read the state first. Resolving it
+  needs the interface to carry a version, which is a breaking change and a major release.
+- **`StateChanged` fires on every check** rather than only when state changes, because state
+  equality includes the last execution time. Anything reacting to it should compare the health
+  itself, which the alerting and uptime packages do.
+- **A Redis state provider** -- the fastest option for state written on every tick, and a natural
+  lease store for leader election.
+- **Alert sinks beyond the webhook** -- Slack, Teams and PagerDuty as packages rather than as a
+  documented payload.
 
 ---
 
