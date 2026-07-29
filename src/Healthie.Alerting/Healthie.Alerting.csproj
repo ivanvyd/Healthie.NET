@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <PackageId>Healthie.NET.Alerting</PackageId>
-    <Description>Alerting for Healthie.NET: turns health changes into alerts and delivers them to a webhook or your own sink, with deduplication and delivery failures isolated from the checks.</Description>
-    <PackageTags>$(HealthieCommonTags);alerting;notifications;webhook;incidents</PackageTags>
+    <Description>Alerting for Healthie.NET: turns health changes into alerts and delivers them to Slack, Microsoft Teams, PagerDuty, a webhook or your own sink, with deduplication and delivery failures isolated from the checks.</Description>
+    <PackageTags>$(HealthieCommonTags);alerting;notifications;webhook;slack;teams;pagerduty;incidents</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

@@ -6,10 +6,15 @@ namespace Healthie.Alerting;
 /// Posts each alert as JSON to a URL.
 /// </summary>
 /// <remarks>
-/// The one sink worth shipping, because it is the one that reaches everything else. Slack, Teams
-/// through a Power Automate flow, Discord, PagerDuty's Events API, an internal service and a
-/// no-code automation tool all accept an HTTP POST, so a webhook covers them with a payload shape
-/// documented once rather than a package each.
+/// The sink for anything that accepts a POST and does not care what shape it is: an internal
+/// service, a no-code automation tool, a queue. It is deliberately the generic one -- the payload is
+/// documented once and never reshaped per destination.
+/// <para>
+/// It does not reach Slack, Teams or PagerDuty. Each of those rejects arbitrary JSON and wants its
+/// own shape, which is what the sinks beside this one are: <see cref="SlackAlertSink"/>,
+/// <see cref="MicrosoftTeamsAlertSink"/> and <see cref="PagerDutyAlertSink"/>. They need no
+/// dependency this package did not already have, so they are here rather than in a package each.
+/// </para>
 /// </remarks>
 public sealed class WebhookAlertSink : IAlertSink
 {
