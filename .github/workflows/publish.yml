@@ -135,10 +135,18 @@ jobs:
           set -euo pipefail
 
           dotnet tool install --global CycloneDX
+          # Whether the global tool directory is already on PATH varies between runner images,
+          # and the failure if it is not is an unrecognised command rather than anything obvious.
+          export PATH="$PATH:$HOME/.dotnet/tools"
 
           python3 - <<'PY'
-          import glob, json
-          projects = sorted(p.replace('/', '\\') for p in glob.glob('src/*/*.csproj'))
+          import glob, json, os
+          # Forward slashes on purpose. Visual Studio writes solution filters with backslashes,
+          # but glob yields the host separator, and converting to backslashes here would hand the
+          # Linux runner Windows paths -- which resolve to nothing. Forward slashes parse on both.
+          projects = sorted(p.replace(os.sep, '/') for p in glob.glob('src/*/*.csproj'))
+          if not projects:
+              raise SystemExit('no shipped projects matched src/*/*.csproj')
           json.dump({'solution': {'path': 'Healthie.NET.sln', 'projects': projects}},
                     open('shipped.slnf', 'w'), indent=2)
           print(f'{len(projects)} shipped projects in the SBOM')
@@ -151,6 +159,19 @@ jobs:
             --set-name Healthie.NET \
             --set-version "${{ steps.version.outputs.VERSION }}" \
             --set-type Library
+
+          # CycloneDX exits 0 having written an empty document when the filter resolves to
+          # nothing, so the exit code alone would let an empty SBOM reach the release and read as
+          # a complete one. The shipped closure is around 58 components; anything near zero means
+          # the filter stopped matching, not that the dependencies went away.
+          python3 - <<'PY'
+          import json, os
+          path = os.environ['SBOM_FILE']
+          count = len(json.load(open(path)).get('components', []))
+          print(f'SBOM lists {count} components')
+          if count < 20:
+              raise SystemExit(f'{path} lists only {count} components; refusing to publish an empty SBOM')
+          PY
 
           rm -f shipped.slnf
 
