@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.LeaderElection</PackageId>
+    <Description>Leader election for Healthie.NET: runs pulse checks on one replica at a time, so a scaled-out application checks each component once rather than once per replica.</Description>
+    <PackageTags>$(HealthieCommonTags);leader-election;distributed;lease;ha</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

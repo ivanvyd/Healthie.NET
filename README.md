@@ -51,10 +51,21 @@ Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one depe
 | **[Healthie.NET.DependencyInjection](https://www.nuget.org/packages/Healthie.NET.DependencyInjection)** | DI registration (`AddHealthie`), assembly scanning, the built-in `TimerPulseScheduler`, the in-memory state provider, and the `IHealthCheck` bridge. | `dotnet add package Healthie.NET.DependencyInjection` |
 | **[Healthie.NET.Api](https://www.nuget.org/packages/Healthie.NET.Api)** | ASP.NET Core API controller for managing pulse checkers via REST, plus liveness and readiness probe endpoints. | `dotnet add package Healthie.NET.Api` |
 | **[Healthie.NET.CosmosDb](https://www.nuget.org/packages/Healthie.NET.CosmosDb)** | Azure CosmosDB `IStateProvider` implementation for persisting pulse checker state. | `dotnet add package Healthie.NET.CosmosDb` |
+| **[Healthie.NET.Postgres](https://www.nuget.org/packages/Healthie.NET.Postgres)** | PostgreSQL `IStateProvider` implementation. Also covers Databricks Lakebase, which is managed PostgreSQL. | `dotnet add package Healthie.NET.Postgres` |
+| **[Healthie.NET.SqlServer](https://www.nuget.org/packages/Healthie.NET.SqlServer)** | SQL Server and Azure SQL `IStateProvider` implementation. | `dotnet add package Healthie.NET.SqlServer` |
+| **[Healthie.NET.Sqlite](https://www.nuget.org/packages/Healthie.NET.Sqlite)** | SQLite `IStateProvider` implementation -- durable state with no server to stand up. | `dotnet add package Healthie.NET.Sqlite` |
+| **[Healthie.NET.Relational](https://www.nuget.org/packages/Healthie.NET.Relational)** | The engine behind the three above. Use it directly for any other database with an ADO.NET driver. | `dotnet add package Healthie.NET.Relational` |
 | **[Healthie.NET.Dashboard](https://www.nuget.org/packages/Healthie.NET.Dashboard)** | Blazor health monitoring dashboard (Razor Class Library, zero third-party dependencies). | `dotnet add package Healthie.NET.Dashboard` |
 | **[Healthie.NET.Quartz](https://www.nuget.org/packages/Healthie.NET.Quartz)** | Quartz.NET `IPulseScheduler` implementation for CRON-based scheduling. | `dotnet add package Healthie.NET.Quartz` |
+| **[Healthie.NET.Hangfire](https://www.nuget.org/packages/Healthie.NET.Hangfire)** | Hangfire `IPulseScheduler` implementation -- schedules survive a restart, and each occurrence runs on exactly one replica. | `dotnet add package Healthie.NET.Hangfire` |
+| **[Healthie.NET.Coravel](https://www.nuget.org/packages/Healthie.NET.Coravel)** | Coravel `IPulseScheduler` implementation, for applications already running Coravel. | `dotnet add package Healthie.NET.Coravel` |
+| **[Healthie.NET.Temporal](https://www.nuget.org/packages/Healthie.NET.Temporal)** | Temporal `IPulseScheduler` implementation -- schedules live in the cluster and survive a restart. | `dotnet add package Healthie.NET.Temporal` |
 | **[Healthie.NET.Mcp](https://www.nuget.org/packages/Healthie.NET.Mcp)** | Model Context Protocol server, so an AI agent can read and act on service health. | `dotnet add package Healthie.NET.Mcp` |
 | **[Healthie.NET.AI](https://www.nuget.org/packages/Healthie.NET.AI)** | Optional AI diagnostics that explain a checker's recent failures. Bring any `IChatClient`. | `dotnet add package Healthie.NET.AI` |
+| **[Healthie.NET.Checkers](https://www.nuget.org/packages/Healthie.NET.Checkers)** | Ready-made checkers for HTTP endpoints, TCP ports, TLS certificate expiry, DNS and disk space. | `dotnet add package Healthie.NET.Checkers` |
+| **[Healthie.NET.Alerting](https://www.nuget.org/packages/Healthie.NET.Alerting)** | Turns health changes into alerts and delivers them to a webhook or your own sink. | `dotnet add package Healthie.NET.Alerting` |
+| **[Healthie.NET.Uptime](https://www.nuget.org/packages/Healthie.NET.Uptime)** | Uptime and SLA reporting over any window, by recording transitions rather than every check. | `dotnet add package Healthie.NET.Uptime` |
+| **[Healthie.NET.LeaderElection](https://www.nuget.org/packages/Healthie.NET.LeaderElection)** | Runs the checks on one replica at a time, so a scaled-out app checks each component once. | `dotnet add package Healthie.NET.LeaderElection` |
 
 All packages target **.NET 8** and **.NET 10**.
 
@@ -648,6 +659,30 @@ The anomaly comparison alongside the summary is arithmetic, not a model call, so
 If your only consumer is an AI agent, you may not need this package at all: an agent talking to the MCP endpoint can read `get_check_history` and reason about it itself. This package is for the surfaces where there is no model in the loop.
 
 ---
+
+## Metrics and Traces
+
+Healthie.NET reports on itself through the framework's own `Meter` and `ActivitySource`. There is no package to install and nothing to register -- OpenTelemetry picks both up by name:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics.AddMeter(HealthieDiagnostics.MeterName))
+    .WithTracing(tracing => tracing.AddSource(HealthieDiagnostics.ActivitySourceName));
+```
+
+| Instrument | Unit | What it tells you |
+|---|---|---|
+| `healthie.check.duration` | s | How long the check itself took -- your `CheckAsync`, not the state read and write around it |
+| `healthie.check.results` | {check} | Checks completed, tagged with the health each reported |
+| `healthie.check.transitions` | {transition} | Health actually changing. The one worth alerting on |
+| `healthie.check.overlaps` | {trigger} | Triggers skipped because the previous check had not finished |
+
+That last one is the one to watch. A checker whose check outlasts its interval keeps reporting healthy while quietly running at a fraction of the rate you asked for, and this counter is the only place that shows.
+
+Tags are `healthie.checker.name`, `healthie.checker.group` and `healthie.check.result`. A checker's *tags* are deliberately absent: they are user-defined, editable from the dashboard, and unbounded, so every distinct value would multiply the series your backend stores.
+
+Each check also opens a `Healthie.Check` span carrying the same attributes. A check runs on a background timer with no ambient trace context, so each is its own trace root. An unhealthy result does not set an error status on the span -- the check did its job; the component it watches is what failed.
+
 
 ## Extensibility
 

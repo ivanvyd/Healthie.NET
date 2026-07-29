@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!--
@@ -31,11 +31,21 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.LeaderElection\Healthie.LeaderElection.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Scheduling.Temporal\Healthie.Scheduling.Temporal.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Scheduling.Coravel\Healthie.Scheduling.Coravel.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Uptime\Healthie.Uptime.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Alerting\Healthie.Alerting.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Checkers\Healthie.Checkers.csproj" />
     <ProjectReference Include="..\..\src\Healthie.AI\Healthie.AI.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Dashboard\Healthie.Dashboard.csproj" />
     <ProjectReference Include="..\..\src\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Mcp\Healthie.Mcp.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Scheduling.Hangfire\Healthie.Scheduling.Hangfire.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.Relational\Healthie.StateProviding.Relational.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.Sqlite\Healthie.StateProviding.Sqlite.csproj" />
   </ItemGroup>
 
 </Project>
