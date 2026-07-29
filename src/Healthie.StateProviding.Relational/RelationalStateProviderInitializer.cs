@@ -55,10 +55,16 @@ public sealed class RelationalStateProviderInitializer(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The column is checked for rather than added blindly. PostgreSQL and SQL Server can express
-    /// "add it if it is missing" in one statement, SQLite cannot -- and catching whatever error each
-    /// engine raises for a duplicate column would mean guessing at messages and swallowing real
-    /// failures with them.
+    /// The column is checked for rather than added blindly, because no engine here spells "add it
+    /// if it is missing" in a way the others also understand. So the check and the change are two
+    /// steps, and two instances starting together can both pass the check. The loser's <c>ALTER</c>
+    /// then fails, which would be a startup crash on a database that is in fact correct.
+    /// </para>
+    /// <para>
+    /// So a failure is not taken at face value: the columns are read again, and a failure that left
+    /// the column present was the other instance winning the race and is not an error. Anything else
+    /// is rethrown untouched. That avoids matching on error text, which differs per engine and would
+    /// swallow real failures along with this one.
     /// </para>
     /// <para>
     /// Asking a query for no rows is how the columns are read, because every ADO.NET provider
@@ -67,26 +73,45 @@ public sealed class RelationalStateProviderInitializer(
     /// </remarks>
     private async Task AddVersionColumnIfMissingAsync(DbConnection connection, CancellationToken cancellationToken)
     {
-        await using (var probe = connection.CreateCommand())
+        if (await HasVersionColumnAsync(connection, cancellationToken).ConfigureAwait(false))
         {
-            probe.CommandText = $"SELECT * FROM {_tableName} WHERE 1 = 0";
+            return;
+        }
 
-            await using var reader = await probe
-                .ExecuteReaderAsync(CommandBehavior.SchemaOnly, cancellationToken)
-                .ConfigureAwait(false);
+        try
+        {
+            await using var alter = connection.CreateCommand();
+            alter.CommandText = _addVersionColumnSql;
 
-            for (var i = 0; i < reader.FieldCount; i++)
+            await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbException) when (!cancellationToken.IsCancellationRequested)
+        {
+            if (!await HasVersionColumnAsync(connection, cancellationToken).ConfigureAwait(false))
             {
-                if (string.Equals(reader.GetName(i), "version", StringComparison.OrdinalIgnoreCase))
-                {
-                    return;
-                }
+                throw;
+            }
+        }
+    }
+
+    /// <summary>Whether the table already carries the version column.</summary>
+    private async Task<bool> HasVersionColumnAsync(DbConnection connection, CancellationToken cancellationToken)
+    {
+        await using var probe = connection.CreateCommand();
+        probe.CommandText = $"SELECT * FROM {_tableName} WHERE 1 = 0";
+
+        await using var reader = await probe
+            .ExecuteReaderAsync(CommandBehavior.SchemaOnly, cancellationToken)
+            .ConfigureAwait(false);
+
+        for (var i = 0; i < reader.FieldCount; i++)
+        {
+            if (string.Equals(reader.GetName(i), "version", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
             }
         }
 
-        await using var alter = connection.CreateCommand();
-        alter.CommandText = _addVersionColumnSql;
-
-        await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return false;
     }
 }

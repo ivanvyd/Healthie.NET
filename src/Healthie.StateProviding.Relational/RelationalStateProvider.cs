@@ -251,7 +251,7 @@ public sealed class RelationalStateProvider(
 
         await using var command = connection.CreateCommand();
         command.CommandText = expectedVersion == IStateProvider.AbsentVersion
-            ? RelationalDialect.InsertIfAbsent(_tableName)
+            ? _dialect.InsertIfAbsent(_tableName)
             : RelationalDialect.ConditionalUpdate(_tableName);
         AddParameter(command, "@name", name);
         AddParameter(command, "@state_type", typeof(TState).FullName);

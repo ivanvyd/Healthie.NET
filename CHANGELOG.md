@@ -20,7 +20,10 @@ its code behaves exactly as it did.
   the version it was read at, and `TrySetStateAsync` writes only if that version is still current,
   reporting a refused write rather than throwing -- under contention a conflict is expected, not
   exceptional. `UpdateStateAsync` is the read-modify-write retry loop over the pair, and every
-  setting on `PulseChecker` now goes through it.
+  setting on `PulseChecker` goes through it -- as does a check storing its own result, which reads
+  and writes the whole state and so used to put every other field back to what it was when the
+  check started. Within one process a semaphore hid that; across two replicas sharing one store
+  nothing did, and that is the direction the dashboard actually loses to.
 
   This was expected to need a major release and did not. The new members are defaulted interface
   methods: a provider written against the old two-method interface still compiles, still works, and

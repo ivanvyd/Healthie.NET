@@ -254,30 +254,6 @@ public class PulseCheckerConcurrencyTests
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    [Fact]
-    public async Task ASettingChange_SurvivesACheckWritingItsResultAtTheSameTime()
-    {
-        var states = new InMemoryStateProvider();
-        using var checker = new AlwaysHealthyPulseChecker(states);
-
-        await checker.SetUnhealthyThresholdAsync(3, Ct);
-
-        // A check and an edit racing, repeatedly.
-        for (var round = 0; round < 20; round++)
-        {
-            await Task.WhenAll(
-                checker.TriggerAsync(Ct),
-                checker.SetGroupAsync($"group-{round}", Ct));
-        }
-
-        var state = await checker.GetStateAsync(Ct);
-
-        // Both survived: the edits landed, and the threshold set before them was never clobbered.
-        Assert.Equal("group-19", state.Group);
-        Assert.Equal(3u, state.UnhealthyThreshold);
-        Assert.NotNull(state.LastResult);
-    }
-
     /// <summary>
     /// Wraps a provider and lets one competing write slip in between a read and the write that
     /// follows it -- which is what a second replica, or the REST API on another instance, does.
@@ -293,8 +269,12 @@ public class PulseCheckerConcurrencyTests
 
         public bool SupportsOptimisticConcurrency => inner.SupportsOptimisticConcurrency;
 
-        public Task<TState?> GetStateAsync<TState>(string name, CancellationToken cancellationToken = default)
-            => inner.GetStateAsync<TState>(name, cancellationToken);
+        public async Task<TState?> GetStateAsync<TState>(string name, CancellationToken cancellationToken = default)
+        {
+            var state = await inner.GetStateAsync<TState>(name, cancellationToken);
+            InterfereOnce();
+            return state;
+        }
 
         public Task SetStateAsync<TState>(string name, TState state, CancellationToken cancellationToken = default)
             => inner.SetStateAsync(name, state, cancellationToken);
@@ -302,14 +282,24 @@ public class PulseCheckerConcurrencyTests
         public async Task<StateEntry<TState>?> GetStateEntryAsync<TState>(string name, CancellationToken cancellationToken = default)
         {
             var entry = await inner.GetStateEntryAsync<TState>(name, cancellationToken);
+            InterfereOnce();
+            return entry;
+        }
 
-            if (!_done)
+        /// <summary>
+        /// Both read shapes interfere, so a test means the same thing whichever one the code under
+        /// test happens to call -- otherwise migrating a caller from one to the other would quietly
+        /// disarm the test rather than break it.
+        /// </summary>
+        private void InterfereOnce()
+        {
+            if (_done)
             {
-                _done = true;
-                interfere(inner);
+                return;
             }
 
-            return entry;
+            _done = true;
+            interfere(inner);
         }
 
         public Task<bool> TrySetStateAsync<TState>(string name, TState state, string? expectedVersion, CancellationToken cancellationToken = default)
@@ -340,6 +330,43 @@ public class PulseCheckerConcurrencyTests
 
         Assert.Equal("set-by-the-dashboard", state!.Group);
         Assert.Equal(7u, state.UnhealthyThreshold);
+    }
+
+    /// <summary>
+    /// The other direction, and the one the CHANGELOG actually describes: a setting is changed
+    /// while a check is running, and the check's own write must not revert it.
+    /// </summary>
+    /// <remarks>
+    /// A checker writes its result by reading the whole state, changing the result fields and
+    /// writing the whole state back, so an unconditional write puts every other field back to what
+    /// it was when the check started. Within one process the semaphore hides this -- a check holds
+    /// it across both steps. Across two instances sharing one store, which is what a second replica
+    /// or the REST API on another node is, nothing does.
+    /// </remarks>
+    [Fact]
+    public async Task ACheckWritingItsResult_DoesNotRevertASettingChangedWhileItRan()
+    {
+        var store = new InMemoryStateProvider();
+
+        var provider = new InterferingProvider(
+            store,
+            inner => inner.SetStateAsync(
+                "racy-check",
+                new PulseCheckerState { Group = "set-while-the-check-ran" },
+                CancellationToken.None).GetAwaiter().GetResult());
+
+        using var checker = new NamedTestChecker(provider) { CheckerName = "racy-check" };
+
+        await checker.TriggerAsync(Ct);
+
+        var state = await store.GetStateAsync<PulseCheckerState>("racy-check", Ct);
+
+        // The check's own result landed...
+        Assert.NotNull(state!.LastResult);
+        Assert.Equal(PulseCheckerHealth.Healthy, state.LastResult!.Health);
+
+        // ...without putting the group back to what it was before the setting change.
+        Assert.Equal("set-while-the-check-ran", state.Group);
     }
 
     [Fact]
@@ -522,6 +549,92 @@ public sealed class RelationalConcurrencyTests : IAsyncLifetime
 
         // And the row is versioned from here on, so the next write is protected.
         Assert.True((await provider.GetStateEntryAsync<PulseCheckerState>("legacy", Ct))!.IsVersioned);
+    }
+
+    /// <summary>
+    /// Every shipped dialect must resolve the create in one statement. The portable fallback is
+    /// correct but not atomic, so a dialect that quietly fell back to it would reintroduce the race
+    /// with nothing to show for it.
+    /// </summary>
+    [Fact]
+    public void EveryShippedDialect_ResolvesTheCreateItself()
+    {
+        RelationalDialect[] shipped =
+        [
+            RelationalDialect.PostgreSql,
+            RelationalDialect.SqlServer,
+            RelationalDialect.Sqlite,
+        ];
+
+        foreach (var dialect in shipped)
+        {
+            Assert.NotNull(dialect.InsertIfAbsentFormat);
+
+            // Either the engine resolves the conflict, or the existence check is taken under a lock.
+            var sql = dialect.InsertIfAbsentFormat!;
+            var resolvesItself =
+                sql.Contains("DO NOTHING", StringComparison.OrdinalIgnoreCase) ||
+                sql.Contains("UPDLOCK", StringComparison.OrdinalIgnoreCase);
+
+            Assert.True(resolvesItself, $"{dialect.Name} falls back to a check-then-insert race.");
+        }
+    }
+
+    /// <summary>
+    /// Two instances starting together can both find the column missing. The loser's ALTER fails
+    /// against a database that is now correct, and a startup crash there is a crash for nothing.
+    /// </summary>
+    /// <remarks>
+    /// The race is made deterministic by a statement that adds the column and then fails, which is
+    /// what the losing instance sees: the column is there, and its own command reported an error.
+    /// </remarks>
+    [Fact]
+    public async Task LosingTheMigrationRace_IsNotAnError()
+    {
+        await CreateUnversionedTableAsync();
+
+        var addsThenFails = RelationalDialect.Sqlite with
+        {
+            AddVersionColumnFormat =
+                "ALTER TABLE {0} ADD COLUMN version TEXT NULL; SELECT this_is_not_a_column",
+        };
+
+        await new RelationalStateProviderInitializer(Connect, addsThenFails, Table).InitializeAsync(Ct);
+
+        // Swallowed, because the column it was adding is there.
+        var provider = Provider();
+        await provider.SetStateAsync("x", new PulseCheckerState(), Ct);
+        Assert.True((await provider.GetStateEntryAsync<PulseCheckerState>("x", Ct))!.IsVersioned);
+    }
+
+    /// <summary>
+    /// The other half: a failure that left the column missing is a real failure and is not hidden.
+    /// </summary>
+    [Fact]
+    public async Task AMigrationThatFailsWithoutAddingTheColumn_StillThrows()
+    {
+        await CreateUnversionedTableAsync();
+
+        var justFails = RelationalDialect.Sqlite with
+        {
+            AddVersionColumnFormat = "SELECT this_is_not_a_column FROM {0}",
+        };
+
+        await Assert.ThrowsAnyAsync<DbException>(
+            () => new RelationalStateProviderInitializer(Connect, justFails, Table).InitializeAsync(Ct));
+    }
+
+    /// <summary>A table as it stood before the version column existed.</summary>
+    private async Task CreateUnversionedTableAsync()
+    {
+        await using var connection = Connect();
+        await connection.OpenAsync(Ct);
+
+        await using var create = connection.CreateCommand();
+        create.CommandText =
+            $"CREATE TABLE {Table} (name TEXT NOT NULL PRIMARY KEY, state_type TEXT NULL, value TEXT NOT NULL)";
+
+        await create.ExecuteNonQueryAsync(Ct);
     }
 
     [Fact]

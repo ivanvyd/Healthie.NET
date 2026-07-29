@@ -276,53 +276,78 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
 
         try
         {
-            for (var attempt = 1; ; attempt++)
+            var (oldState, newState, changed) = await ApplyAsync(apply, cancellationToken).ConfigureAwait(false);
+
+            if (changed)
             {
-                var entry = await _stateProvider
-                    .GetStateEntryAsync<PulseCheckerState>(Name, cancellationToken)
-                    .ConfigureAwait(false);
-
-                var state = entry?.Value ?? CreateInitialState();
-
-                // History is a mutable list, so `with` alone would hand out a snapshot sharing it.
-                var oldState = state with { History = [.. state.History] };
-
-                apply(state);
-
-                // Nothing to write, and nothing to tell anyone about.
-                if (Equals(oldState, state))
-                {
-                    return false;
-                }
-
-                // Three cases, and collapsing any two of them is a bug. Nothing stored -> ask for a
-                // create that loses to whoever creates first. Stored and versioned -> the version.
-                // Stored but unversioned (a row written before the provider could version) -> null, an
-                // unconditional write, because there is nothing to compare and demanding a version that
-                // does not exist would refuse every write for ever.
-                var version = _stateProvider.SupportsOptimisticConcurrency
-                    ? entry is null ? IStateProvider.AbsentVersion : entry.Version
-                    : null;
-
-                if (await _stateProvider
-                        .TrySetStateAsync(Name, state, version, cancellationToken)
-                        .ConfigureAwait(false))
-                {
-                    StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, state));
-                    return true;
-                }
-
-                if (attempt >= MaxUpdateAttempts)
-                {
-                    throw new InvalidOperationException(
-                        $"Could not update the state of pulse checker '{Name}' after {MaxUpdateAttempts} " +
-                        "attempts: another writer changed it each time.");
-                }
+                StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, newState));
             }
+
+            return changed;
         }
         finally
         {
             _semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// The read-modify-write loop itself, without the lock and without the event.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="UpdateStateAsync"/> because <see cref="TriggerAsync"/> needs the
+    /// same conditional write but already holds the semaphore and has its own telemetry to record
+    /// between the write and the event. A checker's own result is state like any other: read,
+    /// changed and written back over three steps, and a setting change landing in that gap used to
+    /// be reverted by it -- the direction the semaphore hides within one process and cannot touch
+    /// across two.
+    /// </remarks>
+    /// <returns>The state before and after, and whether anything was written.</returns>
+    private async Task<(PulseCheckerState OldState, PulseCheckerState NewState, bool Changed)> ApplyAsync(
+        Action<PulseCheckerState> apply,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var entry = await _stateProvider
+                .GetStateEntryAsync<PulseCheckerState>(Name, cancellationToken)
+                .ConfigureAwait(false);
+
+            var state = entry?.Value ?? CreateInitialState();
+
+            // History is a mutable list, so `with` alone would hand out a snapshot sharing it.
+            var oldState = state with { History = [.. state.History] };
+
+            apply(state);
+
+            // Nothing to write, and nothing to tell anyone about.
+            if (Equals(oldState, state))
+            {
+                return (oldState, state, false);
+            }
+
+            // Three cases, and collapsing any two of them is a bug. Nothing stored -> ask for a
+            // create that loses to whoever creates first. Stored and versioned -> the version.
+            // Stored but unversioned (a row written before the provider could version) -> null, an
+            // unconditional write, because there is nothing to compare and demanding a version that
+            // does not exist would refuse every write for ever.
+            var version = _stateProvider.SupportsOptimisticConcurrency
+                ? entry is null ? IStateProvider.AbsentVersion : entry.Version
+                : null;
+
+            if (await _stateProvider
+                    .TrySetStateAsync(Name, state, version, cancellationToken)
+                    .ConfigureAwait(false))
+            {
+                return (oldState, state, true);
+            }
+
+            if (attempt >= MaxUpdateAttempts)
+            {
+                throw new InvalidOperationException(
+                    $"Could not update the state of pulse checker '{Name}' after {MaxUpdateAttempts} " +
+                    "attempts: another writer changed it each time.");
+            }
         }
     }
 
@@ -446,18 +471,9 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
             var result = await RunCheckAsync(cancellationToken).ConfigureAwait(false);
             var elapsed = Stopwatch.GetElapsedTime(startedAt);
 
-            PulseCheckerState state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-                ?? CreateInitialState();
-
-            // History is a mutable list, so `with` alone would hand out a snapshot that still
-            // shares it and would appear to change as this trigger appends to it.
-            var oldState = state with { History = [.. state.History] };
-
-            RecordResult(state, result, executedAt);
-
-            await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
-
-            var changed = !Equals(oldState, state);
+            var (oldState, state, changed) = await ApplyAsync(
+                current => RecordResult(current, result, executedAt),
+                cancellationToken).ConfigureAwait(false);
 
             // Recorded after the write, so a check whose state could not be stored is not counted
             // as one that ran -- the same reason a storage failure is not a health result.

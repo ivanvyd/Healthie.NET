@@ -60,9 +60,9 @@ builder.Services
 
 Writes can be made conditional. `GetStateEntryAsync` returns the state together with the document's ETag, and `TrySetStateAsync` sends it as `If-Match`, so a write made from a state that has since changed is refused (CosmosDB answers `412 PreconditionFailed`) rather than silently overwriting whoever changed it. When nothing is stored yet there is no ETag to match, so the write becomes a create, which CosmosDB refuses a second time with `409 Conflict` — the same guarantee at the one moment there is nothing to compare.
 
-A refused write is reported as `false`, not thrown. Under contention losing is the expected outcome and the answer is always the same: read again, reapply, write again. `StateProviderExtensions.UpdateStateAsync` is that loop, and every setting on `PulseChecker` goes through it — so a setting changed from the dashboard is no longer lost to a check that read the state first.
+A refused write is reported as `false`, not thrown. Under contention losing is the expected outcome and the answer is always the same: read again, reapply, write again. `StateProviderExtensions.UpdateStateAsync` is that loop. Both writers go through it — the setting change *and* the check storing its result — which is what makes the guarantee hold in both directions: a check that read the state before a setting changed no longer writes the old setting back over it.
 
-Plain `SetStateAsync` still upserts unconditionally, which is what a check result wants: the most recent result is the interesting one, and there is nothing to lose by overwriting the older one.
+`SetStateAsync` still upserts unconditionally. It replaces a whole document with one the caller supplies, so there is no version to carry and nothing to compare — it is the escape hatch, not the path the library takes.
 
 ## See Also
 
