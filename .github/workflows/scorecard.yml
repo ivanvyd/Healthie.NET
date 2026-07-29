@@ -12,7 +12,6 @@ on:
     - cron: '41 5 * * 2'
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions: {}
 

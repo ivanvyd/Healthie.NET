@@ -134,9 +134,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          dotnet tool install --global CycloneDX
-          # Whether the global tool directory is already on PATH varies between runner images,
-          # and the failure if it is not is an unrecognised command rather than anything obvious.
+          # Pinned, because this job holds contents: write and id-token: write -- the token that
+          # mints the NuGet publishing key. An unpinned install would hand whatever the newest
+          # release happens to be the run of the most privileged job in the repository, which is
+          # the exact class of thing the rest of this workflow set exists to prevent. NuGet
+          # versions are immutable, so a pinned one cannot be swapped underneath us.
+          dotnet tool install --global CycloneDX --version 6.2.0
+
+          # Already on PATH for GitHub-hosted runners; set explicitly so a self-hosted one fails
+          # on something legible rather than an unrecognised command far from its cause.
           export PATH="$PATH:$HOME/.dotnet/tools"
 
           python3 - <<'PY'
