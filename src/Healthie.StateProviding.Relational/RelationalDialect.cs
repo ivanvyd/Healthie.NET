@@ -119,7 +119,12 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
 
     internal string Upsert(string tableName) => Format(UpsertFormat, tableName);
 
+    /// <summary>Removes one row. Identical on every engine, so it is not part of the dialect.</summary>
+    internal const string DeleteFormat = "DELETE FROM {0} WHERE name = @name";
+
     internal static string Select(string tableName) => Format(SelectFormat, tableName);
+
+    internal static string Delete(string tableName) => Format(DeleteFormat, tableName);
 
     internal static string SelectMany(string tableName, int count) =>
         string.Format(

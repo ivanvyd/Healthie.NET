@@ -28,6 +28,30 @@ public interface IStateProvider
     Task SetStateAsync<TState>(string name, TState state, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Removes a pulse checker's stored state.
+    /// </summary>
+    /// <param name="name">The unique name of the pulse checker.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns><c>true</c> if there was state to remove; <c>false</c> if there was none.</returns>
+    /// <exception cref="NotSupportedException">The provider cannot remove state.</exception>
+    /// <remarks>
+    /// <para>
+    /// A checker that is renamed or deleted leaves its state behind for ever, and a scheduler whose
+    /// jobs outlive the process -- Hangfire, Temporal -- leaves a job pointing at it. Both log that
+    /// the leftovers can be cleaned up, which until now was advice with no way to take it.
+    /// </para>
+    /// <para>
+    /// Defaulted to refuse rather than to pretend. A provider written against the older interface
+    /// has no way to delete, and a default that quietly did nothing would report a successful
+    /// cleanup that never happened -- so it throws, and names itself.
+    /// </para>
+    /// </remarks>
+    Task<bool> DeleteStateAsync(string name, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException(
+            $"{GetType().Name} cannot remove stored state. Implement " +
+            $"{nameof(DeleteStateAsync)} on it to allow cleaning up checkers that no longer exist.");
+
+    /// <summary>
     /// Gets the state of several pulse checkers at once.
     /// </summary>
     /// <typeparam name="TState">The type of state to retrieve.</typeparam>

@@ -30,7 +30,8 @@ public sealed class PulseCheckerActivities(
         if (checker is null)
         {
             logger?.LogError(
-                "Pulse checker '{CheckerName}' is not registered; its Temporal schedule is stale and can be deleted.",
+                "Pulse checker '{CheckerName}' is not registered; its Temporal schedule is stale. Delete it, " +
+                "and its leftover state with IStateProvider.DeleteStateAsync.",
                 checkerName);
             return;
         }

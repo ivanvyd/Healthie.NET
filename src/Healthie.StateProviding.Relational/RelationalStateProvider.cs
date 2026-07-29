@@ -154,6 +154,23 @@ public sealed class RelationalStateProvider(
         return states;
     }
 
+    /// <inheritdoc />
+    public async Task<bool> DeleteStateAsync(string name, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = RelationalDialect.Delete(_tableName);
+        AddParameter(command, "@name", name);
+
+        // Rows affected is what distinguishes "there was state and it is gone" from "there was
+        // none", which is the only thing a caller can act on.
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+    }
+
     private static void AddParameter(DbCommand command, string name, string? value)
     {
         var parameter = command.CreateParameter();
