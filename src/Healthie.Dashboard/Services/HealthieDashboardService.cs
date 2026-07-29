@@ -321,6 +321,24 @@ internal sealed class HealthieDashboardService(
         }
     }
 
+    /// <inheritdoc />
+    public async Task UnsubscribeFromStateChangesAsync(
+        Func<string, PulseCheckerState, Task> onStateChanged,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(onStateChanged);
+
+        await _handlersLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            _handlers.Remove(onStateChanged);
+        }
+        finally
+        {
+            _handlersLock.Release();
+        }
+    }
+
     /// <summary>
     /// Hands a state change to every subscriber.
     /// </summary>

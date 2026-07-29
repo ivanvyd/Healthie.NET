@@ -24,6 +24,17 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     private static readonly TimeSpan MaxDelay = TimeSpan.FromHours(1);
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _timers = new();
+
+    /// <summary>
+    /// Serialises scheduling, so a checker is never left running under a timer nobody holds.
+    /// </summary>
+    /// <remarks>
+    /// The dictionary is concurrent, but installing a schedule is "stop the old one, then start the
+    /// new one" -- two operations, which a second caller can interleave with. A lock is the whole
+    /// fix: scheduling happens at startup and when somebody changes an interval, so it is never on
+    /// a hot path.
+    /// </remarks>
+    private readonly SemaphoreSlim _scheduling = new(1, 1);
     private readonly ILogger<TimerPulseScheduler>? _logger;
 
     /// <summary>
@@ -61,32 +72,66 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
         // schedule should not be stopped by a request carrying a bad one.
         var cron = schedule.IsCron ? ParseCron(schedule.CronExpression!, checker.Name) : null;
 
-        await UnscheduleAsync(checker, cancellationToken).ConfigureAwait(false);
+        // Stopping the old schedule and installing the new one is two steps, and two callers
+        // scheduling one checker at once -- an interval changed from the dashboard while the
+        // scheduler starts it, say -- could each install a timer. Only the last would be in the
+        // dictionary; the other kept running with nothing able to reach it, and its linked
+        // CancellationTokenSource was never disposed, so its registration on the parent token
+        // outlived it too.
+        await _scheduling.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _timers[checker.Name] = cts;
+        try
+        {
+            StopExisting(checker.Name);
 
-        _ = Task.Run(
-            () => cron is null
-                ? RunPeriodicallyAsync(checker, schedule.Period!.Value, cts.Token)
-                : RunOnCronAsync(checker, cron, cts.Token),
-            cts.Token);
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _timers[checker.Name] = cts;
+
+            _ = Task.Run(
+                () => cron is null
+                    ? RunPeriodicallyAsync(checker, schedule.Period!.Value, cts.Token)
+                    : RunOnCronAsync(checker, cron, cts.Token),
+                cts.Token);
+        }
+        finally
+        {
+            _scheduling.Release();
+        }
+    }
+
+    /// <summary>
+    /// Cancels and disposes the timer for a checker, if it has one.
+    /// </summary>
+    /// <remarks>
+    /// Takes no lock, so it can be called from inside one. <see cref="UnscheduleAsync"/> is the
+    /// same thing with the lock held.
+    /// </remarks>
+    private void StopExisting(string name)
+    {
+        if (_timers.TryRemove(name, out var existing))
+        {
+            existing.Cancel();
+            existing.Dispose();
+        }
     }
 
     /// <inheritdoc />
-    public Task UnscheduleAsync(
+    public async Task UnscheduleAsync(
         IPulseChecker checker,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(checker);
 
-        if (_timers.TryRemove(checker.Name, out var cts))
-        {
-            cts.Cancel();
-            cts.Dispose();
-        }
+        await _scheduling.WaitAsync(cancellationToken).ConfigureAwait(false);
 
-        return Task.CompletedTask;
+        try
+        {
+            StopExisting(checker.Name);
+        }
+        finally
+        {
+            _scheduling.Release();
+        }
     }
 
     /// <summary>
@@ -235,6 +280,7 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
         }
 
         _timers.Clear();
+        _scheduling.Dispose();
     }
 
     /// <inheritdoc />

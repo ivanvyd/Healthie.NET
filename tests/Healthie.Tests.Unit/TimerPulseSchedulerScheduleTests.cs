@@ -33,6 +33,55 @@ public class TimerPulseSchedulerScheduleTests
         return condition();
     }
 
+    /// <summary>
+    /// Installing a schedule was "stop the old one, then start the new one" -- two steps, which a
+    /// second caller could interleave. Both would install a timer, only the last would be in the
+    /// dictionary, and the other kept triggering with nothing able to reach it: unschedulable, and
+    /// holding a linked CancellationTokenSource that was never disposed.
+    /// </summary>
+    /// <remarks>
+    /// Driven rather than inspected, because the orphan is by definition the one the scheduler can
+    /// no longer see. What it does still do is trigger the checker, so that is what is asserted:
+    /// after unscheduling, nothing may trigger again.
+    /// </remarks>
+    [Fact]
+    public async Task UnschedulingAfterConcurrentSchedules_StopsEveryTimer()
+    {
+        await using var scheduler = new TimerPulseScheduler();
+        var checker = new FakePulseChecker("racing-schedules");
+
+        var schedule = PulseSchedule.Every(TimeSpan.FromMilliseconds(20));
+
+        // Enough threads that at least one pair overlaps, few enough not to swamp the pool.
+        const int ScheduleAttempts = 16;
+
+        // Task.Run, not a bare call: nothing in the unfixed ScheduleAsync yields, so calling it in
+        // a loop runs each one to completion before the next starts and no two ever overlap. The
+        // race needs real threads.
+        using var readyToRace = new Barrier(ScheduleAttempts);
+
+        await Task.WhenAll(Enumerable.Range(0, ScheduleAttempts).Select(_ => Task.Run(
+            () =>
+            {
+                readyToRace.SignalAndWait(Ct);
+                return scheduler.ScheduleAsync(checker, schedule, Ct);
+            },
+            Ct)));
+
+        Assert.True(
+            await WaitUntilAsync(() => checker.TriggerCount > 0, TimeSpan.FromSeconds(5)),
+            "the checker never triggered at all, so stopping it would prove nothing");
+
+        await scheduler.UnscheduleAsync(checker, Ct);
+
+        // Anything still running gets a generous window to show itself.
+        await Task.Delay(250, Ct);
+        var afterUnscheduling = checker.TriggerCount;
+        await Task.Delay(500, Ct);
+
+        Assert.Equal(afterUnscheduling, checker.TriggerCount);
+    }
+
     [Fact]
     public async Task ScheduleAsync_WithACronSchedule_TriggersTheChecker()
     {

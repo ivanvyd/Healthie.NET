@@ -16,8 +16,18 @@ namespace Healthie.Mcp;
 /// <see cref="HealthieActionTools"/> and are only exposed when they are turned on.
 /// </remarks>
 [McpServerToolType]
-public sealed class HealthieTools(IPulsesScheduler pulsesScheduler)
+public sealed class HealthieTools(IPulsesScheduler pulsesScheduler, HealthieMcpOptions? options = null)
 {
+    /// <summary>
+    /// The host's options, or the defaults.
+    /// </summary>
+    /// <remarks>
+    /// Optional so that adding it does not change how this type is constructed. DI always supplies
+    /// it -- <c>AddHealthieMcp</c> registers it -- so the fallback is for a caller that builds this
+    /// by hand, which used to be the only way it worked.
+    /// </remarks>
+    private readonly HealthieMcpOptions _options = options ?? new HealthieMcpOptions();
+
     /// <summary>Returns the current health of every pulse checker.</summary>
     [McpServerTool(Name = "get_health_states")]
     [Description("Returns the current health of every monitored component, including the last result and when it last ran. Start here to see the overall health of the system.")]
@@ -74,7 +84,10 @@ public sealed class HealthieTools(IPulsesScheduler pulsesScheduler)
 
         // History is recorded oldest-first; a reader almost always wants the newest first.
         var newestFirst = history.AsEnumerable().Reverse().ToList();
-        var page = newestFirst.Skip(Math.Max(offset, 0)).Take(Math.Clamp(limit, 1, 200)).ToList();
+        // The host's cap, not a number hard-coded here. It was configurable and ignored, so a host
+        // that lowered it to keep responses small got no such thing.
+        var cap = Math.Max(_options.MaxHistoryPageSize, 1);
+        var page = newestFirst.Skip(Math.Max(offset, 0)).Take(Math.Clamp(limit, 1, cap)).ToList();
 
         return new HistoryPage(
             name,

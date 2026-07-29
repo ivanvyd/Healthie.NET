@@ -74,6 +74,26 @@ public class HealthCheckersController(
     /// <param name="interval">The new interval to apply.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>204 No Content on success, 404 if the checker is not found, or 400 if the name is empty or the interval is not a defined value.</returns>
+    /// <summary>
+    /// Strips control characters from a name before it is written to a log.
+    /// </summary>
+    /// <remarks>
+    /// The name comes from the route, so a caller chooses it, and it does not have to match a real
+    /// checker -- the not-found branch logs it precisely when it does not. Percent-encoded CR and LF
+    /// arrive here decoded, and a log sink that writes plain text writes them as line breaks, which
+    /// lets a caller forge whole log entries. Structured sinks that encode their values are already
+    /// safe; this makes the others safe too.
+    /// </remarks>
+    internal static string ForLog(string name)
+    {
+        if (!name.Any(char.IsControl))
+        {
+            return name;
+        }
+
+        return new string([.. name.Select(c => char.IsControl(c) ? '�' : c)]);
+    }
+
     [HttpPut("{checkerName}/interval")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -99,7 +119,7 @@ public class HealthCheckersController(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
             if (!checkers.ContainsKey(checkerName))
             {
-                logger?.LogWarning("Checker '{CheckerName}' not found for setting interval.", checkerName);
+                logger?.LogWarning("Checker '{CheckerName}' not found for setting interval.", ForLog(checkerName));
                 return NotFound($"Checker '{checkerName}' not found.");
             }
 
@@ -108,7 +128,7 @@ public class HealthCheckersController(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Error setting interval for checker '{CheckerName}'.", checkerName);
+            logger?.LogError(ex, "Error setting interval for checker '{CheckerName}'.", ForLog(checkerName));
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -136,7 +156,7 @@ public class HealthCheckersController(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
             if (!checkers.ContainsKey(checkerName))
             {
-                logger?.LogWarning("Checker '{CheckerName}' not found for setting threshold.", checkerName);
+                logger?.LogWarning("Checker '{CheckerName}' not found for setting threshold.", ForLog(checkerName));
                 return NotFound($"Checker '{checkerName}' not found.");
             }
 
@@ -145,7 +165,7 @@ public class HealthCheckersController(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Error setting threshold for checker '{CheckerName}'.", checkerName);
+            logger?.LogError(ex, "Error setting threshold for checker '{CheckerName}'.", ForLog(checkerName));
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -172,7 +192,7 @@ public class HealthCheckersController(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
             if (!checkers.ContainsKey(checkerName))
             {
-                logger?.LogWarning("Checker '{CheckerName}' not found for starting.", checkerName);
+                logger?.LogWarning("Checker '{CheckerName}' not found for starting.", ForLog(checkerName));
                 return NotFound($"Checker '{checkerName}' not found.");
             }
 
@@ -181,7 +201,7 @@ public class HealthCheckersController(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Error starting checker '{CheckerName}'.", checkerName);
+            logger?.LogError(ex, "Error starting checker '{CheckerName}'.", ForLog(checkerName));
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -208,7 +228,7 @@ public class HealthCheckersController(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
             if (!checkers.ContainsKey(checkerName))
             {
-                logger?.LogWarning("Checker '{CheckerName}' not found for stopping.", checkerName);
+                logger?.LogWarning("Checker '{CheckerName}' not found for stopping.", ForLog(checkerName));
                 return NotFound($"Checker '{checkerName}' not found.");
             }
 
@@ -217,7 +237,7 @@ public class HealthCheckersController(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Error stopping checker '{CheckerName}'.", checkerName);
+            logger?.LogError(ex, "Error stopping checker '{CheckerName}'.", ForLog(checkerName));
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -244,7 +264,7 @@ public class HealthCheckersController(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
             if (!checkers.TryGetValue(checkerName, out var checker))
             {
-                logger?.LogWarning("Checker '{CheckerName}' not found for triggering.", checkerName);
+                logger?.LogWarning("Checker '{CheckerName}' not found for triggering.", ForLog(checkerName));
                 return NotFound($"Checker '{checkerName}' not found.");
             }
 
@@ -253,7 +273,7 @@ public class HealthCheckersController(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Error triggering checker '{CheckerName}'.", checkerName);
+            logger?.LogError(ex, "Error triggering checker '{CheckerName}'.", ForLog(checkerName));
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
@@ -280,7 +300,7 @@ public class HealthCheckersController(
             var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
             if (!checkers.ContainsKey(checkerName))
             {
-                logger?.LogWarning("Checker '{CheckerName}' not found for resetting.", checkerName);
+                logger?.LogWarning("Checker '{CheckerName}' not found for resetting.", ForLog(checkerName));
                 return NotFound($"Checker '{checkerName}' not found.");
             }
 
@@ -290,7 +310,7 @@ public class HealthCheckersController(
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Error resetting checker '{CheckerName}'.", checkerName);
+            logger?.LogError(ex, "Error resetting checker '{CheckerName}'.", ForLog(checkerName));
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }

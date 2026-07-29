@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using System.Net;
 
 namespace Healthie.Dashboard;
 
@@ -63,7 +64,27 @@ public static class StartupExtensions
         return endpoints.MapGet(DashboardPath, (HttpContext context) =>
         {
             var opts = context.RequestServices.GetService<HealthieUIOptions>();
-            var title = opts?.DashboardTitle ?? "System Health";
+
+            context.Response.ContentType = "text/html";
+            return context.Response.WriteAsync(BuildPage(opts?.DashboardTitle));
+        });
+    }
+
+    /// <summary>
+    /// The host page that renders the dashboard component.
+    /// </summary>
+    /// <remarks>
+    /// Separate from the endpoint so it can be asserted on without a host. This is the one place in
+    /// the library that builds HTML as a string instead of letting Razor build it, which is why the
+    /// title is encoded here by hand -- Razor would have done it everywhere else.
+    /// </remarks>
+    internal static string BuildPage(string? dashboardTitle)
+    {
+            // The title is a host's setting, not a visitor's, so this matters only when a host
+            // builds it from something it did not write -- a per-tenant label, a value out of a
+            // database -- but that is a normal thing to do, and nothing here would have stopped it
+            // closing the title element and opening a script one.
+            var title = WebUtility.HtmlEncode(dashboardTitle ?? "System Health");
 
             var html = $$"""
                 <!DOCTYPE html>
@@ -89,8 +110,6 @@ public static class StartupExtensions
                 </html>
                 """;
 
-            context.Response.ContentType = "text/html";
-            return context.Response.WriteAsync(html);
-        });
+            return html;
     }
 }

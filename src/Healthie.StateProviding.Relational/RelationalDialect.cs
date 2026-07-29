@@ -90,8 +90,15 @@ public sealed record RelationalDialect(
     /// <summary>
     /// A table name, optionally schema-qualified. Anything else is refused rather than interpolated.
     /// </summary>
+    /// <remarks>
+    /// Ends at <c>\z</c> rather than <c>$</c>, which in .NET also matches immediately before a
+    /// single trailing newline -- so <c>"state\n"</c> passed a guard whose own error message says
+    /// it does not. A lone trailing newline is only whitespace to every engine here, so nothing
+    /// could be smuggled through it, but a guard that admits what it documents as impossible is
+    /// worth closing before something later depends on it.
+    /// </remarks>
     private static readonly Regex SafeTableName = new(
-        @"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$",
+        @"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?\z",
         RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(1));
 

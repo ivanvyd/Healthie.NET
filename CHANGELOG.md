@@ -11,6 +11,31 @@ Eleven new packages, and the schedule model that several of them needed. Everyth
 additive: no public API was removed or changed, and an application that upgrades without touching
 its code behaves exactly as it did.
 
+### Fixed
+
+- **The dashboard's own page did not encode its title.** `MapHealthieUI` builds that one page as a
+  string rather than through Razor, which encodes every interpolation for you, so a
+  `HealthieUIOptions.DashboardTitle` built from anything the host did not write itself could close
+  the title element and open a script one.
+- **A dashboard component left its handler behind when it was disposed.** The service is scoped to a
+  circuit, so it was assumed the circuit ending released everything; that holds only while the
+  dashboard is mounted once per circuit, and a host that routes to it inside its own layout builds a
+  new one every time the user navigates back. `IHealthieDashboardService.UnsubscribeFromStateChangesAsync`
+  is the missing half, and the component calls it.
+- **Two callers scheduling one checker at once could leave a timer nobody could stop.** Installing a
+  schedule was "cancel the old one, then start the new one", and only the last one stored was
+  reachable; the other kept triggering, could not be unscheduled, and held a linked
+  `CancellationTokenSource` that was never disposed.
+- **`HealthieMcpOptions.MaxHistoryPageSize` was documented and never read.** `get_check_history`
+  clamped to a hard-coded 200 instead, so a host that lowered the option got no such thing.
+- **The relational table-name guard admitted a name with a trailing newline.** In .NET `$` matches
+  immediately before one, so a table name ending in one passed a check whose own error message says
+  it does not. Nothing could be smuggled through it -- a lone trailing newline is whitespace to
+  every engine here -- but the guard now ends at `\z` and means what it says.
+- **A checker name from a REST route reached the log with its control characters intact.** The
+  not-found branch logs a name precisely when it matches nothing, percent-encoded CR and LF arrive
+  decoded, and a log sink writing plain text writes them as line breaks.
+
 ### Added
 
 - **Optimistic concurrency on `IStateProvider`.** A state write can now be made conditional on the
