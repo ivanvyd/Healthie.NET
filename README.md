@@ -65,6 +65,7 @@ Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one depe
 | **[Healthie.NET.Checkers](https://www.nuget.org/packages/Healthie.NET.Checkers)** | Ready-made checkers for HTTP endpoints, TCP ports, TLS certificate expiry, DNS and disk space. | `dotnet add package Healthie.NET.Checkers` |
 | **[Healthie.NET.Alerting](https://www.nuget.org/packages/Healthie.NET.Alerting)** | Turns health changes into alerts and delivers them to a webhook or your own sink. | `dotnet add package Healthie.NET.Alerting` |
 | **[Healthie.NET.Uptime](https://www.nuget.org/packages/Healthie.NET.Uptime)** | Uptime and SLA reporting over any window, by recording transitions rather than every check. | `dotnet add package Healthie.NET.Uptime` |
+| **[Healthie.NET.LeaderElection](https://www.nuget.org/packages/Healthie.NET.LeaderElection)** | Runs the checks on one replica at a time, so a scaled-out app checks each component once. | `dotnet add package Healthie.NET.LeaderElection` |
 
 All packages target **.NET 8** and **.NET 10**.
 
