@@ -19,7 +19,7 @@ public class HardeningTests
         var page = Healthie.Dashboard.StartupExtensions.BuildPage("</title><script>alert(1)</script>");
 
         // One closing title tag: the one the page itself writes.
-        Assert.Equal(1, Regex.Matches(page, "</title>", RegexOptions.IgnoreCase).Count);
+        Assert.Single(Regex.Matches(page, "</title>", RegexOptions.IgnoreCase));
         Assert.DoesNotContain("<script>alert", page, StringComparison.OrdinalIgnoreCase);
     }
 

@@ -331,7 +331,7 @@ public class UptimeRecorderTests
                 checker.RaiseStateChanged(PulseCheckerHealth.Unhealthy);
             }
 
-            await Task.Delay(200);
+            await Task.Delay(200, TestContext.Current.CancellationToken);
 
             Assert.Equal(0, recorder.DroppedCount);
         }
