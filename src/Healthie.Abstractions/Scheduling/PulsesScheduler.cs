@@ -1,4 +1,4 @@
-using Healthie.Abstractions.Enums;
+﻿using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 
@@ -172,6 +172,6 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
             return;
         }
 
-        await _pulseScheduler.ScheduleAsync(checker, state.Interval, cancellationToken).ConfigureAwait(false);
+        await _pulseScheduler.ScheduleAsync(checker, state.EffectiveSchedule, cancellationToken).ConfigureAwait(false);
     }
 }

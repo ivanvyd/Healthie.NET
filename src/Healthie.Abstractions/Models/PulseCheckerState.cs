@@ -1,4 +1,6 @@
 ﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Scheduling;
+using System.Text.Json.Serialization;
 
 namespace Healthie.Abstractions.Models;
 
@@ -46,7 +48,33 @@ public record PulseCheckerState
     /// <summary>
     /// Gets or sets the interval at which the pulse checker operates.
     /// </summary>
+    /// <remarks>
+    /// Ignored when <see cref="Schedule"/> is set. Kept because it is what every stored state
+    /// written before schedules existed carries, and what a checker that never asks for anything
+    /// else still uses.
+    /// </remarks>
     public PulseInterval Interval { get; set; }
+
+    /// <summary>
+    /// Gets or sets the schedule this checker runs on, overriding <see cref="Interval"/> when set.
+    /// </summary>
+    /// <remarks>
+    /// Null for a checker scheduled by interval, which is every checker until one asks for a period
+    /// or a cron expression the enum cannot express. Documents already in a state store predate
+    /// this property and deserialize with it null, so they keep their interval.
+    /// </remarks>
+    public PulseSchedule? Schedule { get; set; }
+
+    /// <summary>
+    /// Gets the schedule actually in force: <see cref="Schedule"/> when set, otherwise
+    /// <see cref="Interval"/> expressed as one.
+    /// </summary>
+    /// <remarks>
+    /// Resolving the two in one place keeps every caller from repeating the precedence, and from
+    /// disagreeing about it.
+    /// </remarks>
+    [JsonIgnore]
+    public PulseSchedule EffectiveSchedule => Schedule ?? PulseSchedule.FromInterval(Interval);
 
     /// <summary>
     /// Gets or sets the count of consecutive failures (non-healthy results).
@@ -130,6 +158,7 @@ public record PulseCheckerState
             && LastExecutionDateTime == other.LastExecutionDateTime
             && LastResult == other.LastResult
             && Interval == other.Interval
+            && Schedule == other.Schedule
             && ConsecutiveFailureCount == other.ConsecutiveFailureCount
             && UnhealthyThreshold == other.UnhealthyThreshold
             && IsActive == other.IsActive
@@ -148,6 +177,7 @@ public record PulseCheckerState
         hashCode.Add(LastExecutionDateTime);
         hashCode.Add(LastResult);
         hashCode.Add(Interval);
+        hashCode.Add(Schedule);
         hashCode.Add(ConsecutiveFailureCount);
         hashCode.Add(UnhealthyThreshold);
         hashCode.Add(IsActive);
