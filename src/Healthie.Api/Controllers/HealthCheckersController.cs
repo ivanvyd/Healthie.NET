@@ -296,25 +296,33 @@ public class HealthCheckersController(
     }
 
     /// <summary>
-    /// Strips control characters from a name before it is written to a log.
+    /// Removes the characters that would let a name forge log output.
     /// </summary>
     /// <param name="name">The name as the route supplied it.</param>
-    /// <returns>The name, with any control character replaced.</returns>
+    /// <returns>The name, with those characters replaced.</returns>
     /// <remarks>
+    /// <para>
     /// The name comes from the route, so a caller chooses it, and it does not have to match a real
     /// checker -- the not-found branch logs it precisely when it does not. Percent-encoded CR and LF
-    /// arrive here decoded, and a log sink that writes plain text writes them as line breaks, which
-    /// lets a caller forge whole log entries. Structured sinks that encode their values are already
-    /// safe; this makes the others safe too.
+    /// arrive here decoded, and a sink writing plain text writes them as line breaks, which is a
+    /// caller inventing whole log entries. ESC goes with them: a terminal tailing a log acts on
+    /// escape sequences, and a name can carry them.
+    /// </para>
+    /// <para>
+    /// Chained <see cref="string.Replace(char, char)"/> calls rather than a filter over every
+    /// control character, which is what this was. Both strip CR and LF, but only this shape is one
+    /// CodeQL recognises as sanitising the flow, so the other left twelve <c>cs/log-forging</c>
+    /// alerts standing against code that was already fixed -- and an alert nobody can close is an
+    /// alert everybody learns to scroll past.
+    /// </para>
     /// </remarks>
-    internal static string ForLog(string name)
-    {
-        if (!name.Any(char.IsControl))
-        {
-            return name;
-        }
+    internal static string ForLog(string name) => name
+        .Replace('\r', Redacted)
+        .Replace('\n', Redacted)
+        .Replace('\u001b', Redacted);
 
-        return new string([.. name.Select(c => char.IsControl(c) ? '\uFFFD' : c)]);
-    }
+    /// <summary>Stands in for a character <see cref="ForLog"/> removed.</summary>
+    /// <remarks>Replaced rather than dropped, so the log still shows something was taken out.</remarks>
+    private const char Redacted = '\uFFFD';
 
 }

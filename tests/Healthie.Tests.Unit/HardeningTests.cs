@@ -58,6 +58,18 @@ public class HardeningTests
         Assert.Contains("WARN", forged, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// A terminal tailing a log acts on escape sequences, and a route can carry one.
+    /// </summary>
+    [Fact]
+    public void ACheckerName_CannotCarryATerminalEscapeIntoALog()
+    {
+        var forged = HealthCheckersController.ForLog("api\u001b[2Jcleared");
+
+        Assert.DoesNotContain('\u001b', forged);
+        Assert.Contains("cleared", forged, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void AnOrdinaryCheckerName_IsLoggedUnchanged()
     {
