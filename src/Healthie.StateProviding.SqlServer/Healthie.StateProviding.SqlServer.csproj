@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.SqlServer</PackageId>
+    <Description>SQL Server state provider for Healthie.NET -- persists pulse checker state to SQL Server or Azure SQL.</Description>
+    <PackageTags>$(HealthieCommonTags);sqlserver;mssql;azure-sql</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.StateProviding.Relational\Healthie.StateProviding.Relational.csproj" />
+  </ItemGroup>
+
+</Project>

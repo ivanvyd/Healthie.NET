@@ -38,6 +38,8 @@
     <ProjectReference Include="..\..\src\Healthie.Scheduling.Hangfire\Healthie.Scheduling.Hangfire.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.Relational\Healthie.StateProviding.Relational.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.Sqlite\Healthie.StateProviding.Sqlite.csproj" />
   </ItemGroup>
 
 </Project>
