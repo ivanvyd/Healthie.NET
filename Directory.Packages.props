@@ -49,6 +49,7 @@
       break this repository's deliberate float of 8.0.x against 10.0.x.
     -->
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="Temporalio" Version="1.17.0" />
     <PackageVersion Include="Quartz.Extensions.DependencyInjection" Version="3.18.2" />
     <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.18.2" />
   </ItemGroup>
