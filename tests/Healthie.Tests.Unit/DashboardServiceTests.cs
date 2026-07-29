@@ -29,6 +29,50 @@ public class DashboardServiceTests
         return (CreateService([checker, .. extra]), checker);
     }
 
+    /// <summary>
+    /// A handler stayed registered for the life of the circuit, and there was no way to drop one.
+    /// </summary>
+    /// <remarks>
+    /// The service is scoped to a circuit, so it was assumed the circuit ending released everything.
+    /// That holds only while the dashboard is mounted once per circuit, and a host that routes to it
+    /// inside its own layout builds a new component every time the user navigates back -- each one
+    /// leaving its handler behind, still being called after it was torn down.
+    /// </remarks>
+    [Fact]
+    public async Task UnsubscribeFromStateChangesAsync_StopsTheHandlerBeingCalled()
+    {
+        var (service, checker) = CreateServiceWithRealChecker();
+        await using var _ = service;
+
+        var calls = 0;
+
+        Task Handler(string name, PulseCheckerState state)
+        {
+            Interlocked.Increment(ref calls);
+            return Task.CompletedTask;
+        }
+
+        await service.SubscribeToStateChangesAsync(Handler, Ct);
+        await checker.TriggerAsync(Ct);
+
+        var whileSubscribed = Volatile.Read(ref calls);
+        Assert.True(whileSubscribed > 0, "the handler should be called while it is subscribed");
+
+        await service.UnsubscribeFromStateChangesAsync(Handler, Ct);
+        await checker.TriggerAsync(Ct);
+
+        Assert.Equal(whileSubscribed, Volatile.Read(ref calls));
+    }
+
+    [Fact]
+    public async Task UnsubscribeFromStateChangesAsync_ForAHandlerThatIsNotSubscribed_DoesNothing()
+    {
+        var (service, _) = CreateServiceWithRealChecker();
+        await using var __ = service;
+
+        await service.UnsubscribeFromStateChangesAsync((_, _) => Task.CompletedTask, Ct);
+    }
+
     [Fact]
     public async Task SubscribeToStateChangesAsync_WhenACheckerChangesState_NotifiesTheSubscriber()
     {

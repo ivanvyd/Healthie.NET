@@ -17,10 +17,32 @@ internal interface IHealthieDashboardService : IAsyncDisposable
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <remarks>
     /// Subscribing is what starts the flow of updates, so this both registers the handler and
-    /// attaches to the checkers. Handlers are released when the service is disposed, which happens
-    /// when the circuit ends.
+    /// attaches to the checkers. Every subscription should be matched by
+    /// <see cref="UnsubscribeFromStateChangesAsync"/> when the subscriber goes away.
     /// </remarks>
     Task SubscribeToStateChangesAsync(
+        Func<string, PulseCheckerState, Task> onStateChanged,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stops handing state changes to a handler that was subscribed earlier.
+    /// </summary>
+    /// <param name="onStateChanged">The handler passed to <see cref="SubscribeToStateChangesAsync"/>.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <remarks>
+    /// <para>
+    /// This service is scoped to a circuit, so it was assumed that letting the circuit end released
+    /// everything. That holds only while the dashboard is mounted once per circuit, and it is not:
+    /// a host that routes to <c>HealthieDashboard</c> inside its own layout builds a new component
+    /// every time the user navigates back to it, on the same circuit. Without this, each of those
+    /// left its handler behind, and every later state change was handed to a component that had
+    /// been torn down.
+    /// </para>
+    /// <para>
+    /// Passing a handler that is not subscribed does nothing.
+    /// </para>
+    /// </remarks>
+    Task UnsubscribeFromStateChangesAsync(
         Func<string, PulseCheckerState, Task> onStateChanged,
         CancellationToken cancellationToken = default);
 

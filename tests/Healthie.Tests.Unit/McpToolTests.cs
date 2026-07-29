@@ -39,6 +39,31 @@ public class McpToolTests
         return scheduler;
     }
 
+    /// <summary>
+    /// The cap belongs to the host. It was configurable, documented in the README, and read by
+    /// nobody -- a host that lowered it to keep responses small got the hard-coded ceiling instead.
+    /// </summary>
+    [Fact]
+    public async Task GetCheckHistoryAsync_IsCappedByTheHostsPageSize()
+    {
+        var scheduler = await CreateSchedulerAsync();
+
+        foreach (var checker in (await scheduler.GetPulseCheckersAsync(Ct)).Values)
+        {
+            for (var i = 0; i < 5; i++)
+            {
+                await checker.TriggerAsync(Ct);
+            }
+        }
+
+        var tools = new HealthieTools(scheduler, new HealthieMcpOptions { MaxHistoryPageSize = 2 });
+
+        // Asks for far more than the host allows.
+        var page = await tools.GetCheckHistoryAsync(HealthyChecker, limit: 100, offset: 0, Ct);
+
+        Assert.Equal(2, page.Entries.Count);
+    }
+
     [Fact]
     public async Task GetHealthStatesAsync_ReportsEveryChecker()
     {
