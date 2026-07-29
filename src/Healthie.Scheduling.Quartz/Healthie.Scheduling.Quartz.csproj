@@ -1,10 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <PackageId>Healthie.NET.Quartz</PackageId>
     <Description>Quartz.NET scheduling provider for Healthie.NET -- persistent, CRON-based pulse check scheduling with clustering support.</Description>
     <PackageTags>$(HealthieCommonTags);quartz;scheduling</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Quartz.Extensions.DependencyInjection" />
