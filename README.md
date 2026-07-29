@@ -60,6 +60,7 @@ Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one depe
 | **[Healthie.NET.Hangfire](https://www.nuget.org/packages/Healthie.NET.Hangfire)** | Hangfire `IPulseScheduler` implementation -- schedules survive a restart, and each occurrence runs on exactly one replica. | `dotnet add package Healthie.NET.Hangfire` |
 | **[Healthie.NET.Mcp](https://www.nuget.org/packages/Healthie.NET.Mcp)** | Model Context Protocol server, so an AI agent can read and act on service health. | `dotnet add package Healthie.NET.Mcp` |
 | **[Healthie.NET.AI](https://www.nuget.org/packages/Healthie.NET.AI)** | Optional AI diagnostics that explain a checker's recent failures. Bring any `IChatClient`. | `dotnet add package Healthie.NET.AI` |
+| **[Healthie.NET.Checkers](https://www.nuget.org/packages/Healthie.NET.Checkers)** | Ready-made checkers for HTTP endpoints, TCP ports, TLS certificate expiry, DNS and disk space. | `dotnet add package Healthie.NET.Checkers` |
 
 All packages target **.NET 8** and **.NET 10**.
 

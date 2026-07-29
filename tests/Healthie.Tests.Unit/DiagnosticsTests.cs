@@ -75,10 +75,32 @@ public sealed class DiagnosticsTests : IDisposable
         {
             ShouldListenTo = source => source.Name == HealthieDiagnostics.ActivitySourceName,
             Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
-            ActivityStopped = _activities.Add,
+            ActivityStopped = RecordActivity,
         };
 
         ActivitySource.AddActivityListener(_activityListener);
+    }
+
+    /// <remarks>
+    /// The listener fires on whichever thread ran the check, and other test classes create Healthie
+    /// activities of their own in parallel, so this is not a single-threaded collection however
+    /// much it looks like one.
+    /// </remarks>
+    private void RecordActivity(Activity activity)
+    {
+        lock (_activities)
+        {
+            _activities.Add(activity);
+        }
+    }
+
+    private List<Activity> ActivitiesFor(string checkerName)
+    {
+        lock (_activities)
+        {
+            return [.. _activities.Where(
+                a => (string?)a.GetTagItem(HealthieDiagnostics.CheckerNameTag) == checkerName)];
+        }
     }
 
     private void Record(Instrument instrument, double value, ReadOnlySpan<KeyValuePair<string, object?>> tags)
@@ -190,8 +212,7 @@ public sealed class DiagnosticsTests : IDisposable
 
         await checker.TriggerAsync(Ct);
 
-        var activity = Assert.Single(_activities.Where(
-            a => (string?)a.GetTagItem(HealthieDiagnostics.CheckerNameTag) == name));
+        var activity = Assert.Single(ActivitiesFor(name));
 
         Assert.Equal("Healthie.Check", activity.OperationName);
 
