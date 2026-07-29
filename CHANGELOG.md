@@ -73,6 +73,13 @@ its code behaves exactly as it did.
   Workflows URL and an Adaptive Card, because the Office 365 connectors and the `MessageCard`
   payload they took are retired. PagerDuty resolves the incident it opened rather than raising a
   second one: `Alert.DeduplicationKey` and `Alert.IsRecovery` already existed for exactly that.
+- **`Healthie.NET.Redis`.** State is written on every tick of every checker, and Redis is the store
+  that does not mind: a relational provider does a round trip to a disk-backed engine for each of
+  those writes, and this does one to memory. One hash per checker holding the state, the type it was
+  written as, and a version, so the compare and the write are a single Lua script -- Redis runs one
+  to completion without interleaving anything else, which is the guarantee a read-then-write cannot
+  give. Durability is whatever the Redis is configured for, and the package README says so rather
+  than implying more.
 - **Schedules.** `PulseSchedule` says either "every this long" or "on this cron expression", and
   sits alongside `PulseInterval` rather than replacing it. The enum stopped at five minutes, which
   is short of what a certificate-expiry or disk-space check wants. Cron is standard Unix syntax and

@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Redis</PackageId>
+    <Description>Redis state provider for Healthie.NET -- the fastest durable option for state written on every tick, with optimistic concurrency through a Lua compare-and-swap.</Description>
+    <PackageTags>$(HealthieCommonTags);redis;cache;state</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StackExchange.Redis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
