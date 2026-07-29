@@ -35,6 +35,7 @@ public sealed class RelationalStateProvider(
     private readonly RelationalDialect _dialect = dialect
         ?? throw new ArgumentNullException(nameof(dialect));
 
+    private readonly string _tableName = Validated(tableName);
     private readonly string _selectSql = RelationalDialect.Select(Validated(tableName));
     private readonly string _upsertSql = dialect.Upsert(Validated(tableName));
 
@@ -97,6 +98,60 @@ public sealed class RelationalStateProvider(
         AddParameter(command, "@value", JsonSerializer.Serialize(state));
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// One query rather than one per name. Every dashboard load and every list request reads the
+    /// whole set, and against a remote database the difference is a page that renders and one that
+    /// waits. The names are parameters, not an interpolated list, so a checker name can contain
+    /// anything without becoming SQL.
+    /// </remarks>
+    public async Task<IReadOnlyDictionary<string, TState>> GetStatesAsync<TState>(
+        IEnumerable<string> names,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+
+        var wanted = names.Distinct(StringComparer.Ordinal).ToList();
+        var states = new Dictionary<string, TState>(StringComparer.Ordinal);
+
+        // An IN () with nothing in it is a syntax error on most engines, and there is nothing to ask.
+        if (wanted.Count == 0)
+        {
+            return states;
+        }
+
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = RelationalDialect.SelectMany(_tableName, wanted.Count);
+
+        for (var i = 0; i < wanted.Count; i++)
+        {
+            AddParameter(command, $"@name{i}", wanted[i]);
+        }
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var name = reader.GetString(0);
+
+            var storedStateType = await reader.IsDBNullAsync(1, cancellationToken).ConfigureAwait(false)
+                ? null
+                : reader.GetString(1);
+
+            EnsureStoredTypeMatches<TState>(name, storedStateType);
+
+            if (JsonSerializer.Deserialize<TState>(reader.GetString(2)) is { } state)
+            {
+                states[name] = state;
+            }
+        }
+
+        return states;
     }
 
     private static void AddParameter(DbCommand command, string name, string? value)

@@ -1,5 +1,6 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.Hosting;
 
 namespace Healthie.Abstractions.Scheduling;
@@ -16,6 +17,7 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     private readonly IEnumerable<IPulseChecker> _pulseCheckers;
     private readonly IPulseScheduler _pulseScheduler;
     private readonly HealthieOptions _options;
+    private readonly IStateProvider? _stateProvider;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PulsesScheduler"/> class.
@@ -30,6 +32,28 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
         _options = options ?? throw new ArgumentNullException(nameof(options));
     }
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PulsesScheduler"/> class that can read every
+    /// checker's state in one go.
+    /// </summary>
+    /// <param name="pulseCheckers">The collection of pulse checkers to schedule.</param>
+    /// <param name="pulseScheduler">The scheduler responsible for individual pulse checks.</param>
+    /// <param name="options">Global Healthie options.</param>
+    /// <param name="stateProvider">The store to read from in bulk.</param>
+    /// <remarks>
+    /// An additional constructor rather than a parameter on the existing one, which would break
+    /// anyone constructing this directly. A container picks this one because it can satisfy it.
+    /// </remarks>
+    public PulsesScheduler(
+        IEnumerable<IPulseChecker> pulseCheckers,
+        IPulseScheduler pulseScheduler,
+        HealthieOptions options,
+        IStateProvider stateProvider)
+        : this(pulseCheckers, pulseScheduler, options)
+    {
+        _stateProvider = stateProvider ?? throw new ArgumentNullException(nameof(stateProvider));
+    }
+
     /// <inheritdoc />
     public Task<Dictionary<string, IPulseChecker>> GetPulseCheckersAsync(CancellationToken cancellationToken = default)
     {
@@ -37,20 +61,33 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Reads the whole set in one call where the store can, which is what every dashboard load and
+    /// every list request does. A checker with nothing stored yet is still asked individually --
+    /// only it can build its own initial state, seeded from the tags and group it declares -- but
+    /// that is once per checker in its life, not once per page.
+    /// </remarks>
     public async Task<Dictionary<string, PulseCheckerState>> GetPulsesStatesAsync(CancellationToken cancellationToken = default)
     {
-        var pulsesStates = await Task.WhenAll(_pulseCheckers.Select(async checker =>
+        var checkers = _pulseCheckers.ToList();
+
+        var stored = _stateProvider is null
+            ? new Dictionary<string, PulseCheckerState>(StringComparer.Ordinal)
+            : (await _stateProvider
+                .GetStatesAsync<PulseCheckerState>(checkers.Select(checker => checker.Name), cancellationToken)
+                .ConfigureAwait(false))
+                .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
+
+        var states = new Dictionary<string, PulseCheckerState>(StringComparer.Ordinal);
+
+        foreach (var checker in checkers)
         {
-            var state = await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
+            states[checker.Name] = stored.TryGetValue(checker.Name, out var state)
+                ? state
+                : await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
+        }
 
-            return new
-            {
-                checker.Name,
-                State = state,
-            };
-        })).ConfigureAwait(false);
-
-        return pulsesStates.ToDictionary(checker => checker.Name, checker => checker.State);
+        return states;
     }
 
     /// <inheritdoc />
