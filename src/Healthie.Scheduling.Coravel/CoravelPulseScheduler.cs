@@ -25,8 +25,21 @@ namespace Healthie.Scheduling.Coravel;
 /// same thing without the dependency.
 /// </para>
 /// </remarks>
-public sealed class CoravelPulseScheduler(ILogger<CoravelPulseScheduler>? logger = null) : IPulseScheduler
+public sealed class CoravelPulseScheduler(
+    ILogger<CoravelPulseScheduler>? logger = null,
+    TimeProvider? timeProvider = null) : IPulseScheduler
 {
+    /// <summary>
+    /// Where "now" comes from.
+    /// </summary>
+    /// <remarks>
+    /// Optional, so adding it does not change how this is constructed, and
+    /// <see cref="TimeProvider.System"/> is the wall clock this always used. A test can supply its
+    /// own instead of sleeping: due times are the whole of this class's behaviour, and a test that
+    /// waits for real milliseconds to pass is testing the machine's load as much as the scheduler.
+    /// </remarks>
+    private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+
     private sealed record Entry(IPulseChecker Checker, PulseSchedule Schedule, CronExpression? Cron, DateTime DueAt);
 
     private readonly ConcurrentDictionary<string, Entry> _scheduled = new(StringComparer.Ordinal);
@@ -52,7 +65,7 @@ public sealed class CoravelPulseScheduler(ILogger<CoravelPulseScheduler>? logger
         // is already running on a good one.
         var cron = schedule.IsCron ? ParseCron(schedule.CronExpression!, checker.Name) : null;
 
-        var due = NextDueAt(schedule, cron, DateTime.UtcNow);
+        var due = NextDueAt(schedule, cron, _time.GetUtcNow().UtcDateTime);
 
         if (due is null)
         {
@@ -89,7 +102,7 @@ public sealed class CoravelPulseScheduler(ILogger<CoravelPulseScheduler>? logger
     /// </remarks>
     internal async Task TickAsync(CancellationToken cancellationToken = default)
     {
-        var now = DateTime.UtcNow;
+        var now = _time.GetUtcNow().UtcDateTime;
 
         foreach (var entry in _scheduled.Values)
         {

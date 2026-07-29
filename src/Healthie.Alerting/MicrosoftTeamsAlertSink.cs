@@ -142,12 +142,20 @@ public sealed record AdaptiveCard(
         return new AdaptiveCard("AdaptiveCard", "http://adaptivecards.io/schemas/adaptive-card.json", "1.4", body);
     }
 
-    /// <summary>Adaptive Cards name their colours rather than taking hex.</summary>
+    /// <summary>
+    /// Adaptive Cards name their colours rather than taking hex.
+    /// </summary>
+    /// <remarks>
+    /// Lower case, because the schema's <c>Colors</c> enum is
+    /// <c>default|dark|light|accent|good|warning|attention</c> and matching is case-sensitive. A
+    /// value outside it is not an error: the card renders in the default colour and the POST still
+    /// returns 2xx, so getting this wrong loses the colour on every alert and reports success.
+    /// </remarks>
     private static string ColourOf(PulseCheckerHealth health) => health switch
     {
-        PulseCheckerHealth.Unhealthy => "Attention",
-        PulseCheckerHealth.Suspicious => "Warning",
-        PulseCheckerHealth.Healthy => "Good",
+        PulseCheckerHealth.Unhealthy => "attention",
+        PulseCheckerHealth.Suspicious => "warning",
+        PulseCheckerHealth.Healthy => "good",
         _ => throw new ArgumentOutOfRangeException(nameof(health), health, "Unknown health."),
     };
 }

@@ -107,7 +107,7 @@ public sealed record PagerDutyEventPayload(
     [property: JsonPropertyName("severity")] string Severity,
     [property: JsonPropertyName("source")] string Source,
     [property: JsonPropertyName("component")] string Component,
-    [property: JsonPropertyName("group")] string? Group,
+    [property: JsonPropertyName("group"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Group,
     [property: JsonPropertyName("custom_details")] IReadOnlyDictionary<string, string> CustomDetails)
 {
     /// <summary>Builds the payload for an alert.</summary>

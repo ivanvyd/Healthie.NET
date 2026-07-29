@@ -67,7 +67,6 @@ public class AlertSinkTests
 
     private static JsonElement Json(string body) => JsonDocument.Parse(body).RootElement;
 
-    // ---- Slack ---------------------------------------------------------------------------------
 
     [Fact]
     public async Task Slack_SendsTheShapeAnIncomingWebhookAccepts()
@@ -111,23 +110,68 @@ public class AlertSinkTests
     }
 
     /// <summary>
-    /// The alert's time is UTC. Read as anything else it is shifted by the server's offset, and the
+    /// An alert's time is UTC. Read as anything else it is shifted by the server's offset, and the
     /// message says a component failed at a time it did not.
     /// </summary>
+    /// <remarks>
+    /// The time here carries <see cref="DateTimeKind.Unspecified"/>, which is what makes this test
+    /// mean something: <c>new DateTimeOffset(DateTime)</c> takes its offset from the Kind, so a time
+    /// already marked Utc converts correctly whether or not the sink says so. Only an unmarked one
+    /// -- a state round-tripped through a store that does not preserve Kind -- tells the two apart.
+    /// </remarks>
     [Fact]
-    public async Task Slack_TimestampsInUtcRegardlessOfTheServersZone()
+    public async Task Slack_TimestampsInUtcEvenWhenTheTimeDoesNotSaySo()
     {
         var (clients, handler) = Capture();
         var sink = new SlackAlertSink(clients, new Uri("https://hooks.slack.test/services/abc"));
 
-        await sink.SendAsync(Failing(), Ct);
+        var unmarked = Failing() with
+        {
+            OccurredAt = new DateTime(2026, 7, 29, 14, 30, 0, DateTimeKind.Unspecified),
+        };
+
+        await sink.SendAsync(unmarked, Ct);
 
         var expected = new DateTimeOffset(2026, 7, 29, 14, 30, 0, TimeSpan.Zero).ToUnixTimeSeconds();
 
         Assert.Equal(expected, Json(handler.Body).GetProperty("attachments")[0].GetProperty("ts").GetInt64());
     }
 
-    // ---- Microsoft Teams -----------------------------------------------------------------------
+    /// <summary>
+    /// Slack parses the top-level text as mrkdwn, so an unescaped angle bracket starts what it takes
+    /// for a link. DisplayName is virtual and "Auth &amp; Session" is an ordinary name to give a checker.
+    /// </summary>
+    [Fact]
+    public async Task Slack_EscapesTheCharactersItWouldOtherwiseReadAsMarkup()
+    {
+        var (clients, handler) = Capture();
+        var sink = new SlackAlertSink(clients, new Uri("https://hooks.slack.test/services/abc"));
+
+        var awkward = Failing() with { DisplayName = "Auth & <Session>" };
+
+        await sink.SendAsync(awkward, Ct);
+
+        var text = Json(handler.Body).GetProperty("text").GetString()!;
+
+        Assert.Contains("Auth &amp; &lt;Session&gt;", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("<Session>", text, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// A checker with no group must not send <c>"group": null</c> -- every other optional field here
+    /// is omitted when it is absent, and this one was not.
+    /// </summary>
+    [Fact]
+    public async Task PagerDuty_OmitsTheGroupWhenTheCheckerHasNone()
+    {
+        var (clients, handler) = Capture(HttpStatusCode.Accepted);
+        var sink = new PagerDutyAlertSink(clients, "routing-key-1");
+
+        await sink.SendAsync(Failing() with { Group = null }, Ct);
+
+        Assert.False(Json(handler.Body).GetProperty("payload").TryGetProperty("group", out _));
+    }
+
 
     [Fact]
     public async Task Teams_SendsAnAdaptiveCardInTheEnvelopeWorkflowsExpects()
@@ -151,7 +195,7 @@ public class AlertSinkTests
 
         var body = card.GetProperty("body").EnumerateArray().ToList();
         Assert.Equal("TextBlock", body[0].GetProperty("type").GetString());
-        Assert.Equal("Attention", body[0].GetProperty("color").GetString());
+        Assert.Equal("attention", body[0].GetProperty("color").GetString());
         Assert.Contains("Payments API", body[0].GetProperty("text").GetString()!, StringComparison.Ordinal);
 
         Assert.Equal("FactSet", body[1].GetProperty("type").GetString());
@@ -188,7 +232,6 @@ public class AlertSinkTests
         Assert.True(message.GetProperty("wrap").GetBoolean());
     }
 
-    // ---- PagerDuty -----------------------------------------------------------------------------
 
     [Fact]
     public async Task PagerDuty_TriggersAnIncidentKeyedOnTheChecker()
@@ -273,7 +316,6 @@ public class AlertSinkTests
         Assert.Throws<ArgumentException>(() => new PagerDutyAlertSink(clients, "  "));
     }
 
-    // ---- Every sink ----------------------------------------------------------------------------
 
     /// <summary>
     /// Throwing is how a sink reports a failed delivery: the dispatcher catches it, logs it, and no

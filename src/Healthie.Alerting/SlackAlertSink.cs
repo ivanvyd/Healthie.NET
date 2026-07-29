@@ -60,9 +60,13 @@ public sealed record SlackMessage(
     {
         ArgumentNullException.ThrowIfNull(alert);
 
+        // The display name is a consumer's own string, and DisplayName is virtual -- "Auth & Session"
+        // is an ordinary thing to call a checker.
+        var name = Escape(alert.DisplayName);
+
         var headline = alert.IsRecovery
-            ? $"{alert.DisplayName} recovered"
-            : $"{alert.DisplayName} is {alert.CurrentHealth}";
+            ? $"{name} recovered"
+            : $"{name} is {alert.CurrentHealth}";
 
         var fields = new List<SlackField>
         {
@@ -89,6 +93,19 @@ public sealed record SlackMessage(
             headline,
             [new SlackAttachment(ColourOf(alert.CurrentHealth), alert.CheckerName, fields, ToUnixSeconds(alert.OccurredAt))]);
     }
+
+    /// <summary>
+    /// Escapes the three characters Slack reads as markup.
+    /// </summary>
+    /// <remarks>
+    /// Only the top-level <c>text</c> needs this: Slack parses it as mrkdwn by default, so an
+    /// unescaped <c>&lt;</c> starts what it takes for a link or a mention. The attachment's fields
+    /// are plain text unless <c>mrkdwn_in</c> asks otherwise, and it does not.
+    /// </remarks>
+    private static string Escape(string text) => text
+        .Replace("&", "&amp;", StringComparison.Ordinal)
+        .Replace("<", "&lt;", StringComparison.Ordinal)
+        .Replace(">", "&gt;", StringComparison.Ordinal);
 
     /// <summary>Slack's own status colours, which it renders as the bar down the attachment.</summary>
     private static string ColourOf(PulseCheckerHealth health) => health switch

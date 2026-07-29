@@ -78,28 +78,36 @@ public class CoravelSchedulerTests
     [Fact]
     public async Task ASingleDueOccurrence_TriggersOnceEvenIfTicksKeepComing()
     {
-        var scheduler = new CoravelPulseScheduler();
+        // The clock is controlled, so this asks the question directly instead of sleeping and hoping.
+        // It used to schedule a one-millisecond period and assert a second tick would not fire --
+        // but with that period the second tick is legitimately due after a millisecond, so it failed
+        // whenever the machine was busy enough to put one between the two calls, which says nothing
+        // about whether a single occurrence can fire twice.
+        var clock = new SettableTimeProvider(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var scheduler = new CoravelPulseScheduler(timeProvider: clock);
         var checker = new FakePulseChecker("once-per-occurrence");
 
-        // Long enough that the occurrence this consumes cannot come round again between the two
-        // ticks below. A millisecond here made the second tick legitimately due, so the test failed
-        // whenever the machine was busy enough to put a millisecond between them -- which said
-        // nothing about whether one occurrence can fire twice.
-        var period = TimeSpan.FromMilliseconds(500);
-
+        var period = TimeSpan.FromMinutes(1);
         await scheduler.ScheduleAsync(checker, PulseSchedule.Every(period), Ct);
 
-        // Wait for that one occurrence to come due.
-        await Task.Delay(period + TimeSpan.FromMilliseconds(50), Ct);
+        // Exactly one occurrence has come due.
+        clock.Advance(period);
 
         await scheduler.TickAsync(Ct);
         var afterFirst = checker.TriggerCount;
 
-        // Straight away again: the occurrence is spent and the next is half a second off.
+        // Ticks keep coming, and the clock has not moved: the occurrence is spent.
+        await scheduler.TickAsync(Ct);
         await scheduler.TickAsync(Ct);
 
         Assert.Equal(1, afterFirst);
         Assert.Equal(1, checker.TriggerCount);
+
+        // And the next occurrence still arrives when it should.
+        clock.Advance(period);
+        await scheduler.TickAsync(Ct);
+
+        Assert.Equal(2, checker.TriggerCount);
     }
 
     /// <summary>One checker throwing must not stop the rest of the tick.</summary>
