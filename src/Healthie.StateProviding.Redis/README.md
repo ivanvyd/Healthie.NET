@@ -28,6 +28,8 @@ If your application already registers an `IConnectionMultiplexer` — for its ow
 builder.Services.AddHealthieRedis();     // uses the registered IConnectionMultiplexer
 ```
 
+Both shapes are the same method: pass a configuration string to have the connection opened for you, or leave it out to use the registered one. Name the argument when you only want a different prefix — `AddHealthieRedis(keyPrefix: "myapp:health:")`.
+
 Every key is prefixed, `healthie:state:` by default, so the provider stays out of the way of whatever else lives on that server. Pass your own as the last argument.
 
 ## Optimistic concurrency
