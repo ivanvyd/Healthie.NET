@@ -1,7 +1,9 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.StateProviding;
+using Healthie.DependencyInjection;
 using Healthie.StateProviding.Redis;
+using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
 using Testcontainers.Redis;
 
@@ -59,6 +61,87 @@ public sealed class RedisStateProviderTests : IAsyncLifetime
     {
         Assert.SkipWhen(_unavailable is not null, $"Redis is not reachable. {_unavailable}");
         return false;
+    }
+
+    /// <summary>
+    /// Through <c>AddHealthieRedis</c>, not by constructing the provider. Nothing did that before,
+    /// which is how a registration that never registered the connection shipped: the documented call
+    /// bound to the overload whose one string was the key prefix.
+    /// </summary>
+    [Fact]
+    public async Task AddHealthieRedis_WithAConfigurationString_ResolvesAWorkingProvider()
+    {
+        if (Unavailable())
+        {
+            return;
+        }
+
+        var services = new ServiceCollection();
+        services.AddHealthie(typeof(RedisStateProviderTests).Assembly);
+        services.AddHealthieRedis(_redis!.GetConnectionString());
+
+        await using var host = services.BuildServiceProvider();
+
+        var provider = host.GetRequiredService<IStateProvider>();
+
+        Assert.IsType<RedisStateProvider>(provider);
+
+        await provider.SetStateAsync("via-di", new PulseCheckerState(PulseInterval.Every30Seconds), Ct);
+        Assert.Equal(
+            PulseInterval.Every30Seconds,
+            (await provider.GetStateAsync<PulseCheckerState>("via-di", Ct))!.Interval);
+    }
+
+    /// <summary>
+    /// The other shape: the application owns the connection and Healthie shares it.
+    /// </summary>
+    [Fact]
+    public async Task AddHealthieRedis_WithAnExistingConnection_SharesIt()
+    {
+        if (Unavailable())
+        {
+            return;
+        }
+
+        var services = new ServiceCollection();
+        services.AddHealthie(typeof(RedisStateProviderTests).Assembly);
+        services.AddSingleton(_connection!);
+        services.AddHealthieRedis();
+
+        await using var host = services.BuildServiceProvider();
+
+        await host.GetRequiredService<IStateProvider>()
+            .SetStateAsync("shared", new PulseCheckerState(), Ct);
+
+        // Read back through the prefix the registration defaults to, over the same connection.
+        Assert.NotNull(await Provider(Healthie.StateProviding.Redis.StartupExtensions.DefaultKeyPrefix)
+            .GetStateAsync<PulseCheckerState>("shared", Ct));
+    }
+
+    /// <summary>
+    /// A prefix is still a prefix when it is the only thing passed, and it must be named to be that.
+    /// </summary>
+    [Fact]
+    public async Task AddHealthieRedis_WithOnlyAPrefix_UsesTheRegisteredConnection()
+    {
+        if (Unavailable())
+        {
+            return;
+        }
+
+        var services = new ServiceCollection();
+        services.AddHealthie(typeof(RedisStateProviderTests).Assembly);
+        services.AddSingleton(_connection!);
+        services.AddHealthieRedis(keyPrefix: "named-prefix:");
+
+        await using var host = services.BuildServiceProvider();
+
+        await host.GetRequiredService<IStateProvider>()
+            .SetStateAsync("k", new PulseCheckerState(), Ct);
+
+        // Written under the prefix that was asked for, and nowhere else.
+        Assert.NotNull(await Provider("named-prefix:").GetStateAsync<PulseCheckerState>("k", Ct));
+        Assert.Null(await Provider().GetStateAsync<PulseCheckerState>("k", Ct));
     }
 
     [Fact]
