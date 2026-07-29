@@ -53,6 +53,7 @@ Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one depe
 | **[Healthie.NET.CosmosDb](https://www.nuget.org/packages/Healthie.NET.CosmosDb)** | Azure CosmosDB `IStateProvider` implementation for persisting pulse checker state. | `dotnet add package Healthie.NET.CosmosDb` |
 | **[Healthie.NET.Dashboard](https://www.nuget.org/packages/Healthie.NET.Dashboard)** | Blazor health monitoring dashboard (Razor Class Library, zero third-party dependencies). | `dotnet add package Healthie.NET.Dashboard` |
 | **[Healthie.NET.Quartz](https://www.nuget.org/packages/Healthie.NET.Quartz)** | Quartz.NET `IPulseScheduler` implementation for CRON-based scheduling. | `dotnet add package Healthie.NET.Quartz` |
+| **[Healthie.NET.Hangfire](https://www.nuget.org/packages/Healthie.NET.Hangfire)** | Hangfire `IPulseScheduler` implementation -- schedules survive a restart, and each occurrence runs on exactly one replica. | `dotnet add package Healthie.NET.Hangfire` |
 | **[Healthie.NET.Mcp](https://www.nuget.org/packages/Healthie.NET.Mcp)** | Model Context Protocol server, so an AI agent can read and act on service health. | `dotnet add package Healthie.NET.Mcp` |
 | **[Healthie.NET.AI](https://www.nuget.org/packages/Healthie.NET.AI)** | Optional AI diagnostics that explain a checker's recent failures. Bring any `IChatClient`. | `dotnet add package Healthie.NET.AI` |
 
