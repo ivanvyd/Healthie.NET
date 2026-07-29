@@ -1,0 +1,55 @@
+name: CodeQL
+
+# Static analysis for the library itself. This is the gate that would catch an injection or an
+# unsafe deserialization reaching a consumer's application, which matters more here than in an
+# app: a flaw shipped in a NuGet package runs inside everyone who restored it.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly, so newly published query packs find old code. A rule added after a merge would
+    # otherwise never run against code that stopped changing.
+    - cron: '23 4 * * 2'
+
+permissions: {}
+
+jobs:
+  analyse:
+    name: Analyse C#
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          languages: csharp
+          # Built explicitly rather than by autobuild: these projects multi-target, and a build
+          # that silently picked one framework would leave the other unanalysed.
+          build-mode: manual
+          queries: security-and-quality
+
+      - name: Build
+        run: |
+          dotnet restore
+          dotnet build --configuration Release --no-restore
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4
+        with:
+          category: /language:csharp

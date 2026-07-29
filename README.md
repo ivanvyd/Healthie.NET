@@ -5,6 +5,7 @@
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
 [![Downloads](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fivanvyd%2FHealthie.NET%2Fbadges%2Fnuget-downloads.json)](https://www.nuget.org/profiles/ivanvyd)
 [![Build](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ivanvyd/Healthie.NET/badge)](https://scorecard.dev/viewer/?uri=github.com/ivanvyd/Healthie.NET)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4.svg)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ivanvyd/Healthie.NET/blob/main/LICENSE)
 
