@@ -81,14 +81,21 @@ public class CoravelSchedulerTests
         var scheduler = new CoravelPulseScheduler();
         var checker = new FakePulseChecker("once-per-occurrence");
 
-        await scheduler.ScheduleAsync(checker, PulseSchedule.Every(TimeSpan.FromHours(1)), Ct);
+        // Long enough that the occurrence this consumes cannot come round again between the two
+        // ticks below. A millisecond here made the second tick legitimately due, so the test failed
+        // whenever the machine was busy enough to put a millisecond between them -- which said
+        // nothing about whether one occurrence can fire twice.
+        var period = TimeSpan.FromMilliseconds(500);
 
-        // Due immediately, then not again for an hour.
-        await scheduler.ScheduleAsync(checker, PulseSchedule.Every(TimeSpan.FromMilliseconds(1)), Ct);
-        await Task.Delay(20, Ct);
+        await scheduler.ScheduleAsync(checker, PulseSchedule.Every(period), Ct);
+
+        // Wait for that one occurrence to come due.
+        await Task.Delay(period + TimeSpan.FromMilliseconds(50), Ct);
 
         await scheduler.TickAsync(Ct);
         var afterFirst = checker.TriggerCount;
+
+        // Straight away again: the occurrence is spent and the next is half a second off.
         await scheduler.TickAsync(Ct);
 
         Assert.Equal(1, afterFirst);
