@@ -13,7 +13,7 @@ Runs pulse checks on one replica at a time.
 Without it, **every replica runs every check**. Three replicas mean:
 
 - a database asked three times whether it is healthy, on every interval
-- three sets of results racing to write the same state document, last write winning
+- three sets of results racing to write the same state document, two of them wasted
 - one outage paging somebody three times
 
 None of that is visible from a dashboard, which is what makes it worth fixing before it matters.

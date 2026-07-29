@@ -10,16 +10,14 @@ namespace Healthie.StateProviding.CosmosDb;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Writes are last-write-wins. <see cref="IStateProvider"/> hands this provider a complete state
-/// snapshot and gives it no way to report a conflict back, so when two writers read the same state
-/// and write it back concurrently -- a scheduled check and a dashboard-initiated setting change,
-/// say -- whichever writes last is kept and the other's change is lost.
+/// <see cref="SetStateAsync"/> is last-write-wins, which is what a check result wants: the most
+/// recent result is the interesting one, and refusing it because a setting changed in between would
+/// throw away the newer truth.
 /// </para>
 /// <para>
-/// For check results that is the wanted behavior, since the most recent result is the interesting
-/// one. Resolving it for setting changes needs a concurrency token on <see cref="IStateProvider"/>
-/// itself: guarding the write with an ETag underneath the current interface can only turn a lost
-/// update into a failed write, and a failed write is recorded as a failed health check.
+/// A setting change wants the opposite, and gets it from <see cref="TrySetStateAsync"/>, which
+/// passes the version through as CosmosDB's own <c>_etag</c> on an <c>If-Match</c>. A write that
+/// loses is refused rather than silently overwriting, and the caller reads again and reapplies.
 /// </para>
 /// </remarks>
 /// <param name="container">The CosmosDB container to store state documents in.</param>
@@ -73,6 +71,88 @@ public class CosmosDbStateProvider(Container container) : IStateProvider
             new PartitionKey(name),
             cancellationToken: cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>CosmosDB stamps every document with an <c>_etag</c>, so versioning costs nothing extra.</remarks>
+    public bool SupportsOptimisticConcurrency => true;
+
+    /// <inheritdoc />
+    public async Task<StateEntry<TState>?> GetStateEntryAsync<TState>(
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        try
+        {
+            ItemResponse<StateDocument<TState>> response =
+                await _container.ReadItemAsync<StateDocument<TState>>(
+                    name,
+                    new PartitionKey(name),
+                    cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+            EnsureStoredTypeMatches<TState>(name, response.Resource.StateType);
+
+            return response.Resource.Value is { } value
+                ? new StateEntry<TState>(value, response.ETag)
+                : null;
+        }
+        catch (CosmosException ex) when (ex.StatusCode is HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TrySetStateAsync<TState>(
+        string name,
+        TState state,
+        string? expectedVersion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (expectedVersion == IStateProvider.AbsentVersion)
+        {
+            try
+            {
+                // Create rather than upsert: CosmosDB refuses a second create for the same id, which
+                // is the guarantee wanted and needs no ETag to express.
+                await _container.CreateItemAsync(
+                    new StateDocument<TState>(name, state),
+                    new PartitionKey(name),
+                    cancellationToken: cancellationToken)
+                    .ConfigureAwait(false);
+
+                return true;
+            }
+            catch (CosmosException ex) when (ex.StatusCode is HttpStatusCode.Conflict)
+            {
+                return false;
+            }
+        }
+
+        var options = expectedVersion is null ? null : new ItemRequestOptions { IfMatchEtag = expectedVersion };
+
+        try
+        {
+            await _container.UpsertItemAsync(
+                new StateDocument<TState>(name, state),
+                new PartitionKey(name),
+                options,
+                cancellationToken)
+                .ConfigureAwait(false);
+
+            return true;
+        }
+        catch (CosmosException ex) when (ex.StatusCode is HttpStatusCode.PreconditionFailed)
+        {
+            // 412 is CosmosDB reporting that the document moved on. Expected under contention, so
+            // it is a result rather than an exception by the time it reaches the caller.
+            return false;
+        }
     }
 
     /// <inheritdoc />

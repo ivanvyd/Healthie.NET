@@ -27,11 +27,57 @@ namespace Healthie.StateProviding.Relational;
 /// Statement inserting or replacing one row, with <c>{0}</c> for the table name and the parameters
 /// <c>@name</c>, <c>@state_type</c> and <c>@value</c>.
 /// </param>
-public sealed record RelationalDialect(string Name, string CreateTableFormat, string UpsertFormat)
+/// <param name="AddVersionColumnFormat">
+/// Statement adding the version column to a table that predates it, with <c>{0}</c> for the table
+/// name. Run only when the column is missing.
+/// </param>
+/// <param name="InsertIfAbsentFormat">
+/// Statement inserting one row only if the name is not taken, reporting the outcome through rows
+/// affected: one means it was written, zero that somebody else got there first. Optional, and
+/// <see cref="PortableInsertIfAbsentFormat"/> is used when it is not given.
+/// </param>
+public sealed record RelationalDialect(
+    string Name,
+    string CreateTableFormat,
+    string UpsertFormat,
+    string AddVersionColumnFormat,
+    string? InsertIfAbsentFormat = null)
 {
+    /// <summary>
+    /// The fallback for a dialect that does not supply its own, which is every hand-built one.
+    /// </summary>
+    /// <remarks>
+    /// It works everywhere and is <b>not</b> atomic: under READ COMMITTED two writers can both find
+    /// no row, both insert, and the loser take a primary key violation instead of being told it
+    /// lost. That is a thrown exception rather than a lost update, so it is safe in the sense that
+    /// matters and wrong in the sense that is visible. The three dialects below each override it
+    /// with a form their engine performs in one step.
+    /// </remarks>
+    internal const string PortableInsertIfAbsentFormat =
+        "INSERT INTO {0} (name, state_type, value, version) " +
+            "SELECT @name, @state_type, @value, @version " +
+            "WHERE NOT EXISTS (SELECT 1 FROM {0} WHERE name = @name)";
+
     /// <summary>Reads one row. Identical on every engine, so it is not part of the dialect.</summary>
     internal const string SelectFormat =
         "SELECT state_type, value FROM {0} WHERE name = @name";
+
+    /// <summary>Reads one row with the version to write back against.</summary>
+    internal const string SelectWithVersionFormat =
+        "SELECT state_type, value, version FROM {0} WHERE name = @name";
+
+    /// <summary>
+    /// Writes one row only if its version is still what the caller read.
+    /// </summary>
+    /// <remarks>
+    /// The version in the WHERE clause is what makes this conditional, and rows-affected is how the
+    /// engine reports the outcome: zero means somebody else wrote first. It is the same shape EF
+    /// Core generates for a concurrency token, and it works on every engine without a stored
+    /// procedure or a lock.
+    /// </remarks>
+    internal const string ConditionalUpdateFormat =
+        "UPDATE {0} SET state_type = @state_type, value = @value, version = @version " +
+            "WHERE name = @name AND version = @expected_version";
 
     /// <summary>Reads many rows at once. The parameter list is built per call, from its length.</summary>
     /// <remarks>
@@ -55,9 +101,15 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
         "CREATE TABLE IF NOT EXISTS {0} (" +
             "name TEXT NOT NULL PRIMARY KEY, " +
             "state_type TEXT NULL, " +
-            "value TEXT NOT NULL)",
-        "INSERT INTO {0} (name, state_type, value) VALUES (@name, @state_type, @value) " +
-            "ON CONFLICT (name) DO UPDATE SET state_type = EXCLUDED.state_type, value = EXCLUDED.value");
+            "value TEXT NOT NULL, " +
+            "version TEXT NULL)",
+        "INSERT INTO {0} (name, state_type, value, version) VALUES (@name, @state_type, @value, @version) " +
+            "ON CONFLICT (name) DO UPDATE SET state_type = EXCLUDED.state_type, value = EXCLUDED.value, version = EXCLUDED.version",
+        "ALTER TABLE {0} ADD COLUMN version TEXT NULL",
+        // The engine resolves the conflict itself, so there is no window between deciding to insert
+        // and inserting. A row that was already there reports zero rows affected, which is a refusal.
+        "INSERT INTO {0} (name, state_type, value, version) VALUES (@name, @state_type, @value, @version) " +
+            "ON CONFLICT (name) DO NOTHING");
 
     /// <remarks>
     /// <c>name</c> is capped at 450 characters because that is the longest a SQL Server primary key
@@ -74,11 +126,18 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
         "IF OBJECT_ID(N'{0}', N'U') IS NULL CREATE TABLE {0} (" +
             "name NVARCHAR(450) NOT NULL PRIMARY KEY, " +
             "state_type NVARCHAR(4000) NULL, " +
-            "value NVARCHAR(MAX) NOT NULL)",
-        "UPDATE {0} WITH (UPDLOCK, SERIALIZABLE) SET state_type = @state_type, value = @value " +
+            "value NVARCHAR(MAX) NOT NULL, " +
+            "version NVARCHAR(64) NULL)",
+        "UPDATE {0} WITH (UPDLOCK, SERIALIZABLE) SET state_type = @state_type, value = @value, version = @version " +
             "WHERE name = @name; " +
         "IF @@ROWCOUNT = 0 " +
-            "INSERT INTO {0} (name, state_type, value) VALUES (@name, @state_type, @value);");
+            "INSERT INTO {0} (name, state_type, value, version) VALUES (@name, @state_type, @value, @version);",
+        "ALTER TABLE {0} ADD version NVARCHAR(64) NULL",
+        // SQL Server has no ON CONFLICT, so the existence check takes the same UPDLOCK, HOLDLOCK the
+        // upsert above takes -- which is what stops a second writer reaching the same conclusion.
+        "INSERT INTO {0} (name, state_type, value, version) " +
+            "SELECT @name, @state_type, @value, @version " +
+            "WHERE NOT EXISTS (SELECT 1 FROM {0} WITH (UPDLOCK, HOLDLOCK) WHERE name = @name);");
 
     /// <summary>SQLite, which needs no server and so suits a single node or a sample.</summary>
     public static RelationalDialect Sqlite { get; } = new(
@@ -86,9 +145,13 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
         "CREATE TABLE IF NOT EXISTS {0} (" +
             "name TEXT NOT NULL PRIMARY KEY, " +
             "state_type TEXT NULL, " +
-            "value TEXT NOT NULL)",
-        "INSERT INTO {0} (name, state_type, value) VALUES (@name, @state_type, @value) " +
-            "ON CONFLICT(name) DO UPDATE SET state_type = excluded.state_type, value = excluded.value");
+            "value TEXT NOT NULL, " +
+            "version TEXT NULL)",
+        "INSERT INTO {0} (name, state_type, value, version) VALUES (@name, @state_type, @value, @version) " +
+            "ON CONFLICT(name) DO UPDATE SET state_type = excluded.state_type, value = excluded.value, version = excluded.version",
+        "ALTER TABLE {0} ADD COLUMN version TEXT NULL",
+        "INSERT INTO {0} (name, state_type, value, version) VALUES (@name, @state_type, @value, @version) " +
+            "ON CONFLICT(name) DO NOTHING");
 
     /// <summary>
     /// Checks a table name before it is put into a statement.
@@ -122,7 +185,24 @@ public sealed record RelationalDialect(string Name, string CreateTableFormat, st
     /// <summary>Removes one row. Identical on every engine, so it is not part of the dialect.</summary>
     internal const string DeleteFormat = "DELETE FROM {0} WHERE name = @name";
 
+    /// <summary>
+    /// Adds the version column to a table created before it existed.
+    /// </summary>
+    /// <remarks>
+    /// A plain ALTER, run only when the column is genuinely missing -- the initializer checks first
+    /// rather than relying on an IF NOT EXISTS that SQLite does not have for ADD COLUMN.
+    /// </remarks>
+    internal string AddVersionColumn(string tableName) =>
+        Format(AddVersionColumnFormat, tableName);
+
     internal static string Select(string tableName) => Format(SelectFormat, tableName);
+
+    internal static string SelectWithVersion(string tableName) => Format(SelectWithVersionFormat, tableName);
+
+    internal static string ConditionalUpdate(string tableName) => Format(ConditionalUpdateFormat, tableName);
+
+    internal string InsertIfAbsent(string tableName) =>
+        Format(InsertIfAbsentFormat ?? PortableInsertIfAbsentFormat, tableName);
 
     internal static string Delete(string tableName) => Format(DeleteFormat, tableName);
 

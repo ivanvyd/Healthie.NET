@@ -24,7 +24,7 @@ public sealed class InMemoryStateProvider : IStateProvider
 {
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.General);
 
-    private readonly ConcurrentDictionary<string, string> _states = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, (string Json, string Version)> _states = new(StringComparer.Ordinal);
 
     /// <inheritdoc />
     public Task<TState?> GetStateAsync<TState>(string name, CancellationToken cancellationToken = default)
@@ -32,8 +32,8 @@ public sealed class InMemoryStateProvider : IStateProvider
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         cancellationToken.ThrowIfCancellationRequested();
 
-        return _states.TryGetValue(name, out var json)
-            ? Task.FromResult(JsonSerializer.Deserialize<TState>(json, SerializerOptions))
+        return _states.TryGetValue(name, out var entry)
+            ? Task.FromResult(JsonSerializer.Deserialize<TState>(entry.Json, SerializerOptions))
             : Task.FromResult<TState?>(default);
     }
 
@@ -43,9 +43,70 @@ public sealed class InMemoryStateProvider : IStateProvider
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         cancellationToken.ThrowIfCancellationRequested();
 
-        _states[name] = JsonSerializer.Serialize(state, SerializerOptions);
+        _states[name] = (JsonSerializer.Serialize(state, SerializerOptions), NewVersion());
 
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Supported so that the provider every application starts on behaves like the durable ones. A
+    /// process with several replicas does not share this store, but one process still has a check
+    /// loop and a dashboard writing to the same state.
+    /// </remarks>
+    public bool SupportsOptimisticConcurrency => true;
+
+    private static string NewVersion() => Guid.NewGuid().ToString("N");
+
+    /// <inheritdoc />
+    public Task<StateEntry<TState>?> GetStateEntryAsync<TState>(
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!_states.TryGetValue(name, out var entry)
+            || JsonSerializer.Deserialize<TState>(entry.Json, SerializerOptions) is not { } state)
+        {
+            return Task.FromResult<StateEntry<TState>?>(null);
+        }
+
+        return Task.FromResult<StateEntry<TState>?>(new StateEntry<TState>(state, entry.Version));
+    }
+
+    /// <inheritdoc />
+    public Task<bool> TrySetStateAsync<TState>(
+        string name,
+        TState state,
+        string? expectedVersion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var written = (JsonSerializer.Serialize(state, SerializerOptions), NewVersion());
+
+        if (expectedVersion is null)
+        {
+            _states[name] = written;
+            return Task.FromResult(true);
+        }
+
+        // TryAdd succeeds only while nothing is stored, which is the create half of the guarantee.
+        if (expectedVersion == IStateProvider.AbsentVersion)
+        {
+            return Task.FromResult(_states.TryAdd(name, written));
+        }
+
+        // TryUpdate compares and swaps in one step, which is what makes this safe without a lock:
+        // a read-then-write here would have exactly the race it is meant to close.
+        if (_states.TryGetValue(name, out var current) && current.Version == expectedVersion)
+        {
+            return Task.FromResult(_states.TryUpdate(name, written, current));
+        }
+
+        return Task.FromResult(false);
     }
 
     /// <inheritdoc />
@@ -74,8 +135,8 @@ public sealed class InMemoryStateProvider : IStateProvider
 
         foreach (var name in names)
         {
-            if (_states.TryGetValue(name, out var json)
-                && JsonSerializer.Deserialize<TState>(json, SerializerOptions) is { } state)
+            if (_states.TryGetValue(name, out var entry)
+                && JsonSerializer.Deserialize<TState>(entry.Json, SerializerOptions) is { } state)
             {
                 states[name] = state;
             }

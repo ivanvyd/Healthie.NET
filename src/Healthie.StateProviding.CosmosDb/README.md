@@ -58,9 +58,11 @@ builder.Services
 
 ## Concurrency
 
-Writes are last-write-wins. When two writers read the same state and write it back concurrently — a scheduled check and a dashboard-initiated setting change, say — whichever writes last is kept, and the other's change is lost.
+Writes can be made conditional. `GetStateEntryAsync` returns the state together with the document's ETag, and `TrySetStateAsync` sends it as `If-Match`, so a write made from a state that has since changed is refused (CosmosDB answers `412 PreconditionFailed`) rather than silently overwriting whoever changed it. When nothing is stored yet there is no ETag to match, so the write becomes a create, which CosmosDB refuses a second time with `409 Conflict` — the same guarantee at the one moment there is nothing to compare.
 
-For check results that is the wanted behavior: the most recent result is the interesting one. For setting changes it is a real limitation. Resolving it needs a concurrency token on `IStateProvider` itself, which is planned for the next major version; guarding the write with an ETag underneath the current interface can only turn a lost update into a failed write, and a failed write is recorded as a failed health check.
+A refused write is reported as `false`, not thrown. Under contention losing is the expected outcome and the answer is always the same: read again, reapply, write again. `StateProviderExtensions.UpdateStateAsync` is that loop. Both writers go through it — the setting change *and* the check storing its result — which is what makes the guarantee hold in both directions: a check that read the state before a setting changed no longer writes the old setting back over it.
+
+`SetStateAsync` still upserts unconditionally. It replaces a whole document with one the caller supplies, so there is no version to carry and nothing to compare — it is the escape hatch, not the path the library takes.
 
 ## See Also
 

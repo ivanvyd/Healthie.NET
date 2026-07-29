@@ -818,11 +818,9 @@ Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanv
 
 Shipped since 3.1.4: alerting on transitions, OpenTelemetry metrics and traces, arbitrary intervals
 and cron, PostgreSQL / SQL Server / SQLite state providers, Hangfire / Coravel / Temporal
-scheduling, ready-made checkers, uptime reporting, and leader election. What is left:
+scheduling, ready-made checkers, uptime reporting, leader election, and optimistic concurrency on
+`IStateProvider`. What is left:
 
-- **Concurrency tokens on `IStateProvider`** -- state writes are last-write-wins, so a setting
-  changed from the dashboard can be overwritten by a check that read the state first. Resolving it
-  needs the interface to carry a version, which is a breaking change and a major release.
 - **`StateChanged` fires on every check** rather than only when state changes, because state
   equality includes the last execution time. Anything reacting to it should compare the health
   itself, which the alerting and uptime packages do.

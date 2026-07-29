@@ -13,6 +13,23 @@ its code behaves exactly as it did.
 
 ### Added
 
+- **Optimistic concurrency on `IStateProvider`.** A state write can now be made conditional on the
+  state not having changed since it was read, closing the lost update that has been documented on
+  `CosmosDbStateProvider` since the beginning: a setting changed from the dashboard could be
+  overwritten by a check that had read the state first. `GetStateEntryAsync` returns the state with
+  the version it was read at, and `TrySetStateAsync` writes only if that version is still current,
+  reporting a refused write rather than throwing -- under contention a conflict is expected, not
+  exceptional. `UpdateStateAsync` is the read-modify-write retry loop over the pair, and every
+  setting on `PulseChecker` goes through it -- as does a check storing its own result, which reads
+  and writes the whole state and so used to put every other field back to what it was when the
+  check started. Within one process a semaphore hid that; across two replicas sharing one store
+  nothing did, and that is the direction the dashboard actually loses to.
+
+  This was expected to need a major release and did not. The new members are defaulted interface
+  methods: a provider written against the old two-method interface still compiles, still works, and
+  reports `SupportsOptimisticConcurrency == false` rather than pretending. CosmosDB uses ETags,
+  the relational providers a version column added to existing tables on startup, and the in-memory
+  provider a compare-and-swap.
 - **Schedules.** `PulseSchedule` says either "every this long" or "on this cron expression", and
   sits alongside `PulseInterval` rather than replacing it. The enum stopped at five minutes, which
   is short of what a certificate-expiry or disk-space check wants. Cron is standard Unix syntax and
@@ -77,8 +94,6 @@ its code behaves exactly as it did.
 - `StateChanged` is raised on **every** check rather than only when state changes, because
   `PulseCheckerState` equality includes the last execution time. Anything reacting to it should
   compare the health itself, which the alerting and uptime packages do.
-- `IStateProvider` still has no concurrency token, so two writers to one checker's state remain
-  last-write-wins, as documented on `CosmosDbStateProvider`. Adding one is a breaking change.
 
 ## [3.1.4] - 2026-07-19
 
