@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Uptime\Healthie.Uptime.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Alerting\Healthie.Alerting.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Checkers\Healthie.Checkers.csproj" />
     <ProjectReference Include="..\..\src\Healthie.AI\Healthie.AI.csproj" />
