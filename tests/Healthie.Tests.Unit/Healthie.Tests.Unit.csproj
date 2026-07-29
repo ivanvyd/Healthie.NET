@@ -16,6 +16,7 @@
     <!-- The CosmosDB SDK serializes with Newtonsoft.Json, so the document tests exercise it. -->
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 
@@ -46,6 +47,7 @@
     <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.Relational\Healthie.StateProviding.Relational.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.StateProviding.Redis\Healthie.StateProviding.Redis.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.Sqlite\Healthie.StateProviding.Sqlite.csproj" />
   </ItemGroup>
 

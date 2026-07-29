@@ -57,6 +57,7 @@ Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one depe
 | **[Healthie.NET.Postgres](https://www.nuget.org/packages/Healthie.NET.Postgres)** | PostgreSQL `IStateProvider` implementation. Also covers Databricks Lakebase, which is managed PostgreSQL. | `dotnet add package Healthie.NET.Postgres` |
 | **[Healthie.NET.SqlServer](https://www.nuget.org/packages/Healthie.NET.SqlServer)** | SQL Server and Azure SQL `IStateProvider` implementation. | `dotnet add package Healthie.NET.SqlServer` |
 | **[Healthie.NET.Sqlite](https://www.nuget.org/packages/Healthie.NET.Sqlite)** | SQLite `IStateProvider` implementation -- durable state with no server to stand up. | `dotnet add package Healthie.NET.Sqlite` |
+| **[Healthie.NET.Redis](https://www.nuget.org/packages/Healthie.NET.Redis)** | Redis `IStateProvider` implementation -- the fastest option for state written on every tick. | `dotnet add package Healthie.NET.Redis` |
 | **[Healthie.NET.Relational](https://www.nuget.org/packages/Healthie.NET.Relational)** | The engine behind the three above. Use it directly for any other database with an ADO.NET driver. | `dotnet add package Healthie.NET.Relational` |
 | **[Healthie.NET.Dashboard](https://www.nuget.org/packages/Healthie.NET.Dashboard)** | Blazor health monitoring dashboard (Razor Class Library, zero third-party dependencies). | `dotnet add package Healthie.NET.Dashboard` |
 | **[Healthie.NET.Quartz](https://www.nuget.org/packages/Healthie.NET.Quartz)** | Quartz.NET `IPulseScheduler` implementation for CRON-based scheduling. | `dotnet add package Healthie.NET.Quartz` |
@@ -824,11 +825,18 @@ Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanv
 Shipped since 3.1.4: alerting on transitions, OpenTelemetry metrics and traces, arbitrary intervals
 and cron, PostgreSQL / SQL Server / SQLite state providers, Hangfire / Coravel / Temporal
 scheduling, ready-made checkers, uptime reporting, leader election, optimistic concurrency
-on `IStateProvider`, `HealthChanged` on the state-changed event, and Slack / Teams /
-PagerDuty alert sinks. What is left:
+on `IStateProvider`, `HealthChanged` on the state-changed event, Slack / Teams / PagerDuty alert
+sinks, and a Redis state provider.
 
-- **A Redis state provider** -- the fastest option for state written on every tick, and a natural
-  lease store for leader election.
+Every item that was on this list has shipped. Two open questions are decisions rather than features,
+and both are deliberate as they stand:
+
+- **`Healthie.Api` requires no authorization unless the host asks for it**, and the dashboard's
+  `HealthieUIOptions.AllowMutations` defaults to `true`. A host that maps either and does nothing
+  else exposes read *and* write control of its checkers. Both are documented, and changing either
+  default is a behaviour break for every existing consumer.
+- **Restore is not pinned by hash.** The fix is NuGet lock files, which means every package change
+  needs the lock updated and CI running in locked mode.
 
 ---
 
