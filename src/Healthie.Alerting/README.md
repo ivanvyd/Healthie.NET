@@ -22,10 +22,28 @@ using Healthie.Alerting;
 builder.Services
     .AddHealthie(typeof(Program).Assembly)
     .AddHealthieAlerts()
-    .AddHealthieWebhookAlerts(new Uri("https://hooks.example.com/healthie"));
+    .AddHealthieSlackAlerts(new Uri("https://hooks.slack.com/services/..."))
+    .AddHealthiePagerDutyAlerts("your-integration-key");
 ```
 
-Add as many webhooks as you like; each gets every alert. For anywhere a webhook cannot reach, implement `IAlertSink` and register it — the dispatcher finds every one that is registered.
+Add as many sinks as you like; each gets every alert. For anywhere none of them reaches, implement `IAlertSink` and register it — the dispatcher finds every one that is registered.
+
+## Where alerts go
+
+| Sink | Registered with | Sends |
+|---|---|---|
+| Slack | `AddHealthieSlackAlerts(url)` | A message with a colour-coded attachment, to an incoming webhook |
+| Microsoft Teams | `AddHealthieMicrosoftTeamsAlerts(url)` | An Adaptive Card, to a **Workflows** URL |
+| PagerDuty | `AddHealthiePagerDutyAlerts(key)` | An Events API v2 `trigger`, resolved when the checker recovers |
+| Anything else | `AddHealthieWebhookAlerts(url)` | The generic JSON payload below |
+
+Three of these are not the webhook wearing a hat. Slack, Teams and PagerDuty each reject arbitrary JSON, so posting the generic payload at them fails — which is why reaching them used to need something in between to reshape it. None needs a dependency this package did not already have, so they are here rather than in a package each.
+
+**Teams takes the Workflows URL, not an Office 365 connector.** Microsoft has retired those connectors along with the `MessageCard` payload they accepted; in Teams, add a *Workflow* to the channel and use the URL it gives you.
+
+**PagerDuty closes what it opens.** A failure raises an incident keyed on the checker, and the recovery resolves that same incident rather than posting a second message saying everything is fine. A checker flapping between suspicious and unhealthy stays one incident, because the deduplication key deliberately leaves out the health and the time. `Suspicious` maps to `warning` rather than `critical` — it is the state that means "failing, but not past the threshold yet", and paging on it would defeat having a threshold.
+
+Configure any sink's `HttpClient` — its timeout, its handler, an auth header — by naming its `HttpClientName` constant in your own `AddHttpClient` call.
 
 ## What alerts
 

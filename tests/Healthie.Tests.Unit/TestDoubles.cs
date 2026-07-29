@@ -182,3 +182,20 @@ internal sealed class CustomPulseScheduler : IPulseScheduler
     public Task UnscheduleAsync(IPulseChecker checker, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 }
+
+/// <summary>
+/// A clock a test moves by hand.
+/// </summary>
+/// <remarks>
+/// Only <see cref="GetUtcNow"/> is overridden, because that is all the schedulers read. A test that
+/// waits for real time to pass is testing the machine's load as much as the code.
+/// </remarks>
+internal sealed class SettableTimeProvider(DateTimeOffset now) : TimeProvider
+{
+    private DateTimeOffset _now = now;
+
+    public override DateTimeOffset GetUtcNow() => _now;
+
+    /// <summary>Moves the clock forward.</summary>
+    public void Advance(TimeSpan by) => _now = _now.Add(by);
+}

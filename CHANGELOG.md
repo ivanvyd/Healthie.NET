@@ -37,6 +37,14 @@ its code behaves exactly as it did.
   that only cared about a component going down reached into `OldState`/`NewState.LastResult?.Health`
   and worked it out again. The alerting and uptime packages were doing that identically; both now
   read `PreviousHealth` and `CurrentHealth` from the event instead of digging for them.
+- **Slack, Microsoft Teams and PagerDuty alert sinks**, in `Healthie.NET.Alerting` beside the
+  webhook. Each of those three rejects arbitrary JSON and wants its own shape, so the generic
+  webhook never actually reached them without something in between to reshape it -- which its own
+  remarks admitted, in the phrase "Teams through a Power Automate flow". They need no dependency the
+  package did not already have, so they are sinks rather than a package each. Teams targets the
+  Workflows URL and an Adaptive Card, because the Office 365 connectors and the `MessageCard`
+  payload they took are retired. PagerDuty resolves the incident it opened rather than raising a
+  second one: `Alert.DeduplicationKey` and `Alert.IsRecovery` already existed for exactly that.
 - **Schedules.** `PulseSchedule` says either "every this long" or "on this cron expression", and
   sits alongside `PulseInterval` rather than replacing it. The enum stopped at five minutes, which
   is short of what a certificate-expiry or disk-space check wants. Cron is standard Unix syntax and
