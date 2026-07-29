@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Eleven new packages, and the schedule model that several of them needed. Everything here is
+additive: no public API was removed or changed, and an application that upgrades without touching
+its code behaves exactly as it did.
+
+### Added
+
+- **Schedules.** `PulseSchedule` says either "every this long" or "on this cron expression", and
+  sits alongside `PulseInterval` rather than replacing it. The enum stopped at five minutes, which
+  is short of what a certificate-expiry or disk-space check wants. Cron is standard Unix syntax and
+  is evaluated in UTC by every scheduler.
+- **`Healthie.NET.Postgres`, `Healthie.NET.SqlServer`, `Healthie.NET.Sqlite`** and the
+  `Healthie.NET.Relational` engine behind them, which works against any database with an ADO.NET
+  driver. PostgreSQL also covers Databricks Lakebase, which is managed PostgreSQL.
+- **`Healthie.NET.Hangfire`.** Schedules live in Hangfire's storage, so they survive a restart and
+  each occurrence runs on exactly one replica.
+- **`Healthie.NET.Coravel`**, for applications already running Coravel. Coravel has no API for
+  removing a scheduled job, so Healthie owns the due times and Coravel supplies the tick; the
+  package README says so, and says to use the built-in timer if Coravel is not already there.
+- **`Healthie.NET.Temporal`.** Schedules live in the Temporal cluster. It needs a cluster and the
+  SDK carries a native core, both of which the README weighs against Hangfire and the built-in timer.
+- **`Healthie.NET.Checkers`.** HTTP endpoints, TCP ports, TLS certificate expiry, DNS resolution and
+  disk space, with no checker code to write. Certificate expiry and disk space report *suspicious*
+  before they report unhealthy, because both are gradual and the warning is the useful signal.
+- **`Healthie.NET.Alerting`.** Health changes become alerts, delivered to a webhook or your own
+  `IAlertSink`, with transition-only firing, recovery notifications and flap suppression. A sink that
+  throws, hangs or backs up cannot delay a check, hold its semaphore, or mark anything unhealthy.
+- **`Healthie.NET.Uptime`.** Records health transitions rather than checks, so uptime is exact over
+  any window and small enough to keep for a year -- the rolling history holds a hundred results,
+  which for a one-second checker is a hundred seconds. Time the application was not running is
+  reported as unknown rather than counted as either up or down.
+- **`Healthie.NET.LeaderElection`.** Runs the checks on one replica at a time. Without it, three
+  replicas ask a database three times whether it is healthy and race to write the same state.
+- **Metrics and traces.** A `Meter` and an `ActivitySource` named `Healthie.NET`, discovered by
+  OpenTelemetry by name with no package to install: check duration, results by health, health
+  transitions, and triggers skipped because the previous check had not finished. That last one is
+  the only place a checker outlasting its own interval shows up.
+- **Bulk state reads.** `IStateProvider.GetStatesAsync` reads every checker in one call, which is
+  what a dashboard load and a list request do. Defaulted to the old one-read-per-name behaviour, so
+  existing providers are unaffected.
+- **State removal.** `IStateProvider.DeleteStateAsync` cleans up after a checker that was renamed or
+  removed. Defaulted to refuse rather than to silently do nothing.
+
+### Fixed
+
+- A cron schedule whose next occurrence was more than about fifty days out **stopped the checker
+  permanently and silently**. `Task.Delay` refuses a longer wait and throws, and that throw is not a
+  cancellation, so the scheduler's loop ended with nothing logged. An annual certificate check
+  reached it. Long waits are now taken in bounded steps.
+- Quartz and the built-in scheduler read the same cron expression in **different timezones** --
+  Quartz defaults to the machine's local zone, the built-in scheduler evaluates in UTC. Both are
+  pinned to UTC now, matching what the dashboard renders.
+- Quartz quietly accepted out-of-range cron fields: `99 99 * * *` produced a trigger firing every
+  minute, for ever. Ranges are checked before Quartz sees them.
+- Cron expressions were compared as typed, so `0 0 * * MON-FRI` and `0  0  *  *  mon-fri` looked
+  like a change to the checker. They are normalized, as tags already were.
+
+### Security
+
+- CodeQL, OpenSSF Scorecard and dependency review run on every pull request, releases carry a
+  CycloneDX SBOM, every GitHub Action is pinned to a commit SHA, and every workflow drops to
+  deny-by-default permissions.
+- Four high-severity advisories resolved: `SQLitePCLRaw.lib.e_sqlite3` (GHSA-2m69-gcr7-jv3q),
+  `Newtonsoft.Json` reached through Hangfire (GHSA-5crp-9r3c-p9vr), and `System.Text.Json` in the
+  console sample (CVE-2024-30105 and CVE-2024-43485). The solution reports no vulnerable packages.
+
+### Known issues
+
+- `StateChanged` is raised on **every** check rather than only when state changes, because
+  `PulseCheckerState` equality includes the last execution time. Anything reacting to it should
+  compare the health itself, which the alerting and uptime packages do.
+- `IStateProvider` still has no concurrency token, so two writers to one checker's state remain
+  last-write-wins, as documented on `CosmosDbStateProvider`. Adding one is a breaking change.
+
 ## [3.1.4] - 2026-07-19
 
 ### Changed
@@ -288,6 +361,6 @@ Blazor dashboard, and the CosmosDB and Quartz.NET providers.
 
 - Dashboard UI improvements and additional sample pulse checkers.
 
-[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v3.1.4...HEAD
 [3.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v2.3.0...v3.0.0
 [2.3.0]: https://github.com/ivanvyd/Healthie.NET/releases/tag/v2.3.0
