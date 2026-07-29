@@ -35,6 +35,9 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     /// a hot path.
     /// </remarks>
     private readonly SemaphoreSlim _scheduling = new(1, 1);
+
+    /// <summary>Set once the host has stopped this scheduler. Read and written under the lock.</summary>
+    private bool _disposed;
     private readonly ILogger<TimerPulseScheduler>? _logger;
 
     /// <summary>
@@ -82,6 +85,15 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
 
         try
         {
+            // A request can outlive the decision to shut down -- an interval changed from the API
+            // while the host stops. Installing a timer now would leave one running that Dispose has
+            // already been past, so there would be nothing left to stop it. Quietly rather than by
+            // throwing: the host is going away, and that is not the caller's mistake.
+            if (_disposed)
+            {
+                return;
+            }
+
             StopExisting(checker.Name);
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -273,14 +285,35 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     /// </remarks>
     public void Dispose()
     {
-        foreach (var kvp in _timers)
+        // Shutdown races the last requests: an interval can be changed from the API while the host
+        // is stopping. Without the lock this is a third writer of _timers, and clearing the
+        // dictionary between an in-flight schedule's stop and its install drops a live timer without
+        // cancelling it -- the leak the lock exists to prevent, arriving by another door.
+        var acquired = _scheduling.Wait(TimeSpan.FromSeconds(5));
+
+        try
         {
-            kvp.Value.Cancel();
-            kvp.Value.Dispose();
+            foreach (var kvp in _timers)
+            {
+                kvp.Value.Cancel();
+                kvp.Value.Dispose();
+            }
+
+            _timers.Clear();
+            _disposed = true;
+        }
+        finally
+        {
+            if (acquired)
+            {
+                _scheduling.Release();
+            }
         }
 
-        _timers.Clear();
-        _scheduling.Dispose();
+        // The semaphore is deliberately not disposed. SemaphoreSlim only needs it once its
+        // AvailableWaitHandle has been asked for, which nothing here does, and disposing it while
+        // another thread sits in WaitAsync leaves that thread waiting for ever rather than throwing
+        // -- a hung shutdown instead of a noisy one.
     }
 
     /// <inheritdoc />

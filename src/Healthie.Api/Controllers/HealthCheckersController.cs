@@ -74,26 +74,6 @@ public class HealthCheckersController(
     /// <param name="interval">The new interval to apply.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>204 No Content on success, 404 if the checker is not found, or 400 if the name is empty or the interval is not a defined value.</returns>
-    /// <summary>
-    /// Strips control characters from a name before it is written to a log.
-    /// </summary>
-    /// <remarks>
-    /// The name comes from the route, so a caller chooses it, and it does not have to match a real
-    /// checker -- the not-found branch logs it precisely when it does not. Percent-encoded CR and LF
-    /// arrive here decoded, and a log sink that writes plain text writes them as line breaks, which
-    /// lets a caller forge whole log entries. Structured sinks that encode their values are already
-    /// safe; this makes the others safe too.
-    /// </remarks>
-    internal static string ForLog(string name)
-    {
-        if (!name.Any(char.IsControl))
-        {
-            return name;
-        }
-
-        return new string([.. name.Select(c => char.IsControl(c) ? '�' : c)]);
-    }
-
     [HttpPut("{checkerName}/interval")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -314,4 +294,27 @@ public class HealthCheckersController(
             return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
         }
     }
+
+    /// <summary>
+    /// Strips control characters from a name before it is written to a log.
+    /// </summary>
+    /// <param name="name">The name as the route supplied it.</param>
+    /// <returns>The name, with any control character replaced.</returns>
+    /// <remarks>
+    /// The name comes from the route, so a caller chooses it, and it does not have to match a real
+    /// checker -- the not-found branch logs it precisely when it does not. Percent-encoded CR and LF
+    /// arrive here decoded, and a log sink that writes plain text writes them as line breaks, which
+    /// lets a caller forge whole log entries. Structured sinks that encode their values are already
+    /// safe; this makes the others safe too.
+    /// </remarks>
+    internal static string ForLog(string name)
+    {
+        if (!name.Any(char.IsControl))
+        {
+            return name;
+        }
+
+        return new string([.. name.Select(c => char.IsControl(c) ? '\uFFFD' : c)]);
+    }
+
 }

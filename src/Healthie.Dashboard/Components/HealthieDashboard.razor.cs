@@ -728,9 +728,18 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        // Before anything else: a torn-down component must stop being handed state changes. The
-        // service outlives this component when the host routes to the dashboard in its own layout.
-        await DashboardService.UnsubscribeFromStateChangesAsync(OnStateChangedAsync);
+        // A torn-down component must stop being handed state changes; the service outlives it when
+        // the host routes to the dashboard inside its own layout. The other order is allowed too --
+        // the circuit may dispose the service first -- and then this throws, because the lock it
+        // takes is gone. Everything below stops the clock loop, so it has to run either way.
+        try
+        {
+            await DashboardService.UnsubscribeFromStateChangesAsync(OnStateChangedAsync);
+        }
+        catch (ObjectDisposedException)
+        {
+            // The service went first, and took every handler with it.
+        }
 
         await _disposing.CancelAsync();
 

@@ -348,7 +348,22 @@ internal sealed class HealthieDashboardService(
     /// </remarks>
     private async Task NotifyAsync(string name, PulseCheckerState state)
     {
-        foreach (var handler in _handlers.ToArray())
+        // Copied under the lock: this runs on whichever thread ran the check, while a component
+        // mounting or being disposed may be writing the same list.
+        await _handlersLock.WaitAsync().ConfigureAwait(false);
+
+        Func<string, PulseCheckerState, Task>[] handlers;
+
+        try
+        {
+            handlers = [.. _handlers];
+        }
+        finally
+        {
+            _handlersLock.Release();
+        }
+
+        foreach (var handler in handlers)
         {
             try
             {

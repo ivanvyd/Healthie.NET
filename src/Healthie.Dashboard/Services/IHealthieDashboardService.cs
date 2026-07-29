@@ -20,6 +20,10 @@ internal interface IHealthieDashboardService : IAsyncDisposable
     /// attaches to the checkers. Every subscription should be matched by
     /// <see cref="UnsubscribeFromStateChangesAsync"/> when the subscriber goes away.
     /// </remarks>
+    Task SubscribeToStateChangesAsync(
+        Func<string, PulseCheckerState, Task> onStateChanged,
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Stops handing state changes to a handler that was subscribed earlier.
     /// </summary>
@@ -39,10 +43,6 @@ internal interface IHealthieDashboardService : IAsyncDisposable
     /// </para>
     /// </remarks>
     Task UnsubscribeFromStateChangesAsync(
-        Func<string, PulseCheckerState, Task> onStateChanged,
-        CancellationToken cancellationToken = default);
-
-    Task SubscribeToStateChangesAsync(
         Func<string, PulseCheckerState, Task> onStateChanged,
         CancellationToken cancellationToken = default);
 
