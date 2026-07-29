@@ -32,6 +32,9 @@ its code behaves exactly as it did.
   immediately before one, so a table name ending in one passed a check whose own error message says
   it does not. Nothing could be smuggled through it -- a lone trailing newline is whitespace to
   every engine here -- but the guard now ends at `\z` and means what it says.
+- **The release workflow granted `contents: write` to every job in it.** Only the one job that
+  creates the GitHub release needs it, and the top level now grants nothing but read, so a job added
+  later starts with no write access rather than inheriting it.
 - **A checker name from a REST route reached the log with its control characters intact.** The
   not-found branch logs a name precisely when it matches nothing, percent-encoded CR and LF arrive
   decoded, and a log sink writing plain text writes them as line breaks.

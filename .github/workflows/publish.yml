@@ -20,11 +20,11 @@ on:
     tags:
       - 'v*'
 
+# Nothing at the top level, so a job added later starts with no write access and has to ask for
+# what it needs. Scorecard rates a workflow-wide `contents: write` a high finding for exactly that
+# reason: it is inherited by every job, including ones nobody thought about when it was granted.
 permissions:
-  contents: write
-  # Lets this workflow ask GitHub for the signed OIDC token that NuGet.org trades for a
-  # short-lived publishing key. Without it the login step below cannot get a token at all.
-  id-token: write
+  contents: read
 
 env:
   CONFIGURATION: Release
@@ -34,6 +34,13 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+
+    permissions:
+      # Creating the GitHub release at the end of this job.
+      contents: write
+      # Lets this job ask GitHub for the signed OIDC token that NuGet.org trades for a short-lived
+      # publishing key. Without it the login step below cannot get a token at all.
+      id-token: write
 
     steps:
       - name: Checkout
