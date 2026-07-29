@@ -18,8 +18,15 @@ namespace Healthie.Abstractions.Scheduling;
 /// Cron expressions are standard Unix syntax, five fields (minute, hour, day-of-month, month,
 /// day-of-week) or six with a leading seconds field. That is deliberately <em>not</em> the Quartz
 /// dialect, which numbers its fields differently and requires <c>?</c> in one of the two day
-/// fields. Schedulers built on Quartz translate on the way in, so one expression means the same
-/// thing whichever scheduler is registered.
+/// fields. Schedulers built on Quartz translate on the way in.
+/// </para>
+/// <para>
+/// Expressions are evaluated in UTC by every scheduler. That is worth stating rather than leaving
+/// to be assumed: Quartz defaults a cron trigger to the machine's local timezone, so the same
+/// expression would otherwise mean one time under the built-in scheduler and another under Quartz,
+/// while agreeing on any host configured as UTC -- which most containers are, so the disagreement
+/// would surface only somewhere it mattered. The dashboard renders UTC throughout, so UTC is what
+/// the rest of this library already means.
 /// </para>
 /// </remarks>
 public sealed record PulseSchedule
@@ -56,8 +63,21 @@ public sealed record PulseSchedule
         }
 
         Period = period;
-        CronExpression = hasCron ? cronExpression!.Trim() : null;
+        CronExpression = hasCron ? NormalizeCron(cronExpression!) : null;
     }
+
+    /// <summary>
+    /// Reduces an expression to one spelling, so two that mean the same thing are the same.
+    /// </summary>
+    /// <remarks>
+    /// A schedule takes part in state equality, and <c>StateChanged</c> fires off that equality.
+    /// Left as typed, "0 0 * * MON-FRI" and "0  0  *  *  mon-fri" would compare as a change every
+    /// time one replaced the other, and the same checker would look like it had been edited. Tags
+    /// were normalized for this reason already; this is the same lesson.
+    /// </remarks>
+    private static string NormalizeCron(string expression) =>
+        string.Join(' ', expression.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .ToUpperInvariant();
 
     /// <summary>Gets the fixed period between runs, or <c>null</c> when this is a cron schedule.</summary>
     public TimeSpan? Period { get; }

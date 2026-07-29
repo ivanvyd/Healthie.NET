@@ -1,4 +1,4 @@
-﻿using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 

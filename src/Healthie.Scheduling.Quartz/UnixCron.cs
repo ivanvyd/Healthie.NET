@@ -51,6 +51,16 @@ internal static class UnixCron
                     "five, or six with a leading seconds field.");
         }
 
+        // Quartz validates the fields it considers borderline and quietly accepts the rest:
+        // "99 99 * * *" raises nothing and produces a trigger that fires every minute, forever.
+        // A health check silently running sixty times an hour instead of on a mistyped schedule is
+        // worse than one that refuses to start, so the ranges are checked here first.
+        ValidateRange(seconds, 0, 59, "seconds", expression);
+        ValidateRange(minute, 0, 59, "minute", expression);
+        ValidateRange(hour, 0, 23, "hour", expression);
+        ValidateRange(dayOfMonth, 1, 31, "day-of-month", expression);
+        ValidateRange(month, 1, 12, "month", expression);
+
         dayOfWeek = ShiftDayOfWeek(dayOfWeek, expression);
 
         // Quartz wants '?' in whichever day field is unconstrained, and rejects constraining both.
@@ -74,6 +84,46 @@ internal static class UnixCron
         }
 
         return string.Join(' ', seconds, minute, hour, dayOfMonth, month, dayOfWeek);
+    }
+
+    /// <summary>
+    /// Rejects a field whose numbers fall outside what it can mean.
+    /// </summary>
+    /// <remarks>
+    /// Only the numbers are checked. Names, wildcards and step syntax are left to Quartz, which
+    /// reads them the same way; it is the plain out-of-range number that it accepts and
+    /// misinterprets.
+    /// </remarks>
+    private static void ValidateRange(string field, int min, int max, string fieldName, string expression)
+    {
+        if (field is "*" or "?")
+        {
+            return;
+        }
+
+        foreach (var term in field.Split(','))
+        {
+            // A step divisor is a count, not a point in the field, so it is not bounded by it.
+            var slash = term.IndexOf('/', StringComparison.Ordinal);
+            var points = slash >= 0 ? term[..slash] : term;
+
+            foreach (var point in points.Split('-'))
+            {
+                if (point is "*" or "" || !int.TryParse(point, NumberStyles.None, CultureInfo.InvariantCulture, out var value))
+                {
+                    // Not a plain number: either a name, a wildcard, or something malformed that
+                    // Quartz will reject on its own terms with a message about that character.
+                    continue;
+                }
+
+                if (value < min || value > max)
+                {
+                    throw new NotSupportedException(
+                        $"Cron expression '{expression}' has {fieldName} '{point}', which is outside " +
+                        $"the valid range {min} to {max}.");
+                }
+            }
+        }
     }
 
     /// <summary>

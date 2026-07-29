@@ -110,8 +110,13 @@ public sealed class QuartzPulseScheduler(
 
         var builder = TriggerBuilder.Create().WithIdentity(triggerKey);
 
+        // Pinned to UTC. Quartz defaults a cron trigger to TimeZoneInfo.Local, so "0 9 * * *"
+        // would fire at 09:00 wherever the server happens to be, while the built-in scheduler
+        // evaluates the same expression against UtcNow -- one expression, two different times, and
+        // invisible on the UTC-configured hosts most containers run as. The dashboard renders UTC
+        // throughout, so UTC is also the one the rest of this library already means.
         var trigger = cronExpression is not null
-            ? builder.WithCronSchedule(cronExpression).Build()
+            ? builder.WithCronSchedule(cronExpression, c => c.InTimeZone(TimeZoneInfo.Utc)).Build()
             : builder
                 .StartNow()
                 .WithSimpleSchedule(schedule => schedule.WithInterval(period!.Value).RepeatForever())
