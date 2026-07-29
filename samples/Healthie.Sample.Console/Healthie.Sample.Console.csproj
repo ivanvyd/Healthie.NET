@@ -9,6 +9,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <!--
+      Lifted off the 8.0.0 that Microsoft.Extensions.Hosting brings on net8.0, which carries
+      CVE-2024-30105 and, up to 8.0.4, CVE-2024-43485. Overridden here rather than pinned centrally: a central pin would hold
+      every project down, and the Aspire host needs a newer one.
+    -->
+    <PackageReference Include="System.Text.Json" VersionOverride="8.0.6" />
   </ItemGroup>
 
   <ItemGroup>
