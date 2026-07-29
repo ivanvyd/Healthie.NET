@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Uptime</PackageId>
+    <Description>Uptime and SLA reporting for Healthie.NET: records health transitions so you can answer what your uptime was over any window, not just the last hundred checks.</Description>
+    <PackageTags>$(HealthieCommonTags);uptime;sla;reporting;availability</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
