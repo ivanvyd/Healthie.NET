@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Sqlite</PackageId>
+    <Description>SQLite state provider for Healthie.NET -- durable pulse checker state with no server to stand up.</Description>
+    <PackageTags>$(HealthieCommonTags);sqlite;embedded</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <!--
+      Not used directly. Microsoft.Data.Sqlite pulls 2.1.11, which carries
+      GHSA-2m69-gcr7-jv3q against the SQLite build inside it, and a direct reference is what
+      lifts a transitive package without turning on repo-wide transitive pinning.
+    -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.StateProviding.Relational\Healthie.StateProviding.Relational.csproj" />
+  </ItemGroup>
+
+</Project>

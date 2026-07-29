@@ -1,0 +1,36 @@
+name: Dependency review
+
+# Blocks a pull request that would introduce a dependency with a known advisory, or one whose
+# licence this project cannot ship. Dependabot reports on what is already merged; this refuses
+# it at the door, which is the cheaper end to fix it from.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the action summarise its findings on the pull request itself rather than only in the
+      # run log, which nobody opens unless something already went red.
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Review dependencies
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          # Moderate rather than high: this is a library, so an advisory in a transitive package
+          # becomes an advisory in every consuming application, and the blast radius argues for
+          # the stricter threshold.
+          fail-on-severity: moderate
+          # Copyleft licences would force obligations onto everyone who restores these packages,
+          # which an MIT library cannot pass on.
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, LGPL-2.1, LGPL-3.0
+          comment-summary-in-pr: on-failure

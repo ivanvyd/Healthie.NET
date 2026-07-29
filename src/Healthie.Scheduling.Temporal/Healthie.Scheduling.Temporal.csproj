@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Temporal</PackageId>
+    <Description>Temporal scheduling provider for Healthie.NET: schedules live in the Temporal cluster, so they survive a restart and each occurrence runs on exactly one worker.</Description>
+    <PackageTags>$(HealthieCommonTags);temporal;scheduling;durable-execution</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Temporalio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

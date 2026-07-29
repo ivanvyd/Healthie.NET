@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Relational</PackageId>
+    <Description>Relational state provider for Healthie.NET -- persists pulse checker state to any database with an ADO.NET driver. Bring your own driver, or install Healthie.NET.Postgres, Healthie.NET.SqlServer or Healthie.NET.Sqlite.</Description>
+    <PackageTags>$(HealthieCommonTags);sql;ado.net;database</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

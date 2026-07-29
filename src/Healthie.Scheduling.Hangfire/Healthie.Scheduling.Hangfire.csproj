@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <PackageId>Healthie.NET.Hangfire</PackageId>
+    <Description>Hangfire scheduling provider for Healthie.NET -- schedules pulse checkers as Hangfire recurring jobs, so schedules survive a restart and each occurrence runs on exactly one replica.</Description>
+    <PackageTags>$(HealthieCommonTags);hangfire;scheduling;background-jobs</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.Core" />
+    <!--
+      Not used directly. Hangfire.Core brings Newtonsoft.Json 11.0.1, which carries
+      GHSA-5crp-9r3c-p9vr; a direct reference lifts it to the 13.x this repository already pins.
+    -->
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>

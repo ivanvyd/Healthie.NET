@@ -29,6 +29,7 @@ permissions:
 env:
   CONFIGURATION: Release
   NUPKG_DIR: ./nupkgs
+  SBOM_FILE: ./healthie.net.cdx.json
 
 jobs:
   release:
@@ -36,14 +37,14 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
       # The 10.0 SDK builds every target framework the libraries ship for; the 8.0 runtime is
       # needed to also run the tests against net8.0 before publishing.
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           dotnet-version: |
             8.0.x
@@ -122,14 +123,73 @@ jobs:
           --output ${{ env.NUPKG_DIR }}
           -p:PackageVersion=${{ steps.version.outputs.VERSION }}
 
+      # Scoped to the shipped projects rather than the solution: scanning everything drags in the
+      # samples' Aspire dependencies, which describe this repository rather than anything a
+      # consumer restores -- 189 components instead of 58. The filter is derived from the src tree
+      # at release time, so a package added later joins the SBOM without anyone remembering to.
+      #
+      # Written outside NUPKG_DIR deliberately: the publish step globs that directory, and an SBOM
+      # is not a package.
+      - name: Generate SBOM
+        run: |
+          set -euo pipefail
+
+          # Pinned, because this job holds contents: write and id-token: write -- the token that
+          # mints the NuGet publishing key. An unpinned install would hand whatever the newest
+          # release happens to be the run of the most privileged job in the repository, which is
+          # the exact class of thing the rest of this workflow set exists to prevent. NuGet
+          # versions are immutable, so a pinned one cannot be swapped underneath us.
+          dotnet tool install --global CycloneDX --version 6.2.0
+
+          # Already on PATH for GitHub-hosted runners; set explicitly so a self-hosted one fails
+          # on something legible rather than an unrecognised command far from its cause.
+          export PATH="$PATH:$HOME/.dotnet/tools"
+
+          python3 - <<'PY'
+          import glob, json, os
+          # Forward slashes on purpose. Visual Studio writes solution filters with backslashes,
+          # but glob yields the host separator, and converting to backslashes here would hand the
+          # Linux runner Windows paths -- which resolve to nothing. Forward slashes parse on both.
+          projects = sorted(p.replace(os.sep, '/') for p in glob.glob('src/*/*.csproj'))
+          if not projects:
+              raise SystemExit('no shipped projects matched src/*/*.csproj')
+          json.dump({'solution': {'path': 'Healthie.NET.sln', 'projects': projects}},
+                    open('shipped.slnf', 'w'), indent=2)
+          print(f'{len(projects)} shipped projects in the SBOM')
+          PY
+
+          dotnet-CycloneDX shipped.slnf \
+            --output . \
+            --filename "$(basename '${{ env.SBOM_FILE }}')" \
+            --output-format Json \
+            --set-name Healthie.NET \
+            --set-version "${{ steps.version.outputs.VERSION }}" \
+            --set-type Library
+
+          # CycloneDX exits 0 having written an empty document when the filter resolves to
+          # nothing, so the exit code alone would let an empty SBOM reach the release and read as
+          # a complete one. The shipped closure is around 58 components; anything near zero means
+          # the filter stopped matching, not that the dependencies went away.
+          python3 - <<'PY'
+          import json, os
+          path = os.environ['SBOM_FILE']
+          count = len(json.load(open(path)).get('components', []))
+          print(f'SBOM lists {count} components')
+          if count < 20:
+              raise SystemExit(f'{path} lists only {count} components; refusing to publish an empty SBOM')
+          PY
+
+          rm -f shipped.slnf
+
       # Attached to the workflow run, so a dry run still leaves something to inspect.
       - name: Upload packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: nupkgs-${{ steps.version.outputs.VERSION }}
           path: |
             ${{ env.NUPKG_DIR }}/*.nupkg
             ${{ env.NUPKG_DIR }}/*.snupkg
+            ${{ env.SBOM_FILE }}
           if-no-files-found: error
 
       # Trusted publishing: NuGet.org trades GitHub's signed OIDC token for a key that lives one
@@ -142,7 +202,7 @@ jobs:
       # run the key simply goes unused and expires.
       - name: Get a publishing key from NuGet.org
         id: nuget_login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           # The nuget.org profile name, not an email address. Not a secret: it is on every package
           # page already. Keeping it in the open means a missing secret cannot silently break a
@@ -206,6 +266,7 @@ jobs:
 
           gh release create "${{ steps.version.outputs.TAG }}" \
             ${{ env.NUPKG_DIR }}/*.nupkg \
+            "${{ env.SBOM_FILE }}" \
             "${NOTES_FLAG[@]}" \
             $PRERELEASE_FLAG \
             --title "Healthie.NET ${{ steps.version.outputs.VERSION }}"
