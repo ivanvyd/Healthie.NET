@@ -654,6 +654,30 @@ If your only consumer is an AI agent, you may not need this package at all: an a
 
 ---
 
+## Metrics and Traces
+
+Healthie.NET reports on itself through the framework's own `Meter` and `ActivitySource`. There is no package to install and nothing to register -- OpenTelemetry picks both up by name:
+
+```csharp
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics.AddMeter(HealthieDiagnostics.MeterName))
+    .WithTracing(tracing => tracing.AddSource(HealthieDiagnostics.ActivitySourceName));
+```
+
+| Instrument | Unit | What it tells you |
+|---|---|---|
+| `healthie.check.duration` | s | How long the check itself took -- your `CheckAsync`, not the state read and write around it |
+| `healthie.check.results` | {check} | Checks completed, tagged with the health each reported |
+| `healthie.check.transitions` | {transition} | Health actually changing. The one worth alerting on |
+| `healthie.check.overlaps` | {trigger} | Triggers skipped because the previous check had not finished |
+
+That last one is the one to watch. A checker whose check outlasts its interval keeps reporting healthy while quietly running at a fraction of the rate you asked for, and this counter is the only place that shows.
+
+Tags are `healthie.checker.name`, `healthie.checker.group` and `healthie.check.result`. A checker's *tags* are deliberately absent: they are user-defined, editable from the dashboard, and unbounded, so every distinct value would multiply the series your backend stores.
+
+Each check also opens a `Healthie.Check` span carrying the same attributes. A check runs on a background timer with no ambient trace context, so each is its own trace root. An unhealthy result does not set an error status on the span -- the check did its job; the component it watches is what failed.
+
+
 ## Extensibility
 
 Healthie.NET is designed around extensible contracts. You can create custom providers for both scheduling and state storage without modifying library internals.

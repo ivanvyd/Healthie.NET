@@ -1,7 +1,9 @@
+using Healthie.Abstractions.Diagnostics;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 
 namespace Healthie.Abstractions;
 
@@ -333,14 +335,35 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     {
         if (!await _semaphore.WaitAsync(TimeSpan.Zero, cancellationToken).ConfigureAwait(false))
         {
-            _logger?.LogDebug("Skipping trigger for '{CheckerName}' — previous execution is still running.", Name);
+            if (_logger is not null)
+            {
+                Log.OverlappingTriggerSkipped(_logger, Name);
+            }
+
+            // A checker whose check outlasts its interval surfaces here and nowhere else: it keeps
+            // reporting healthy while quietly running at a fraction of the rate it was asked to.
+            HealthieDiagnostics.OverlappedTriggers.Add(
+                1,
+                new KeyValuePair<string, object?>(HealthieDiagnostics.CheckerNameTag, Name));
+
             return;
         }
+
+        using var activity = HealthieDiagnostics.ActivitySource.StartActivity(
+            "Healthie.Check",
+            ActivityKind.Internal);
+
+        activity?.SetTag(HealthieDiagnostics.CheckerNameTag, Name);
 
         try
         {
             var executedAt = DateTime.UtcNow;
+
+            // Times the user's check alone. Reading and writing state is this library's own work,
+            // and folding it in would report a component as slower than it is.
+            var startedAt = Stopwatch.GetTimestamp();
             var result = await RunCheckAsync(cancellationToken).ConfigureAwait(false);
+            var elapsed = Stopwatch.GetElapsedTime(startedAt);
 
             PulseCheckerState state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
                 ?? CreateInitialState();
@@ -353,7 +376,13 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
 
             await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
 
-            if (!Equals(oldState, state))
+            var changed = !Equals(oldState, state);
+
+            // Recorded after the write, so a check whose state could not be stored is not counted
+            // as one that ran -- the same reason a storage failure is not a health result.
+            RecordTelemetry(activity, state, oldState, elapsed);
+
+            if (changed)
             {
                 StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, state));
             }
@@ -384,9 +413,58 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
         }
         catch (Exception ex)
         {
-            _logger?.LogDebug(ex, "Pulse check for '{CheckerName}' threw.", Name);
+            if (_logger is not null)
+            {
+                Log.CheckThrew(_logger, ex, Name);
+            }
 
             return new PulseCheckerResult(PulseCheckerHealth.Unhealthy, $"{ex.GetType()}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Records what this check did, for metrics, tracing and the log.
+    /// </summary>
+    /// <remarks>
+    /// Only the checker's name and group become tags. Its tags are user-defined, editable from the
+    /// dashboard and unbounded, and every distinct value multiplies the series a backend stores.
+    /// </remarks>
+    private void RecordTelemetry(
+        Activity? activity,
+        PulseCheckerState state,
+        PulseCheckerState previous,
+        TimeSpan elapsed)
+    {
+        var health = state.LastResult?.Health ?? PulseCheckerHealth.Healthy;
+        var previousHealth = previous.LastResult?.Health;
+
+        var name = new KeyValuePair<string, object?>(HealthieDiagnostics.CheckerNameTag, Name);
+        var group = new KeyValuePair<string, object?>(HealthieDiagnostics.CheckerGroupTag, state.Group);
+        var result = new KeyValuePair<string, object?>(HealthieDiagnostics.ResultTag, health.ToString());
+
+        HealthieDiagnostics.CheckDuration.Record(elapsed.TotalSeconds, name, group, result);
+        HealthieDiagnostics.CheckResults.Add(1, name, group, result);
+
+        activity?.SetTag(HealthieDiagnostics.CheckerGroupTag, state.Group);
+        activity?.SetTag(HealthieDiagnostics.ResultTag, health.ToString());
+
+        // Deliberately not `changed`. State equality includes LastExecutionDateTime, which moves on
+        // every tick, so "the state differs" is true of every check and would make this a second
+        // copy of the results counter. What is worth alerting on is the health itself moving.
+        if (previousHealth == health)
+        {
+            return;
+        }
+
+        HealthieDiagnostics.StateTransitions.Add(1, name, group, result);
+
+        if (_logger is not null)
+        {
+            Log.StateChanged(
+                _logger,
+                Name,
+                previousHealth?.ToString() ?? "none",
+                health.ToString());
         }
     }
 
