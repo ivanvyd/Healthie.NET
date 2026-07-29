@@ -96,6 +96,7 @@ public sealed class RelationalStateProvider(
         AddParameter(command, "@name", name);
         AddParameter(command, "@state_type", typeof(TState).FullName);
         AddParameter(command, "@value", JsonSerializer.Serialize(state));
+        AddParameter(command, "@version", NewVersion());
 
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -168,6 +169,102 @@ public sealed class RelationalStateProvider(
 
         // Rows affected is what distinguishes "there was state and it is gone" from "there was
         // none", which is the only thing a caller can act on.
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
+    }
+
+    /// <inheritdoc />
+    public bool SupportsOptimisticConcurrency => true;
+
+    /// <summary>
+    /// A fresh version for a write.
+    /// </summary>
+    /// <remarks>
+    /// A new value each time, generated here rather than by the database, so the same statement
+    /// works on every engine -- PostgreSQL has no auto-updating column and SQL Server's rowversion
+    /// is not portable. It is opaque to callers, so only its uniqueness matters.
+    /// </remarks>
+    private static string NewVersion() => Guid.NewGuid().ToString("N");
+
+    /// <inheritdoc />
+    public async Task<StateEntry<TState>?> GetStateEntryAsync<TState>(
+        string name,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = RelationalDialect.SelectWithVersion(_tableName);
+        AddParameter(command, "@name", name);
+
+        await using var reader = await command
+            .ExecuteReaderAsync(CommandBehavior.SingleRow, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        var storedStateType = await reader.IsDBNullAsync(0, cancellationToken).ConfigureAwait(false)
+            ? null
+            : reader.GetString(0);
+
+        EnsureStoredTypeMatches<TState>(name, storedStateType);
+
+        var value = JsonSerializer.Deserialize<TState>(reader.GetString(1));
+
+        if (value is null)
+        {
+            return null;
+        }
+
+        // Null for a row written before the column existed. Reported as unversioned rather than
+        // invented: a caller then writes it unconditionally, exactly as it did before the upgrade,
+        // and the row carries a version from that write on.
+        var version = await reader.IsDBNullAsync(2, cancellationToken).ConfigureAwait(false)
+            ? null
+            : reader.GetString(2);
+
+        return new StateEntry<TState>(value, version);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TrySetStateAsync<TState>(
+        string name,
+        TState state,
+        string? expectedVersion,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        if (expectedVersion is null)
+        {
+            await SetStateAsync(name, state, cancellationToken).ConfigureAwait(false);
+            return true;
+        }
+
+        await using var connection = _connectionFactory();
+        await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = expectedVersion == IStateProvider.AbsentVersion
+            ? RelationalDialect.InsertIfAbsent(_tableName)
+            : RelationalDialect.ConditionalUpdate(_tableName);
+        AddParameter(command, "@name", name);
+        AddParameter(command, "@state_type", typeof(TState).FullName);
+        AddParameter(command, "@value", JsonSerializer.Serialize(state));
+        AddParameter(command, "@version", NewVersion());
+
+        if (expectedVersion != IStateProvider.AbsentVersion)
+        {
+            AddParameter(command, "@expected_version", expectedVersion);
+        }
+
+        // Nothing updated means the version moved on, or the row is gone. Either way this write
+        // lost, which is exactly what the caller asked to be told.
         return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
     }
 

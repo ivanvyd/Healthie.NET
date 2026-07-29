@@ -24,6 +24,13 @@ namespace Healthie.Abstractions;
 public abstract class PulseChecker : IPulseChecker, IDisposable
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(10);
+
+    /// <summary>How many times a setting change is reapplied before giving up.</summary>
+    /// <remarks>
+    /// Contention is one check loop against one person editing, so a conflict is rare and a second
+    /// one rarer. A larger number would only make a genuine livelock take longer to report.
+    /// </remarks>
+    private const int MaxUpdateAttempts = 5;
     private readonly IStateProvider _stateProvider;
     private readonly ILogger? _logger;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
@@ -241,26 +248,94 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
         }
     }
 
+    /// <summary>
+    /// Applies a change to this checker's stored state, and reapplies it if something else wrote
+    /// first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This closes the gap every setting change used to have. Reading the state, changing it and
+    /// writing it back is three steps, and a check finishing in between wrote its result over the
+    /// change -- or had its own result written over. Against a provider that versions its writes,
+    /// the write now only lands if nothing moved, and the change is reapplied to the newer state if
+    /// something did.
+    /// </para>
+    /// <para>
+    /// The change runs once per attempt, against freshly read state each time, so it must not
+    /// depend on having seen the previous value.
+    /// </para>
+    /// <para>
+    /// <c>StateChanged</c> is raised once, after the write that landed, comparing against the state
+    /// that write was made from rather than whatever was read on the first attempt.
+    /// </para>
+    /// </remarks>
+    /// <returns><c>true</c> if anything was written; <c>false</c> if the change was a no-op.</returns>
+    private async Task<bool> UpdateStateAsync(Action<PulseCheckerState> apply, CancellationToken cancellationToken)
+    {
+        await AcquireAsync(cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                var entry = await _stateProvider
+                    .GetStateEntryAsync<PulseCheckerState>(Name, cancellationToken)
+                    .ConfigureAwait(false);
+
+                var state = entry?.Value ?? CreateInitialState();
+
+                // History is a mutable list, so `with` alone would hand out a snapshot sharing it.
+                var oldState = state with { History = [.. state.History] };
+
+                apply(state);
+
+                // Nothing to write, and nothing to tell anyone about.
+                if (Equals(oldState, state))
+                {
+                    return false;
+                }
+
+                // Three cases, and collapsing any two of them is a bug. Nothing stored -> ask for a
+                // create that loses to whoever creates first. Stored and versioned -> the version.
+                // Stored but unversioned (a row written before the provider could version) -> null, an
+                // unconditional write, because there is nothing to compare and demanding a version that
+                // does not exist would refuse every write for ever.
+                var version = _stateProvider.SupportsOptimisticConcurrency
+                    ? entry is null ? IStateProvider.AbsentVersion : entry.Version
+                    : null;
+
+                if (await _stateProvider
+                        .TrySetStateAsync(Name, state, version, cancellationToken)
+                        .ConfigureAwait(false))
+                {
+                    StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, state));
+                    return true;
+                }
+
+                if (attempt >= MaxUpdateAttempts)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not update the state of pulse checker '{Name}' after {MaxUpdateAttempts} " +
+                        "attempts: another writer changed it each time.");
+                }
+            }
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
     /// <inheritdoc />
     public async Task SetIntervalAsync(PulseInterval interval, CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.Interval == interval)
-            return;
-        state.Interval = interval;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.Interval = interval, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task SetUnhealthyThresholdAsync(uint threshold, CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.UnhealthyThreshold == threshold)
-        {
-            return;
-        }
-        state.UnhealthyThreshold = threshold;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.UnhealthyThreshold = threshold, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -270,14 +345,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
 
         var normalized = NormalizeTags(tags);
 
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.Tags.SequenceEqual(normalized))
-        {
-            return;
-        }
-
-        state.Tags = normalized;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.Tags = [.. normalized], cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -285,41 +353,25 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     {
         var normalized = NormalizeGroup(group);
 
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.Group == normalized)
-        {
-            return;
-        }
-
-        state.Group = normalized;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.Group = normalized, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task SetPinnedAsync(bool pinned, CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.IsPinned == pinned)
-        {
-            return;
-        }
-
-        state.IsPinned = pinned;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.IsPinned = pinned, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task ResetAsync(CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-
-        state.ConsecutiveFailureCount = 0;
-
-        state.LastResult = new PulseCheckerResult(
-            PulseCheckerHealth.Healthy,
-            string.Empty);
-
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(
+            state =>
+            {
+                state.ConsecutiveFailureCount = 0;
+                state.LastResult = new PulseCheckerResult(PulseCheckerHealth.Healthy, string.Empty);
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -342,11 +394,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     /// <inheritdoc />
     public async Task SetHistoryEnabledAsync(bool enabled, CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.IsHistoryEnabled == enabled)
-            return;
-        state.IsHistoryEnabled = enabled;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.IsHistoryEnabled = enabled, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -561,23 +609,13 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     /// <inheritdoc />
     public async Task<bool> StopAsync(CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (!state.IsActive)
-            return false;
-        state.IsActive = false;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
-        return true;
+        return await UpdateStateAsync(state => state.IsActive = false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<bool> StartAsync(CancellationToken cancellationToken = default)
     {
-        PulseCheckerState state = await GetStateAsync(cancellationToken).ConfigureAwait(false);
-        if (state.IsActive)
-            return false;
-        state.IsActive = true;
-        await SetStateAsync(state, cancellationToken).ConfigureAwait(false);
-        return true;
+        return await UpdateStateAsync(state => state.IsActive = true, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
