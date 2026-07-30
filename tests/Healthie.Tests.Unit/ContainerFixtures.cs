@@ -95,7 +95,8 @@ public sealed class SqlServerFixture : ContainerFixture<MsSqlContainer>
 /// </summary>
 public sealed class CosmosDbFixture : ContainerFixture<CosmosDbContainer>
 {
-    protected override CosmosDbContainer Build() => new CosmosDbBuilder().Build();
+    protected override CosmosDbContainer Build() =>
+        new CosmosDbBuilder("mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview").Build();
 
     /// <summary>The connection string, once the container is up.</summary>
     public string ConnectionString => Container!.GetConnectionString();
