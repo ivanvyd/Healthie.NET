@@ -17,8 +17,11 @@ namespace Healthie.Tests.E2E;
 /// </para>
 /// </remarks>
 [Collection(nameof(BrowserCollection))]
-public class DashboardReadOnlyTests(BrowserFixture browser)
+public class DashboardReadOnlyTests(BrowserFixture browser) : IAsyncDisposable
 {
+    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
+    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
+
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static readonly ProviderSetup Setup = new("Timer", UseCosmos: false);
@@ -46,7 +49,7 @@ public class DashboardReadOnlyTests(BrowserFixture browser)
         browser.TrackErrors(page, errors);
 
         await page.GotoAsync(app.DashboardUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
-        await page.Locator(".hpm-row").First.WaitForAsync(new() { Timeout = 30_000 });
+        await DashboardTests.WaitForTheBoardAsync(page);
         return page;
     }
 
@@ -99,15 +102,15 @@ public class DashboardReadOnlyTests(BrowserFixture browser)
         // A check has to land before there is any history to draw.
         await page.Locator(".hpm-blips").First.WaitForAsync(new() { Timeout = 30_000 });
 
-        Assert.True(await page.Locator(".hpm-row").CountAsync() > 0, "no checkers are listed");
-        Assert.True(await page.Locator(".hpm-stats").CountAsync() > 0, "the selected checker's stats are missing");
-        Assert.Equal(1, await page.Locator(".hpm-log-body").CountAsync());
+        await Assertions.Expect(page.Locator(".hpm-row").First).ToBeVisibleAsync();
+        await Assertions.Expect(page.Locator(".hpm-stats").First).ToBeVisibleAsync();
+        await Assertions.Expect(page.Locator(".hpm-log-body")).ToHaveCountAsync(1);
 
         // The controls that only change what the viewer sees are not mutations, so they stay.
-        Assert.Equal(1, await page.Locator("[aria-label='Search checkers']").CountAsync());
-        Assert.Equal(1, await page.Locator("button:text-is('GROUP')").CountAsync());
-        Assert.Equal(1, await page.Locator("[aria-label='Legend and about']").CountAsync());
-        Assert.Equal(1, await page.Locator("[aria-label='Expand the event log']").CountAsync());
+        await Assertions.Expect(page.Locator("[aria-label='Search checkers']")).ToHaveCountAsync(1);
+        await Assertions.Expect(page.Locator("button:text-is('GROUP')")).ToHaveCountAsync(1);
+        await Assertions.Expect(page.Locator("[aria-label='Legend and about']")).ToHaveCountAsync(1);
+        await Assertions.Expect(page.Locator("[aria-label='Expand the event log']")).ToHaveCountAsync(1);
 
         browser.AssertNoErrors(page);
     }

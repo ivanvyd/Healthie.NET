@@ -71,3 +71,16 @@ jobs:
         run: >
           dotnet test tests/Healthie.Tests.E2E
           --configuration Release --no-build --verbosity normal
+
+      # A browser test that fails only on a runner is otherwise a stack trace and a guess. The suite
+      # records a Playwright trace per test and keeps the ones that failed; this is what makes them
+      # readable afterwards -- open a downloaded zip at https://trace.playwright.dev and you get the
+      # DOM, the network and a screenshot at the moment it gave up.
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-traces
+          path: tests/Healthie.Tests.E2E/bin/Release/net8.0/playwright-traces
+          if-no-files-found: ignore
+          retention-days: 7

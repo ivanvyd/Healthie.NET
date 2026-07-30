@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Microsoft.Playwright;
 
 namespace Healthie.Tests.E2E;
@@ -10,6 +10,8 @@ namespace Healthie.Tests.E2E;
 public sealed class BrowserFixture : IAsyncLifetime
 {
     private readonly ConcurrentDictionary<IPage, List<string>> _errors = new();
+    private readonly ConcurrentDictionary<IPage, IBrowserContext> _contexts = new();
+    private readonly ConcurrentDictionary<IPage, object> _owners = new();
     private IPlaywright? _playwright;
     private IBrowser? _browser;
 
@@ -41,8 +43,69 @@ public sealed class BrowserFixture : IAsyncLifetime
     public async Task<IPage> NewPageAsync()
     {
         var browser = _browser ?? throw new InvalidOperationException("The browser is not running.");
-        return await browser.NewPageAsync(new() { ViewportSize = new() { Width = 1440, Height = 900 } });
+
+        var context = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 1440, Height = 900 } });
+
+        // Recorded for every test and kept only for the ones that fail. A browser test that fails on
+        // a runner and passes everywhere else is otherwise a stack trace and a guess: this leaves the
+        // DOM, the network and a screenshot at the moment it gave up, which is the difference between
+        // diagnosing it once and patching it three times.
+        await context.Tracing.StartAsync(new() { Screenshots = true, Snapshots = true, Sources = false });
+
+        var page = await context.NewPageAsync();
+        _contexts[page] = context;
+
+        // Keyed by the running test so a class that opens several pages closes only its own.
+        if (TestContext.Current.Test is { } test)
+        {
+            _owners[page] = test;
+        }
+
+        return page;
     }
+
+    /// <summary>
+    /// Closes every page the current test opened, keeping a trace only if it failed.
+    /// </summary>
+    /// <remarks>
+    /// Kept only on failure because a trace is a few megabytes and fifty-three passing ones are worth
+    /// nothing. <see cref="TraceDirectory"/> is what CI uploads.
+    /// </remarks>
+    public async Task FinishCurrentTestAsync()
+    {
+        var test = TestContext.Current.Test;
+        var failed = TestContext.Current.TestState?.Result == TestResult.Failed;
+        var name = test?.TestDisplayName ?? "unknown-test";
+
+        foreach (var (page, context) in _contexts.ToArray())
+        {
+            if (!ReferenceEquals(_owners.GetValueOrDefault(page), test))
+            {
+                continue;
+            }
+
+            _contexts.TryRemove(page, out _);
+            _owners.TryRemove(page, out _);
+
+            if (failed)
+            {
+                Directory.CreateDirectory(TraceDirectory);
+
+                var safe = string.Concat(name.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '-'));
+                await context.Tracing.StopAsync(new() { Path = Path.Combine(TraceDirectory, $"{safe}.zip") });
+            }
+            else
+            {
+                await context.Tracing.StopAsync();
+            }
+
+            await context.CloseAsync();
+        }
+    }
+
+    /// <summary>Where failure traces are written, and what CI collects.</summary>
+    public static string TraceDirectory { get; } =
+        Path.Combine(AppContext.BaseDirectory, "playwright-traces");
 
     /// <summary>Records the console and page errors seen on a page, for <see cref="AssertNoErrors"/>.</summary>
     public void TrackErrors(IPage page, List<string> errors) => _errors[page] = errors;
