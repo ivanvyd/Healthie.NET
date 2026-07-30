@@ -834,7 +834,9 @@ and both are deliberate as they stand:
 - **`Healthie.Api` requires no authorization unless the host asks for it**, and the dashboard's
   `HealthieUIOptions.AllowMutations` defaults to `true`. A host that maps either and does nothing
   else exposes read *and* write control of its checkers. Both are documented, and changing either
-  default is a behaviour break for every existing consumer.
+  default is a behaviour break for every existing consumer -- so instead of changing them, both now
+  log a `Warning` at startup naming exactly what is exposed. The warning reads the endpoints, not
+  the flags, so securing them any way at all silences it.
 - **Restore is not pinned by hash.** The fix is NuGet lock files, which means every package change
   needs the lock updated and CI running in locked mode.
 

@@ -80,6 +80,18 @@ its code behaves exactly as it did.
   to completion without interleaving anything else, which is the guarantee a read-then-write cannot
   give. Durability is whatever the Redis is configured for, and the package README says so rather
   than implying more.
+- **A startup warning when a surface that can change a checker is reachable without
+  authenticating.** `AddHealthieController` still does not require authorization unless asked, and
+  the dashboard's `AllowMutations` still defaults to `true` -- both are deliberate and changing
+  either would break every application that maps them. What was missing was anyone being told: an
+  application that maps one and stops there lets whoever can reach it stop a checker or clear a
+  failing streak, which hides an incident rather than reporting one. Logged once, at `Warning`, on
+  application start.
+
+  Asked of the endpoints rather than of the flags that built them, so an application that applied
+  authorization its own way -- `RequireAuthorization()`, an endpoint group, its own attribute -- is
+  not warned at. A warning that fires on correctly secured applications gets filtered out, and then
+  it is not there for the one that needs it.
 - **Schedules.** `PulseSchedule` says either "every this long" or "on this cron expression", and
   sits alongside `PulseInterval` rather than replacing it. The enum stopped at five minutes, which
   is short of what a certificate-expiry or disk-space check wants. Cron is standard Unix syntax and

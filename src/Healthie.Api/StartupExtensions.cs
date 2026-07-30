@@ -1,6 +1,9 @@
 using Healthie.Api.Controllers;
 using Healthie.Api.Conventions;
+using Healthie.Api.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace Healthie.Api;
 
@@ -36,6 +39,11 @@ public static class StartupExtensions
 
         // Ensure HealthCheckersController from Healthie.Api assembly is discovered.
         mvcBuilder.AddApplicationPart(typeof(HealthCheckersController).Assembly);
+
+        // Says so at startup if the endpoints that can change a checker end up reachable without
+        // authenticating. TryAdd because calling this twice should not warn twice.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IHostedService, UnauthenticatedSurfaceWarning>());
 
         return mvcBuilder;
     }
