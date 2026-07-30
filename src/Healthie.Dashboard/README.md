@@ -60,6 +60,7 @@ app.MapHealthieUI().RequireAuthorization("AdminPolicy"); // With auth
 - Per-checker management: start, stop, trigger, reset, change interval, change threshold
 - Bulk actions: Start All, Stop All, Trigger All
 - A read-only mode that reports everything and changes nothing — see below
+- Panels for the feature packages you install — uptime, alerts, leadership, AI — see below
 - Groups and tags, both editable here and seeded from code — see below
 - Pin a checker to the top of the list
 - Rows or cards, flat or sectioned by group with per-group tallies
@@ -98,6 +99,27 @@ it:
 builder.Services.AddHealthieUI(options => options.AllowMutations = false);
 app.MapHealthieUI().RequireAuthorization();
 ```
+
+## Panels for the packages you install
+
+The board grows a panel for each feature package the application registers, and shows none of them
+otherwise. There is nothing to switch on: it renders the panel when the container can resolve the
+contract, so installing the package is the whole configuration.
+
+| Install | What appears |
+|---|---|
+| `Healthie.NET.Uptime` | `24H` on the selected checker — uptime measured over real time — and `WORST`, the longest unbroken outage inside that window |
+| `Healthie.NET.Alerting` | An `ALERTS` button opening the recent alerts, each with its health transition, its message, and a flag when it did not reach every sink |
+| `Healthie.NET.LeaderElection` | A badge naming this replica, shown only when it is *not* the one running the checks — a board where nothing is moving is otherwise indistinguishable from a broken one |
+| `Healthie.NET.AI` | An `EXPLAIN` button on a failing checker, which asks your `IChatClient` why it has been failing |
+
+`24H` sits beside the board's own `UPTIME`, which is the share of the runs still in the rolling
+history — a hundred results, so at a one-second interval, the last hundred seconds. They answer
+different questions and disagree for good reasons, which is why both are shown.
+
+All of it reads and none of it writes, so it all stays under `AllowMutations = false`. The exception
+is `EXPLAIN`: still a read, but it spends money on your account, so it is gated with the controls
+that change things.
 
 ## Groups and tags
 
