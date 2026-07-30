@@ -1,6 +1,7 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Extensions;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Dashboard.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -66,10 +67,63 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     private bool _showAbout;
     private bool _showLog;
     private bool _asCards;
-    private bool _groupByTags;
+
+    /// <summary>
+    /// Sectioned by group on open, flat on request.
+    /// </summary>
+    /// <remarks>
+    /// A group is a partition -- every checker under exactly one heading, tallies that add up -- so
+    /// the sectioned view is the one that answers "what is wrong, and where" at a glance. A flat
+    /// list of forty checkers makes the reader do that grouping in their head. Checkers given no
+    /// group collect under one heading rather than disappearing, so nothing is hidden by the
+    /// default.
+    /// </remarks>
+    private bool _sectionByGroup = true;
+
     private bool _isNamingGroup;
     private string? _tagDraft;
     private string? _groupDraft;
+
+    /// <summary>
+    /// Whether the side menu is expanded. Open on a desktop-width first load.
+    /// </summary>
+    /// <remarks>
+    /// The rail collapses to its icons rather than disappearing, so the toggle is always reachable
+    /// and the layout does not reflow to a different set of controls.
+    /// </remarks>
+    private bool _navOpen = true;
+
+    /// <summary>
+    /// The group the menu has narrowed the list to, or <c>null</c> for everything.
+    /// </summary>
+    /// <remarks>
+    /// A separate filter from <c>_tagFilter</c> and the search box, and combined with them rather
+    /// than replacing them: picking a group in the menu should not silently clear a search someone
+    /// has typed.
+    /// </remarks>
+    private string? _navSection;
+
+    /// <summary>What the middle column is showing.</summary>
+    /// <remarks>
+    /// A view rather than a panel that pushes the board down. The alerts list used to open as a
+    /// full-width band above everything, which displaced every row on the page and had nowhere to sit
+    /// once the side menu existed. Views switch what the middle column renders and leave the menu and
+    /// the detail panel where they are.
+    /// </remarks>
+    private enum BoardView
+    {
+        Checkers,
+        Alerts,
+        Metrics,
+    }
+
+    private BoardView _view = BoardView.Checkers;
+
+    /// <summary>What is in the cron box, which is not the stored schedule until it is applied.</summary>
+    private string? _cronDraft;
+
+    /// <summary>Why the last schedule was refused, shown beside the box that was typed into.</summary>
+    private string? _scheduleError;
 
     /// <summary>Marks the "new group" choice in the group picker, which no real group can collide with.</summary>
     private const string NewGroupOption = "\u0000new";
@@ -149,11 +203,21 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         _ => "var(--hpm-ok)",
     };
 
-    /// <summary>How many checks a minute the active checkers add up to.</summary>
+    /// <summary>
+    /// How many checks a minute the active checkers add up to.
+    /// </summary>
+    /// <remarks>
+    /// Cron checkers are left out rather than guessed at: "every weekday at 06:00" has no rate a
+    /// minute, and folding in the interval they are not running on is what this used to do.
+    /// <see cref="CronCheckerCount"/> reports them separately so they are not silently missing.
+    /// </remarks>
     private string ChecksPerMinute => _states.Values
-        .Where(state => state.IsActive)
-        .Sum(state => 60d / state.Interval.ToTimeSpan().TotalSeconds)
+        .Where(state => state.IsActive && !state.EffectiveSchedule.IsCron)
+        .Sum(state => 60d / state.EffectiveSchedule.Period!.Value.TotalSeconds)
         .ToString("0");
+
+    /// <summary>How many active checkers run on a cron expression instead of a rate.</summary>
+    private int CronCheckerCount => _states.Values.Count(state => state.IsActive && state.EffectiveSchedule.IsCron);
 
     /// <summary>How many runs the sparkline can show, which is however many are kept.</summary>
     private int HistoryWindow => _states.Count == 0 ? 0 : _states.Values.Max(s => s.History.Count);
@@ -168,6 +232,9 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
 
         _initialized = true;
         _isDarkMode = ThemeState.IsDarkMode;
+
+        // Whatever feature packages the application installed. Absent is the normal case.
+        ResolveInsights();
 
         // Hand the states the prerender read across to the interactive render. Without this the
         // circuit starts from an empty board and reads every checker again; the board it renders in
@@ -193,6 +260,11 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         {
             await LoadAsync();
         }
+
+        // The first checker is selected by MarkLoaded rather than by a click, so it has not been
+        // through the path that reads its uptime and fills the editors. Without this the panel opens
+        // missing the columns and drafts that every later selection has.
+        await SelectAsync(_selected);
 
         _clockLoop = RunClockAsync();
     }
@@ -354,6 +426,15 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
                 entry.Value.Tags.Contains(_tagFilter, StringComparer.OrdinalIgnoreCase));
         }
 
+        // Narrowed from the side menu, and combined with the two above rather than replacing them.
+        if (_navSection is { } section)
+        {
+            filtered = filtered.Where(entry => string.Equals(
+                string.IsNullOrWhiteSpace(entry.Value.Group) ? UngroupedName : entry.Value.Group,
+                section,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
         // Pinned first, then by name. Pinning is only useful if it survives the sort.
         _filtered =
         [
@@ -386,17 +467,17 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     /// several of them can be on one checker, which would put it under several headings and make
     /// the tallies count it twice.
     /// </remarks>
-    private IEnumerable<TagGroup> GroupedRows() =>
+    private IEnumerable<CheckerGroup> GroupedRows() =>
         _filtered
             .GroupBy(entry => string.IsNullOrWhiteSpace(entry.Value.Group) ? UngroupedName : entry.Value.Group!,
                      StringComparer.OrdinalIgnoreCase)
-            .Select(group => new TagGroup(group.Key, [.. group]))
+            .Select(group => new CheckerGroup(group.Key, [.. group]))
             // Ungrouped last: it is the leftovers, not a heading anyone chose.
-            .OrderBy(group => group.Tag == UngroupedName)
-            .ThenBy(group => group.Tag, StringComparer.OrdinalIgnoreCase);
+            .OrderBy(group => group.Name == UngroupedName)
+            .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>One group's checkers, and the tallies its header shows.</summary>
-    private sealed record TagGroup(string Tag, List<KeyValuePair<string, PulseCheckerState>> Rows)
+    private sealed record CheckerGroup(string Name, List<KeyValuePair<string, PulseCheckerState>> Rows)
     {
         public int Healthy => Rows.Count(r => HealthOf(r.Value) == PulseCheckerHealth.Healthy);
 
@@ -423,7 +504,65 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
 
     private void ToggleGrouping()
     {
-        _groupByTags = !_groupByTags;
+        _sectionByGroup = !_sectionByGroup;
+        Refresh();
+    }
+
+    private void ToggleNav() => _navOpen = !_navOpen;
+
+    /// <summary>
+    /// The groups the menu lists, which are the ones in the store rather than the ones surviving the
+    /// current filters.
+    /// </summary>
+    /// <remarks>
+    /// Off <see cref="_states"/>, not off the filtered rows: a menu that dropped a group because the
+    /// search box had narrowed it away would take away the means of getting back to it.
+    /// </remarks>
+    private IEnumerable<CheckerGroup> NavGroups() =>
+        _states
+            .GroupBy(entry => string.IsNullOrWhiteSpace(entry.Value.Group) ? UngroupedName : entry.Value.Group!,
+                     StringComparer.OrdinalIgnoreCase)
+            .Select(group => new CheckerGroup(group.Key, [.. group]))
+            .OrderBy(group => group.Name == UngroupedName)
+            .ThenBy(group => group.Name, StringComparer.OrdinalIgnoreCase);
+
+    private Task ShowEverythingAsync()
+    {
+        _view = BoardView.Checkers;
+        _navSection = null;
+        Refresh();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Narrows the list to one group, or back to everything when it is picked again.</summary>
+    private Task ShowGroupAsync(string group)
+    {
+        _view = BoardView.Checkers;
+        _navSection = string.Equals(_navSection, group, StringComparison.OrdinalIgnoreCase) ? null : group;
+        Refresh();
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Switches the middle column, loading whatever the view needs on the way in.</summary>
+    private async Task ShowViewAsync(BoardView view)
+    {
+        // Picking the view you are already on goes back to the checkers, so every menu entry toggles
+        // and none of them is a trap.
+        _view = _view == view ? BoardView.Checkers : view;
+
+        switch (_view)
+        {
+            case BoardView.Alerts:
+                _alertPage = 0;
+                await LoadAlertsAsync();
+                break;
+            case BoardView.Metrics:
+                LoadMetrics();
+                break;
+        }
+
         Refresh();
     }
 
@@ -434,12 +573,32 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         Refresh();
     }
 
-    private void OnRowKeyDown(KeyboardEventArgs args, string name)
+    private async Task OnRowKeyDown(KeyboardEventArgs args, string name)
     {
         if (args.Key is "Enter" or " ")
         {
-            _selected = name;
+            await SelectAsync(name);
         }
+    }
+
+    /// <summary>
+    /// Selects a checker and reads anything the feature packages can add about it.
+    /// </summary>
+    /// <remarks>
+    /// On selection rather than on the clock tick: uptime is a query over recorded segments and the
+    /// board redraws every second.
+    /// </remarks>
+    private async Task SelectAsync(string? name)
+    {
+        _selected = name;
+        _diagnosis = null;
+
+        // The cron box follows the selection: left alone it would show one checker's expression
+        // while Enter applied it to another.
+        _cronDraft = _selectedState?.Schedule?.CronExpression;
+        _scheduleError = null;
+
+        await LoadUptimeAsync(name);
     }
 
     private void ToggleAbout() => _showAbout = !_showAbout;
@@ -597,6 +756,59 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         AddEvent("CONF", Status.Paused, $"{DisplayNameOf(_selected)} interval set to {interval}");
     }
 
+    /// <summary>
+    /// Applies what is in the cron box: a schedule, or none when it has been emptied.
+    /// </summary>
+    /// <remarks>
+    /// On Enter rather than on every keystroke, because a half-typed expression is not a schedule
+    /// and every attempt reschedules the checker. A refusal is shown where it was typed -- the
+    /// schedulers disagree about cron dialects, so which rule was broken is the useful part, and the
+    /// scheduler is asked before anything is stored.
+    /// </remarks>
+    private async Task ApplyCronAsync()
+    {
+        if (_selected is null)
+        {
+            return;
+        }
+
+        _scheduleError = null;
+
+        var typed = _cronDraft?.Trim();
+
+        try
+        {
+            if (string.IsNullOrEmpty(typed))
+            {
+                await DashboardService.SetScheduleAsync(_selected, null);
+                AddEvent("CONF", Status.Paused, $"{DisplayNameOf(_selected)} back on its interval");
+
+                return;
+            }
+
+            await DashboardService.SetScheduleAsync(_selected, PulseSchedule.Cron(typed));
+            AddEvent("CONF", Status.Paused, $"{DisplayNameOf(_selected)} scheduled on '{typed}'");
+        }
+        catch (ArgumentException ex)
+        {
+            _scheduleError = ex.Message;
+        }
+    }
+
+    private async Task OnCronKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case "Enter":
+                await ApplyCronAsync();
+                break;
+            case "Escape":
+                _cronDraft = _selectedState?.Schedule?.CronExpression;
+                _scheduleError = null;
+                break;
+        }
+    }
+
     private async Task OnThresholdChanged(ChangeEventArgs args)
     {
         if (_selected is null ||
@@ -660,12 +872,32 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         : state.LastResult is null ? "PENDING"
         : state.LastResult.Health.ToString().ToUpperInvariant();
 
-    private static string RatePerMinute(PulseCheckerState state)
+    /// <summary>
+    /// What the rate column reads: a number of runs a minute, or the cron expression when the
+    /// schedule is one.
+    /// </summary>
+    /// <remarks>
+    /// Off <see cref="PulseCheckerState.EffectiveSchedule"/>, not off <c>Interval</c>. Interval is
+    /// documented as ignored once a schedule is set, so a cron checker used to advertise a rate it
+    /// was not running at -- and the aggregate summed that rate into its total.
+    /// </remarks>
+    private static string RateLabel(PulseCheckerState state)
     {
-        var perMinute = 60d / state.Interval.ToTimeSpan().TotalSeconds;
+        var schedule = state.EffectiveSchedule;
+
+        if (schedule.CronExpression is { } cron)
+        {
+            return cron;
+        }
+
+        var perMinute = 60d / schedule.Period!.Value.TotalSeconds;
 
         return perMinute >= 1 ? Math.Round(perMinute).ToString("0") : perMinute.ToString("0.0");
     }
+
+    /// <summary>The unit under the rate, which a cron expression does not have.</summary>
+    private static string RateUnit(PulseCheckerState state) =>
+        state.EffectiveSchedule.IsCron ? "cron" : "per min";
 
     private static string FailuresLabel(PulseCheckerState state) =>
         state.UnhealthyThreshold > 0

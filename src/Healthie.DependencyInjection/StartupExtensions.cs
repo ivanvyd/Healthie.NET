@@ -1,5 +1,6 @@
 using Healthie.Abstractions;
 using Healthie.Abstractions.Initialization;
+using Healthie.Abstractions.Insights;
 using Healthie.Abstractions.Scheduling;
 using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,6 +95,27 @@ public static class StartupExtensions
             // otherwise surface as a duplicate-key failure when checkers are keyed by name.
             services.TryAddEnumerable(ServiceDescriptor.Singleton(checkerInterfaceType, implementation));
         }
+    }
+
+    /// <summary>
+    /// Collects the library's own metrics in-process, so the dashboard can show them.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The same service collection, for chaining.</returns>
+    /// <remarks>
+    /// Opt-in, because a <c>MeterListener</c> costs a callback on every recorded measurement and an
+    /// application already exporting to an APM has somewhere better to read them. It listens by
+    /// meter name alongside any exporter rather than instead of one, so adding this does not take
+    /// anything away from OpenTelemetry.
+    /// </remarks>
+    public static IServiceCollection AddHealthieMetrics(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<MeterMetricsInsights>();
+        services.TryAddSingleton<IMetricsInsights>(provider => provider.GetRequiredService<MeterMetricsInsights>());
+
+        return services;
     }
 
     private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)

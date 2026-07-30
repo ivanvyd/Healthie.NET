@@ -1,4 +1,5 @@
 using Healthie.Abstractions.Scheduling;
+using Healthie.Abstractions.Insights;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -51,6 +52,12 @@ public static class StartupExtensions
 
         services.AddSingleton<IPulseScheduler>(provider => provider.GetRequiredService<LeaderElectedPulseScheduler>());
         services.AddHostedService<LeaderElectionService>();
+
+        // So a board served by a follower says so, instead of showing everything idle and looking
+        // broken.
+        services.TryAddSingleton<ILeadershipInsights>(provider => new LeadershipInsights(
+            provider.GetRequiredService<LeaderElectedPulseScheduler>(),
+            provider.GetRequiredService<LeaderElectionOptions>()));
 
         return services;
     }

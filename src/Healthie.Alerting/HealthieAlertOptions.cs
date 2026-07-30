@@ -55,4 +55,20 @@ public sealed class HealthieAlertOptions
     /// leak in the process being monitored. A dropped alert is counted and logged.
     /// </remarks>
     public int QueueCapacity { get; set; } = 1024;
+
+    private int _historyLength = 50;
+
+    /// <summary>
+    /// How many recent alerts the dashboard can show. Defaults to 50, minimum 1.
+    /// </summary>
+    /// <remarks>
+    /// A window onto what just happened rather than a record; the record is wherever the sinks
+    /// deliver to. Kept in memory and bounded, so it costs nothing to leave on. Clamped rather than
+    /// rejected, as <c>MaxHistoryLength</c> is.
+    /// </remarks>
+    public int HistoryLength
+    {
+        get => _historyLength;
+        set => _historyLength = Math.Max(value, 1);
+    }
 }

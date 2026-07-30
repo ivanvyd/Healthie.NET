@@ -114,6 +114,65 @@ public class HealthCheckersController(
     }
 
     /// <summary>
+    /// Sets the schedule a pulse checker runs on, for a cadence no interval expresses.
+    /// </summary>
+    /// <param name="checkerName">The name of the pulse checker.</param>
+    /// <param name="cron">
+    /// A standard Unix cron expression, in five fields or six with a leading seconds field. Omit it
+    /// to clear the schedule and go back to the checker's interval.
+    /// </param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>
+    /// 204 No Content on success, 404 if the checker is not found, or 400 if the name is empty or
+    /// the registered scheduler will not run the expression.
+    /// </returns>
+    /// <remarks>
+    /// The 400 carries the scheduler's own reason, because the schedulers do not agree on cron
+    /// dialects and "invalid expression" would leave the caller guessing which rule they broke.
+    /// </remarks>
+    [HttpPut("{checkerName}/schedule")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetCheckerSchedule(
+        string checkerName,
+        [FromQuery] string? cron,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(checkerName))
+        {
+            return BadRequest("Checker name cannot be empty.");
+        }
+
+        try
+        {
+            var checkers = await pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
+            if (!checkers.ContainsKey(checkerName))
+            {
+                logger?.LogWarning("Checker '{CheckerName}' not found for setting a schedule.", ForLog(checkerName));
+                return NotFound($"Checker '{checkerName}' not found.");
+            }
+
+            var schedule = string.IsNullOrWhiteSpace(cron) ? null : PulseSchedule.Cron(cron);
+
+            await pulsesScheduler.SetScheduleAsync(checkerName, schedule, cancellationToken).ConfigureAwait(false);
+
+            return NoContent();
+        }
+        catch (ArgumentException ex)
+        {
+            // The schedule itself was refused -- by PulseSchedule for its shape, or by the scheduler
+            // for its dialect. Either way it is the caller's input, not a server fault.
+            return BadRequest(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Error setting the schedule for checker '{CheckerName}'.", ForLog(checkerName));
+            return StatusCode(StatusCodes.Status500InternalServerError, "An unexpected error occurred.");
+        }
+    }
+
+    /// <summary>
     /// Sets the unhealthy threshold for a specific pulse checker.
     /// </summary>
     /// <param name="checkerName">The name of the pulse checker.</param>

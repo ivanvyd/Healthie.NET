@@ -1,3 +1,4 @@
+using Healthie.Abstractions.Insights;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -24,6 +25,11 @@ public static class StartupExtensions
 
         services.TryAddSingleton<IUptimeStore, InMemoryUptimeStore>();
         services.AddHostedService<UptimeRecorder>();
+
+        // What the dashboard renders when this package is installed. Registered here rather than
+        // referenced there, so installing a dashboard does not drag uptime in with it.
+        services.TryAddSingleton<IUptimeInsights>(provider =>
+            new UptimeInsights(provider.GetRequiredService<IUptimeStore>()));
 
         return services;
     }

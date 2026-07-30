@@ -1,3 +1,6 @@
+using Healthie.Abstractions.Insights;
+using Healthie.Abstractions.StateProviding;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -32,7 +35,29 @@ public static class StartupExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
-        services.AddHostedService<AlertDispatcher>();
+
+        // What the dashboard renders when this package is installed: the last few alerts and whether
+        // they were delivered. Registered here rather than referenced there, so installing a
+        // dashboard does not drag alerting in with it.
+        // Given the application's own state provider, so the alert log lands wherever checker state
+        // already does and survives a redeploy on any durable one. GetService, not GetRequiredService:
+        // alerting can be registered before AddHealthie has put a provider in.
+        services.TryAddSingleton(provider => new AlertHistory(
+            options.HistoryLength,
+            provider.GetService<IStateProvider>(),
+            provider.GetService<ILogger<AlertHistory>>()));
+        services.TryAddSingleton<IAlertInsights>(p => p.GetRequiredService<AlertHistory>());
+        services.TryAddSingleton<IAlertConfiguration, AlertConfiguration>();
+
+        // The dispatcher is resolved as itself and handed to the host, rather than registered
+        // straight as a hosted service: a test alert has to go through the sinks of the dispatcher
+        // that is actually running, not a second copy of it. Guarded by hand because
+        // TryAddEnumerable refuses a factory-built descriptor, and this must stay callable twice.
+        if (services.All(descriptor => descriptor.ServiceType != typeof(AlertDispatcher)))
+        {
+            services.AddSingleton<AlertDispatcher>();
+            services.AddHostedService(provider => provider.GetRequiredService<AlertDispatcher>());
+        }
 
         return services;
     }

@@ -70,6 +70,37 @@ public sealed class QuartzPulseScheduler(
             : ScheduleCoreAsync(checker, cronExpression: null, schedule.Period, cancellationToken);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Answered by the same translation that runs it. Quartz takes a six-field expression with its
+    /// own day-of-week numbering and refuses to constrain both day fields at once, so an expression
+    /// Cronos is happy with is not automatically one this scheduler can run.
+    /// </remarks>
+    public bool TryValidateSchedule(PulseSchedule schedule, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+
+        error = null;
+
+        if (schedule.CronExpression is not { } expression)
+        {
+            return true;
+        }
+
+        try
+        {
+            CronScheduleBuilder.CronSchedule(UnixCron.ToQuartz(expression));
+
+            return true;
+        }
+        catch (Exception ex) when (ex is NotSupportedException or FormatException or ArgumentException)
+        {
+            error = ex.Message;
+
+            return false;
+        }
+    }
+
     /// <summary>
     /// Replaces this checker's Quartz job with one on the given trigger.
     /// </summary>

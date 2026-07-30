@@ -99,6 +99,23 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     }
 
     /// <inheritdoc />
+    public async Task SetScheduleAsync(string name, PulseSchedule? schedule, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+
+        if (schedule is not null && !_pulseScheduler.TryValidateSchedule(schedule, out var error))
+        {
+            // No parameter name: this message is written to be shown to whoever typed the
+            // expression, and "(Parameter 'schedule')" is plumbing to everyone but a debugger. The
+            // caller named the checker, so the message does not repeat it back.
+            throw new ArgumentException($"'{schedule}' cannot be scheduled. {error}");
+        }
+
+        await pulseChecker.SetScheduleAsync(schedule, cancellationToken).ConfigureAwait(false);
+        await ScheduleAsync(pulseChecker, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task SetUnhealthyThresholdAsync(string name, uint threshold, CancellationToken cancellationToken = default)
     {
         var pulseChecker = GetCheckerOrThrow(name);

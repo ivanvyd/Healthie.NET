@@ -7,37 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Eleven new packages, and the schedule model that several of them needed. Everything here is
-additive: no public API was removed or changed, and an application that upgrades without touching
-its code behaves exactly as it did.
+## [4.0.0] - 2026-07-30
 
-### Fixed
+Twelve new packages, the schedule model several of them needed, and optimistic concurrency on the
+state contract.
 
-- **The dashboard's own page did not encode its title.** `MapHealthieUI` builds that one page as a
-  string rather than through Razor, which encodes every interpolation for you, so a
-  `HealthieUIOptions.DashboardTitle` built from anything the host did not write itself could close
-  the title element and open a script one.
-- **A dashboard component left its handler behind when it was disposed.** The service is scoped to a
-  circuit, so it was assumed the circuit ending released everything; that holds only while the
-  dashboard is mounted once per circuit, and a host that routes to it inside its own layout builds a
-  new one every time the user navigates back. `IHealthieDashboardService.UnsubscribeFromStateChangesAsync`
-  is the missing half, and the component calls it.
-- **Two callers scheduling one checker at once could leave a timer nobody could stop.** Installing a
-  schedule was "cancel the old one, then start the new one", and only the last one stored was
-  reachable; the other kept triggering, could not be unscheduled, and held a linked
-  `CancellationTokenSource` that was never disposed.
-- **`HealthieMcpOptions.MaxHistoryPageSize` was documented and never read.** `get_check_history`
-  clamped to a hard-coded 200 instead, so a host that lowered the option got no such thing.
-- **The relational table-name guard admitted a name with a trailing newline.** In .NET `$` matches
-  immediately before one, so a table name ending in one passed a check whose own error message says
-  it does not. Nothing could be smuggled through it -- a lone trailing newline is whitespace to
-  every engine here -- but the guard now ends at `\z` and means what it says.
-- **The release workflow granted `contents: write` to every job in it.** Only the one job that
-  creates the GitHub release needs it, and the top level now grants nothing but read, so a job added
-  later starts with no write access rather than inheriting it.
-- **A checker name from a REST route reached the log with its control characters intact.** The
-  not-found branch logs a name precisely when it matches nothing, percent-encoded CR and LF arrive
-  decoded, and a log sink writing plain text writes them as line breaks.
+**Source-compatible: an application that upgrades without touching its code still compiles and still
+behaves as it did.** Nothing public was removed or renamed, and every new interface member is a
+defaulted one, so a provider or scheduler written against 3.x keeps working. Two things to know
+before upgrading:
+
+- **One binary break.** `HealthieTools`, the MCP read-only tool class, gained a defaulted
+  `HealthieMcpOptions?` parameter on its constructor so it could read the page-size option it had
+  been ignoring. Calling code still compiles unchanged; an assembly compiled against 3.1.4 and not
+  rebuilt does not. Recompiling is enough, and that break is why this is a major rather than a minor.
+- **The relational providers alter an existing table on startup** to add the version column
+  optimistic concurrency needs. See *Optimistic concurrency* below.
 
 ### Added
 
@@ -128,7 +113,110 @@ its code behaves exactly as it did.
 - **State removal.** `IStateProvider.DeleteStateAsync` cleans up after a checker that was renamed or
   removed. Defaulted to refuse rather than to silently do nothing.
 
+- **The dashboard shows what the feature packages know.** Installing one used to change what the
+  application did and nothing about the one screen an operator looks at, so uptime, alerts and
+  leadership were only visible to whatever the host wired up itself. Each now has a small read-only
+  contract in `Healthie.NET.Abstractions` that its package implements, and the board renders the
+  panel when the container can resolve it: uptime over the last day and the longest outage in it
+  beside the run-based percentage, a drawer of recent alerts saying which reached their sinks and
+  which did not, a badge saying whether this replica is the one running the checks, and a button
+  that asks the model why a checker has been failing. An application that installs none of them gets
+  the board exactly as it was.
+
+  Read-only throughout, so all of it shows under `HealthieUIOptions.AllowMutations = false` -- the
+  one exception is asking the model, which is still a read but spends money on the host's account,
+  and is gated with the controls that change things.
+- **The alert history is persisted and paged.** It is written through the application's own
+  `IStateProvider`, so a deployment on CosmosDB, PostgreSQL, SQL Server, SQLite or Redis keeps its
+  alerts across a redeploy and one left on the in-memory provider does not. There is no second
+  storage contract to configure and no provider had to learn about alerts. `IAlertInsights` reads a
+  page at a time and reports the total, because the question asked most often is asked just after a
+  restart, about what happened before it -- which is exactly what a last-twenty list throws away.
+  Bounded at `HistoryLength`, and the view says how many are kept, of what cap, in which provider.
+- **The dashboard shows where alerts are delivered**, with each sink's delivered and failed counts
+  and its last error. An application that installed alerting and never configured a sink raises
+  alerts that reach nobody, and a healthy-looking list of them was indistinguishable from one that
+  was notifying people; sinks are now listed from startup rather than from their first delivery, and
+  one that recovers stops being reported as failing.
+- **Alerting is configurable from the dashboard**: minimum severity, deduplication window, delivery
+  timeout, and whether recoveries alert. Those four and no others, because they are the ones the
+  dispatcher reads on every alert -- its queue capacity and history length are fixed when it is
+  built, so they are shown as facts rather than offered as controls that would quietly do nothing.
+  There is also a test alert, which goes through the real sinks: the only way to find out that a
+  webhook URL is wrong is to use it.
+- **`AddHealthieMetrics()`** collects the library's own instruments in-process behind
+  `IMetricsInsights`, and the dashboard grows a metrics view: checks run, the share that reported
+  healthy, transitions, mean and slowest check duration, and results by health. A `MeterListener` on
+  the `Healthie.NET` meter, so it reads what is already being emitted and runs alongside an
+  OpenTelemetry exporter rather than instead of one. Opt-in, because a listener costs a callback on
+  every measurement and an application with an APM has somewhere better to look.
+
+  Overlapped triggers get their own figure. A checker whose check outlasts its own interval looks
+  healthy and is quietly running at a fraction of the rate it was asked to, and this is the only
+  place that shows.
+- **A side menu on the dashboard**, listing an overview, a section per group with its tally and worst
+  state, and the alerts, metrics, event-log and about views. Picking a group narrows the list and picking it
+  again is the way back; it combines with the search box and the tag filter rather than clearing
+  them, and the groups it lists come from the store rather than from the rows currently surviving
+  those filters -- a menu that dropped a group because a search had narrowed it away would take away
+  the means of getting back to it.
+
+  A rail rather than an overlay drawer, and collapsing to its icons rather than disappearing. This
+  package ships no JavaScript of its own, and an off-canvas drawer needs a focus trap to be honest
+  about keyboard use. Below 820px it becomes a scrolling strip above the list.
+- **The dashboard opens sectioned by group** rather than as one flat list. A group is a partition, so
+  the sectioned view answers what is wrong and where at a glance; a flat list of forty checkers asks
+  the reader to do that grouping themselves. Checkers with no group collect under one heading, so the
+  default hides nothing. The `GROUP` button still switches to the flat list.
+- **A cron expression can be set from the dashboard**, beside the interval picker, and through
+  `PUT /healthie/{checkerName}/schedule` on the REST API. The scheduler judges the expression before
+  anything is stored -- `IPulseScheduler.TryValidateSchedule`, defaulted to accept so an existing
+  scheduler is unaffected -- because Cronos, Quartz and Temporal do not agree on cron dialects and
+  the only answer worth having is from the implementation that will run it. A refusal carries that
+  implementation's own reason and leaves the stored schedule alone; storing first and failing on the
+  reschedule would leave a checker that no longer runs and a store that says it should.
+
+  `IPulseChecker.SetScheduleAsync` and `IPulsesScheduler.SetScheduleAsync` are the API behind it. A
+  schedule an interval can express exactly is stored as that interval, so only a genuinely custom
+  period or a cron expression occupies `PulseCheckerState.Schedule`.
+
 ### Fixed
+
+- **The dashboard ignored `PulseSchedule` everywhere it showed a cadence.** It read
+  `PulseCheckerState.Interval` for the rate column, for the aggregate checks-per-minute, and for the
+  interval picker -- and that field is documented as ignored once `Schedule` is set. So a checker on
+  a cron expression advertised a rate it was not running at, was summed into the aggregate at that
+  rate, and offered a picker whose every change stored a field nothing reads. The board now reads
+  `EffectiveSchedule`, shows a cron expression as one, counts cron checkers separately rather than
+  inventing a rate for them, and disables the picker while an expression is in force.
+- **`SetIntervalAsync` did nothing to a checker that had a schedule.** The schedule overrides the
+  interval, so choosing one left the checker at its old cadence with nothing to say so. It now clears
+  the schedule, which is what choosing an interval means.
+- **The dashboard's own page did not encode its title.** `MapHealthieUI` builds that one page as a
+  string rather than through Razor, which encodes every interpolation for you, so a
+  `HealthieUIOptions.DashboardTitle` built from anything the host did not write itself could close
+  the title element and open a script one.
+- **A dashboard component left its handler behind when it was disposed.** The service is scoped to a
+  circuit, so it was assumed the circuit ending released everything; that holds only while the
+  dashboard is mounted once per circuit, and a host that routes to it inside its own layout builds a
+  new one every time the user navigates back. `IHealthieDashboardService.UnsubscribeFromStateChangesAsync`
+  is the missing half, and the component calls it.
+- **Two callers scheduling one checker at once could leave a timer nobody could stop.** Installing a
+  schedule was "cancel the old one, then start the new one", and only the last one stored was
+  reachable; the other kept triggering, could not be unscheduled, and held a linked
+  `CancellationTokenSource` that was never disposed.
+- **`HealthieMcpOptions.MaxHistoryPageSize` was documented and never read.** `get_check_history`
+  clamped to a hard-coded 200 instead, so a host that lowered the option got no such thing.
+- **The relational table-name guard admitted a name with a trailing newline.** In .NET `$` matches
+  immediately before one, so a table name ending in one passed a check whose own error message says
+  it does not. Nothing could be smuggled through it -- a lone trailing newline is whitespace to
+  every engine here -- but the guard now ends at `\z` and means what it says.
+- **The release workflow granted `contents: write` to every job in it.** Only the one job that
+  creates the GitHub release needs it, and the top level now grants nothing but read, so a job added
+  later starts with no write access rather than inheriting it.
+- **A checker name from a REST route reached the log with its control characters intact.** The
+  not-found branch logs a name precisely when it matches nothing, percent-encoded CR and LF arrive
+  decoded, and a log sink writing plain text writes them as line breaks.
 
 - A cron schedule whose next occurrence was more than about fifty days out **stopped the checker
   permanently and silently**. `Task.Delay` refuses a longer wait and throws, and that throw is not a
@@ -432,6 +520,7 @@ Blazor dashboard, and the CosmosDB and Quartz.NET providers.
 
 - Dashboard UI improvements and additional sample pulse checkers.
 
-[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v3.1.4...HEAD
+[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v3.1.4...v4.0.0
 [3.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v2.3.0...v3.0.0
 [2.3.0]: https://github.com/ivanvyd/Healthie.NET/releases/tag/v2.3.0

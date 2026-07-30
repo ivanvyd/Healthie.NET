@@ -1,4 +1,4 @@
-@* Healthie.NET dashboard -- Pulse Monitor. *@
+﻿@* Healthie.NET dashboard -- Pulse Monitor. *@
 @implements IAsyncDisposable
 @using Healthie.Abstractions.Extensions
 @using Healthie.Dashboard.Components
@@ -51,6 +51,35 @@
                        value="@_searchFilter" @oninput="OnSearchInput" />
             </div>
 
+            @*
+                Only when something is elected: an application with no leader election installed has
+                one replica running everything, and a permanent LEADER badge there would reassure
+                about a problem nobody has.
+            *@
+            @if (_leadershipInsights is not null)
+            {
+                <span class="hpm-replica @(IsLeader ? "hpm-replica--leader" : "hpm-replica--follower")"
+                      role="status"
+                      title="@(IsLeader
+                          ? $"This replica ({_leadershipInsights.ReplicaId}) holds the lease, so it is the one running the checks."
+                          : $"This replica ({_leadershipInsights.ReplicaId}) is a follower. Another replica runs the checks; the states below are shared.")">
+                    @(IsLeader ? "LEADER" : "FOLLOWER")
+                </span>
+            }
+
+            @if (_alertInsights is not null)
+            {
+                <button type="button"
+                        class="hpm-btn hpm-btn--alerts @(_alertInsights.DroppedCount > 0 ? "hpm-btn--alerts-dropped" : null)"
+                        title="@(_alertInsights.DroppedCount > 0
+                            ? $"Recent alerts. {_alertInsights.DroppedCount} were dropped because the queue was full -- nobody was told about those."
+                            : "Alerts raised recently, and whether they reached their sinks")"
+                        aria-pressed="@(_view == BoardView.Alerts ? "true" : "false")"
+                        @onclick="@(() => ShowViewAsync(BoardView.Alerts))">
+                    ALERTS@(_alertInsights.DroppedCount > 0 ? $" ({_alertInsights.DroppedCount} DROPPED)" : null)
+                </button>
+            }
+
             <div class="hpm-actions">
                 @if (Options.AllowMutations)
                 {
@@ -101,11 +130,13 @@
                     </defs>
                     <rect x="0" y="0" width="100%" height="64" fill="url(#@_traceId)" />
                 </svg>
-                <div class="hpm-trace-label">AGGREGATE PULSE · @ChecksPerMinute CHECKS/MIN</div>
+                <div class="hpm-trace-label"
+                     title="@(CronCheckerCount > 0 ? "Cron checkers are counted separately: a schedule like \"weekdays at 06:00\" has no rate per minute." : null)">
+                    AGGREGATE PULSE · @ChecksPerMinute CHECKS/MIN@(CronCheckerCount > 0 ? $" · {CronCheckerCount} CRON" : null)
+                </div>
             </div>
         </div>
     </header>
-
     @*
         The event log at full size. The sidebar copy is a glance; this is the one to read when
         something has gone wrong and the interesting line has already scrolled away.
@@ -236,7 +267,7 @@
         <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
              role="button" tabindex="0"
              aria-pressed="@(isSelected ? "true" : "false")"
-             @onclick="@(() => _selected = name)"
+             @onclick="@(() => SelectAsync(name))"
              @onkeydown="@(e => OnRowKeyDown(e, name))">
 
                         <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
@@ -264,8 +295,9 @@
                         </div>
 
                         <div class="hpm-rate-cell">
-                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused")">@RatePerMinute(state)</span>
-                            <span class="hpm-rate-unit">per min</span>
+                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused") @(state.EffectiveSchedule.IsCron ? "hpm-rate--cron" : "")"
+                                  title="@(state.EffectiveSchedule.IsCron ? $"Runs on the cron expression {state.EffectiveSchedule.CronExpression}, evaluated in UTC" : null)">@RateLabel(state)</span>
+                            <span class="hpm-rate-unit">@RateUnit(state)</span>
                         </div>
 
                         @if (history.Count == 0)
@@ -312,13 +344,364 @@
     </text>;
     }
 
-    <div class="hpm-body">
-        <div class="hpm-list @(_asCards ? "hpm-list--cards" : "") @(Options.AllowMutations ? "" : "hpm-list--readonly")">
+    <div class="hpm-body @(_navOpen ? "" : "hpm-body--nav-collapsed")">
+
+        @*
+            Reads and filters only, so it shows in read-only mode: every entry either scrolls to a
+            section or opens a panel. Rendered before the list in the DOM as well as to its left, so
+            tab order matches reading order.
+        *@
+        <nav class="hpm-nav" aria-label="Dashboard sections">
+            <button type="button" class="hpm-nav-toggle"
+                    title="@(_navOpen ? "Collapse the menu" : "Expand the menu")"
+                    aria-expanded="@(_navOpen ? "true" : "false")"
+                    aria-controls="hpm-nav-body"
+                    @onclick="ToggleNav">
+                <span class="hpm-nav-burger" aria-hidden="true">@HealthieIcons.Menu</span>
+                <span class="hpm-nav-label">MENU</span>
+            </button>
+
+            <div class="hpm-nav-body" id="hpm-nav-body">
+                <button type="button"
+                        class="hpm-nav-item @(_navSection is null ? "hpm-nav-item--current" : "")"
+                        aria-current="@(_navSection is null ? "true" : null)"
+                        title="Every checker, ungrouped filtering cleared"
+                        @onclick="ShowEverythingAsync">
+                    <span class="hpm-nav-dot hpm-nav-dot--all" aria-hidden="true"></span>
+                    <span class="hpm-nav-text">OVERVIEW</span>
+                    <span class="hpm-nav-count">@_states.Count</span>
+                </button>
+
+                @if (NavGroups().Any())
+                {
+                    <div class="hpm-nav-heading">GROUPS</div>
+
+                    @foreach (var group in NavGroups())
+                    {
+                        <button type="button"
+                                class="hpm-nav-item @(string.Equals(_navSection, group.Name, StringComparison.OrdinalIgnoreCase) ? "hpm-nav-item--current" : "")"
+                                aria-current="@(string.Equals(_navSection, group.Name, StringComparison.OrdinalIgnoreCase) ? "true" : null)"
+                                title="Show only the @group.Rows.Count checker(s) in @group.Name"
+                                @onclick="@(() => ShowGroupAsync(group.Name))">
+                            <span class="hpm-nav-dot @StatusClass(group.Worst)" aria-hidden="true"></span>
+                            <span class="hpm-nav-text">@group.Name</span>
+                            <span class="hpm-nav-count">@group.Rows.Count</span>
+                        </button>
+                    }
+                }
+
+                <div class="hpm-nav-heading">VIEWS</div>
+
+                @if (_alertInsights is not null)
+                {
+                    <button type="button" class="hpm-nav-item @(_view == BoardView.Alerts ? "hpm-nav-item--current" : "")"
+                            aria-current="@(_view == BoardView.Alerts ? "true" : null)"
+                            title="Alerts raised recently, and whether they reached their sinks"
+                            @onclick="@(() => ShowViewAsync(BoardView.Alerts))">
+                        <span class="hpm-nav-dot hpm-nav-dot--alert" aria-hidden="true"></span>
+                        <span class="hpm-nav-text">ALERTS</span>
+                        @if (_alertInsights.DroppedCount > 0)
+                        {
+                            <span class="hpm-nav-count hpm-nav-count--warn"
+                                  title="@_alertInsights.DroppedCount dropped because the queue was full">@_alertInsights.DroppedCount</span>
+                        }
+                    </button>
+                }
+
+                @if (_metricsInsights is not null)
+                {
+                    <button type="button" class="hpm-nav-item @(_view == BoardView.Metrics ? "hpm-nav-item--current" : "")"
+                            aria-current="@(_view == BoardView.Metrics ? "true" : null)"
+                            title="What the library's own instruments have counted since this process started"
+                            @onclick="@(() => ShowViewAsync(BoardView.Metrics))">
+                        <span class="hpm-nav-dot hpm-nav-dot--metrics" aria-hidden="true"></span>
+                        <span class="hpm-nav-text">METRICS</span>
+                    </button>
+                }
+
+                <button type="button" class="hpm-nav-item @(_showLog ? "hpm-nav-item--current" : "")"
+                        aria-expanded="@(_showLog ? "true" : "false")"
+                        title="Every state change this dashboard has watched happen"
+                        @onclick="ToggleLog">
+                    <span class="hpm-nav-dot hpm-nav-dot--log" aria-hidden="true"></span>
+                    <span class="hpm-nav-text">EVENT LOG</span>
+                    <span class="hpm-nav-count">@_events.Count</span>
+                </button>
+
+                <button type="button" class="hpm-nav-item @(_showAbout ? "hpm-nav-item--current" : "")"
+                        aria-expanded="@(_showAbout ? "true" : "false")"
+                        title="What the colours and controls mean"
+                        @onclick="ToggleAbout">
+                    <span class="hpm-nav-dot hpm-nav-dot--about" aria-hidden="true"></span>
+                    <span class="hpm-nav-text">ABOUT</span>
+                </button>
+            </div>
+        </nav>
+
+        @if (_view == BoardView.Alerts && _alertInsights is not null)
+        {
+            <section class="hpm-view" aria-label="Alert history">
+                <div class="hpm-view-head">
+                    <div>
+                        <h2 class="hpm-view-title">ALERTS</h2>
+                        <p class="hpm-view-sub">
+                            @if (_alerts is { } stored)
+                            {
+                                <text>@stored.Total kept of the last @stored.Capacity · stored in <code>@stored.StoredIn</code></text>
+                            }
+                        </p>
+                    </div>
+
+                    <div class="hpm-spacer"></div>
+
+                    @if (_alertInsights.DroppedCount > 0)
+                    {
+                        <span class="hpm-pill hpm-pill--crit"
+                              title="The queue filled up and these were discarded rather than delivered late -- nobody was told about them">
+                            @_alertInsights.DroppedCount DROPPED
+                        </span>
+                    }
+
+                    <button type="button" class="hpm-btn hpm-btn--sm @(_undeliveredOnly ? "hpm-btn--on" : "")"
+                            aria-pressed="@(_undeliveredOnly ? "true" : "false")"
+                            title="Show only the alerts a sink refused or timed out on"
+                            @onclick="ToggleUndeliveredOnlyAsync">UNDELIVERED</button>
+                </div>
+
+                @*
+                    Where alerts go, before the alerts themselves: an empty list means nothing has
+                    fired, and that reads completely differently depending on whether anything is
+                    configured to deliver.
+                *@
+                <div class="hpm-sinks">
+                    @if (_alertInsights.Sinks.Count == 0)
+                    {
+                        <div class="hpm-sink hpm-sink--none">
+                            <span class="hpm-sink-dot" aria-hidden="true"></span>
+                            <div class="hpm-sink-body">
+                                <div class="hpm-sink-name">NO SINK CONFIGURED</div>
+                                <div class="hpm-sink-note">
+                                    Alerts are recorded here and sent nowhere. Add one with
+                                    <code>AddHealthieSlackAlerts</code>, <code>AddHealthieWebhookAlerts</code>,
+                                    <code>AddHealthieMicrosoftTeamsAlerts</code> or
+                                    <code>AddHealthiePagerDutyAlerts</code>.
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var sink in _alertInsights.Sinks)
+                        {
+                            <div class="hpm-sink @(sink.IsHealthy ? "hpm-sink--ok" : "hpm-sink--failing")">
+                                <span class="hpm-sink-dot" aria-hidden="true"></span>
+                                <div class="hpm-sink-body">
+                                    <div class="hpm-sink-name">@sink.Name</div>
+                                    <div class="hpm-sink-note">
+                                        @sink.Delivered delivered · @sink.Failed failed
+                                        @if (sink.LastError is { } error)
+                                        {
+                                            <span class="hpm-sink-error" title="@error">— @error</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                @if (VisibleAlerts.Count == 0)
+                {
+                    <div class="hpm-view-empty">
+                        @(_undeliveredOnly
+                            ? "Every alert on this page reached its sinks."
+                            : "Nothing has alerted yet. Alerts appear here as checkers change health.")
+                    </div>
+                }
+                else
+                {
+                    <ul class="hpm-alert-list">
+                        @foreach (var alert in VisibleAlerts)
+                        {
+                            <li class="hpm-alert @HealthClass(alert.CurrentHealth) @(alert.Delivered ? null : "hpm-alert--undelivered")">
+                                <div class="hpm-alert-main">
+                                    <span class="hpm-alert-name">@alert.DisplayName</span>
+                                    <span class="hpm-alert-move">
+                                        <span class="hpm-hchip @HealthClass(alert.PreviousHealth)">@(alert.PreviousHealth?.ToString().ToUpperInvariant() ?? "NEW")</span>
+                                        <span class="hpm-alert-arrow" aria-hidden="true">→</span>
+                                        <span class="hpm-hchip @HealthClass(alert.CurrentHealth)">@alert.CurrentHealth.ToString().ToUpperInvariant()</span>
+                                    </span>
+                                    <div class="hpm-spacer"></div>
+                                    @if (!alert.Delivered)
+                                    {
+                                        <span class="hpm-pill hpm-pill--crit"
+                                              title="At least one sink refused or timed out. The alert was raised but did not reach everyone.">NOT DELIVERED</span>
+                                    }
+                                    <span class="hpm-alert-when" title="@alert.OccurredAt.ToString("u")">@Relative(alert.OccurredAt)</span>
+                                </div>
+                                <div class="hpm-alert-msg">@alert.Message</div>
+                            </li>
+                        }
+                    </ul>
+
+                    @if (AlertPageCount > 1)
+                    {
+                        <div class="hpm-pager">
+                            <button type="button" class="hpm-btn hpm-btn--sm" disabled="@(_alertPage == 0)"
+                                    aria-label="Newer alerts"
+                                    @onclick="@(() => GoToAlertPageAsync(_alertPage - 1))">NEWER</button>
+                            <span class="hpm-pager-at">PAGE @(_alertPage + 1) OF @AlertPageCount</span>
+                            <button type="button" class="hpm-btn hpm-btn--sm" disabled="@(_alertPage >= AlertPageCount - 1)"
+                                    aria-label="Older alerts"
+                                    @onclick="@(() => GoToAlertPageAsync(_alertPage + 1))">OLDER</button>
+                        </div>
+                    }
+                }
+
+                @*
+                    Only the settings a running dispatcher actually honours. Its queue capacity and
+                    history length are fixed when it is built, so they are shown as read-only facts
+                    above rather than offered as controls that would quietly do nothing.
+                *@
+                @if (_alertConfiguration is not null && Options.AllowMutations && _settingsDraft is { } draft)
+                {
+                    <div class="hpm-view-section">
+                        <h3 class="hpm-view-subtitle">SETTINGS</h3>
+                        <p class="hpm-view-note">
+                            Applies from the next alert. Held in memory, so a restart returns to whatever
+                            <code>AddHealthieAlerts</code> was given.
+                        </p>
+
+                        <div class="hpm-fields">
+                            <div class="hpm-field">
+                                <label for="hpm-sev" title="The least severe health that raises an alert">MINIMUM SEVERITY</label>
+                                <select id="hpm-sev" value="@draft.MinimumSeverity"
+                                        @onchange="@(e => _settingsDraft = draft with { MinimumSeverity = Enum.Parse<PulseCheckerHealth>(e.Value!.ToString()!) })">
+                                    @foreach (var health in new[] { PulseCheckerHealth.Suspicious, PulseCheckerHealth.Unhealthy })
+                                    {
+                                        <option value="@health" selected="@(health == draft.MinimumSeverity)">@health.ToString().ToUpperInvariant()</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="hpm-field">
+                                <label for="hpm-dedup" title="How long a checker stays quiet after alerting, so a flapping component cannot page somebody every second">DEDUPLICATION (SECONDS)</label>
+                                <input id="hpm-dedup" type="number" min="0" value="@((int)draft.DeduplicationWindow.TotalSeconds)"
+                                       @onchange="@(e => _settingsDraft = draft with { DeduplicationWindow = TimeSpan.FromSeconds(int.TryParse(e.Value?.ToString(), out var s) ? s : 0) })" />
+                            </div>
+                            <div class="hpm-field">
+                                <label for="hpm-timeout" title="How long a single sink gets before it is abandoned">DELIVERY TIMEOUT (SECONDS)</label>
+                                <input id="hpm-timeout" type="number" min="1" value="@((int)draft.DeliveryTimeout.TotalSeconds)"
+                                       @onchange="@(e => _settingsDraft = draft with { DeliveryTimeout = TimeSpan.FromSeconds(int.TryParse(e.Value?.ToString(), out var s) ? s : 1) })" />
+                            </div>
+                        </div>
+
+                        <label class="hpm-check">
+                            <input type="checkbox" checked="@draft.SendRecoveries"
+                                   @onchange="@(e => _settingsDraft = draft with { SendRecoveries = (bool)e.Value! })" />
+                            <span>Alert when a checker recovers, not only when it breaks</span>
+                        </label>
+
+                        @if (_settingsError is not null)
+                        {
+                            <div class="hpm-field-error" role="alert">@_settingsError</div>
+                        }
+
+                        <div class="hpm-view-actions">
+                            <button type="button" class="hpm-sel-btn hpm-sel-btn--primary" @onclick="ApplyAlertSettings">APPLY</button>
+                            <button type="button" class="hpm-sel-btn" disabled="@_testing" @onclick="SendTestAlertAsync">
+                                @(_testing ? "SENDING…" : "SEND TEST ALERT")
+                            </button>
+                        </div>
+
+                        @if (_testResult is { } results)
+                        {
+                            <div class="hpm-view-note">
+                                @if (results.Count == 0)
+                                {
+                                    <text>Nothing to deliver to, so the test alert was recorded and sent nowhere.</text>
+                                }
+                                else
+                                {
+                                    <text>@results.Count(r => r.IsHealthy) of @results.Count sink(s) took it.</text>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+        else if (_view == BoardView.Metrics && _metricsInsights is not null)
+        {
+            <section class="hpm-view" aria-label="Metrics">
+                <div class="hpm-view-head">
+                    <div>
+                        <h2 class="hpm-view-title">METRICS</h2>
+                        <p class="hpm-view-sub">
+                            @if (_metrics is { } snapshot)
+                            {
+                                <text>Since @snapshot.Since.ToString("u") · this process only</text>
+                            }
+                        </p>
+                    </div>
+                    <div class="hpm-spacer"></div>
+                    <button type="button" class="hpm-btn hpm-btn--sm" @onclick="LoadMetrics">REFRESH</button>
+                </div>
+
+                <p class="hpm-view-note">
+                    Read from the <code>Healthie.NET</code> meter in this process. It is a live count,
+                    not a time series: nothing here survives a restart, and an OpenTelemetry exporter
+                    on the same meter is the way to keep history.
+                </p>
+
+                @if (_metrics is { } m)
+                {
+                    <div class="hpm-metrics">
+                        <div class="hpm-metric">
+                            <div class="hpm-metric-label">CHECKS RUN</div>
+                            <div class="hpm-metric-value">@m.Checks</div>
+                        </div>
+                        <div class="hpm-metric">
+                            <div class="hpm-metric-label">HEALTHY</div>
+                            <div class="hpm-metric-value" style="color: var(--hpm-ok)">@(m.HealthyShare is { } share ? Percent(share) : "--")</div>
+                        </div>
+                        <div class="hpm-metric">
+                            <div class="hpm-metric-label" title="Checks whose result differed from the stored one. This is the one worth alerting on: the run counter climbs every tick, this moves only when something changed.">TRANSITIONS</div>
+                            <div class="hpm-metric-value">@m.Transitions</div>
+                        </div>
+                        <div class="hpm-metric @(m.HasOverlaps ? "hpm-metric--warn" : "")">
+                            <div class="hpm-metric-label" title="Triggers skipped because the previous check had not finished. A checker whose check outlasts its own interval looks healthy and is quietly running at a fraction of the rate it was asked to -- this is the only place it shows.">OVERLAPS</div>
+                            <div class="hpm-metric-value" style="color: @(m.HasOverlaps ? "var(--hpm-warn)" : "var(--hpm-text)")">@m.OverlappedTriggers</div>
+                        </div>
+                        <div class="hpm-metric">
+                            <div class="hpm-metric-label">MEAN CHECK</div>
+                            <div class="hpm-metric-value">@(m.MeanDuration is { } mean ? Milliseconds(mean) : "--")</div>
+                        </div>
+                        <div class="hpm-metric">
+                            <div class="hpm-metric-label">SLOWEST CHECK</div>
+                            <div class="hpm-metric-value">@(m.SlowestDuration is { } slowest ? Milliseconds(slowest) : "--")</div>
+                        </div>
+                    </div>
+
+                    <h3 class="hpm-view-subtitle">RESULTS BY HEALTH</h3>
+                    <div class="hpm-metrics">
+                        @foreach (var health in new[] { PulseCheckerHealth.Healthy, PulseCheckerHealth.Suspicious, PulseCheckerHealth.Unhealthy })
+                        {
+                            <div class="hpm-metric @HealthClass(health)">
+                                <div class="hpm-metric-label">@health.ToString().ToUpperInvariant()</div>
+                                <div class="hpm-metric-value" style="color: var(--hpm-status)">@m.ResultsByHealth.GetValueOrDefault(health)</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+
+        <div class="hpm-list @(_view == BoardView.Checkers ? "" : "hpm-list--hidden") @(_asCards ? "hpm-list--cards" : "") @(Options.AllowMutations ? "" : "hpm-list--readonly")">
 
             <div class="hpm-toolbar">
-                <button type="button" class="hpm-btn hpm-btn--sm @(_groupByTags ? "hpm-btn--on" : "")"
-                        title="@(_groupByTags ? "Show one flat list again" : "Collect the checkers into a section per group")"
-                        aria-pressed="@(_groupByTags ? "true" : "false")"
+                <button type="button" class="hpm-btn hpm-btn--sm @(_sectionByGroup ? "hpm-btn--on" : "")"
+                        title="@(_sectionByGroup ? "Show one flat list again" : "Collect the checkers into a section per group")"
+                        aria-pressed="@(_sectionByGroup ? "true" : "false")"
                         @onclick="ToggleGrouping">GROUP</button>
 
                 <div class="hpm-spacer"></div>
@@ -367,21 +750,21 @@
                     }
                 </div>
             }
-            else if (_groupByTags)
+            else if (_sectionByGroup)
             {
                 foreach (var group in GroupedRows())
                 {
-                    var collapsed = _collapsedGroups.Contains(group.Tag);
+                    var collapsed = _collapsedGroups.Contains(group.Name);
 
                     <div class="hpm-group @StatusClass(group.Worst)">
                         <button type="button" class="hpm-group-head"
                                 aria-expanded="@(collapsed ? "false" : "true")"
-                                title="@(collapsed ? "Show" : "Hide") the @group.Rows.Count checker(s) in @group.Tag"
-                                @onclick="@(() => ToggleGroup(group.Tag))">
+                                title="@(collapsed ? "Show" : "Hide") the @group.Rows.Count checker(s) in @group.Name"
+                                @onclick="@(() => ToggleGroup(group.Name))">
                             <span class="hpm-group-chevron @(collapsed ? "" : "hpm-group-chevron--open")" aria-hidden="true">
                                 @HealthieIcons.ChevronRight
                             </span>
-                            <span class="hpm-group-name">@group.Tag</span>
+                            <span class="hpm-group-name">@group.Name</span>
                             <span class="hpm-group-count">@group.Rows.Count</span>
 
                             <div class="hpm-spacer"></div>
@@ -435,6 +818,21 @@
                                 <div class="hpm-stat-label">UPTIME</div>
                                 <div class="hpm-stat-value" style="color: @UptimeColor(_selected!)">@Uptime(_selected!)</div>
                             </div>
+                            @* Beside the run-based figure above, so the two are read against each other. *@
+                            @if (_uptime is { } uptime)
+                            {
+                                <div class="hpm-stat">
+                                    <div class="hpm-stat-label" title="Measured over real time from recorded segments, not from the runs still in history">24H</div>
+                                    <div class="hpm-stat-value">@Percent(uptime.Percentage)</div>
+                                </div>
+                                @if (uptime.LongestOutage is { } outage)
+                                {
+                                    <div class="hpm-stat">
+                                        <div class="hpm-stat-label" title="The longest unbroken unhealthy stretch in that window -- a hundred blips and one long outage give the same percentage">WORST</div>
+                                        <div class="hpm-stat-value" style="color: var(--hpm-crit)">@Duration(outage)</div>
+                                    </div>
+                                }
+                            }
                             <div class="hpm-stat">
                                 <div class="hpm-stat-label">FAILS</div>
                                 <div class="hpm-stat-value" style="color: @(selected.ConsecutiveFailureCount > 0 ? "var(--hpm-crit)" : "var(--hpm-text)")">
@@ -457,6 +855,26 @@
                             legible elsewhere: the interval is the rate on the row, the threshold is
                             the denominator in FAILS, and the group and tags are chips on the row.
                         *@
+                        @*
+                            Explaining is a read, but it spends money on the host's account and takes
+                            seconds, so it sits with the actions rather than with the readings.
+                        *@
+                        @if (_diagnosisInsights is not null && Options.AllowMutations)
+                        {
+                            <div class="hpm-explain">
+                                <button type="button" class="hpm-sel-btn hpm-sel-btn--explain"
+                                        disabled="@_diagnosing"
+                                        title="Ask the configured model to explain this checker's recent failures"
+                                        @onclick="@(() => ExplainAsync(_selected!))">
+                                    @(_diagnosing ? "THINKING..." : "EXPLAIN")
+                                </button>
+                                @if (_diagnosis is { } diagnosis)
+                                {
+                                    <p class="hpm-explain-text">@diagnosis</p>
+                                }
+                            </div>
+                        }
+
                         @if (Options.AllowMutations)
                         {
                             <div class="hpm-sel-actions">
@@ -466,9 +884,16 @@
                             </div>
 
                             <div class="hpm-fields">
+                                @*
+                                    Disabled while a cron expression is in force rather than left
+                                    live: the schedule overrides the interval, so a picker that
+                                    still moved would store a value nothing reads.
+                                *@
                                 <div class="hpm-field">
-                                    <label for="hpm-interval" title="How often this check runs on its own">INTERVAL</label>
-                                    <select id="hpm-interval" value="@selected.Interval" @onchange="OnIntervalChanged">
+                                    <label for="hpm-interval" title="@(selected.EffectiveSchedule.IsCron ? "Not in use: this checker runs on the cron expression below. Clear it to go back to an interval." : "How often this check runs on its own")">INTERVAL</label>
+                                    <select id="hpm-interval" value="@selected.Interval"
+                                            disabled="@selected.EffectiveSchedule.IsCron"
+                                            @onchange="OnIntervalChanged">
                                         @foreach (var interval in Intervals)
                                         {
                                             <option value="@interval" selected="@(interval == selected.Interval)">@Describe(interval)</option>
@@ -479,6 +904,25 @@
                                     <label for="hpm-threshold" title="How many failures in a row before this is called failing rather than suspicious. 0 means the first failure counts.">FAIL THRESHOLD</label>
                                     <input id="hpm-threshold" type="number" min="0" value="@selected.UnhealthyThreshold" @onchange="OnThresholdChanged" />
                                 </div>
+                            </div>
+
+                            <div class="hpm-field hpm-field--cron">
+                                <label for="hpm-cron" title="A standard Unix cron expression -- five fields, or six with a leading seconds field. Evaluated in UTC. Leave it empty to run on the interval instead.">CRON SCHEDULE</label>
+                                <input id="hpm-cron" type="text" spellcheck="false"
+                                       placeholder="empty -- runs on the interval above"
+                                       aria-describedby="@(_scheduleError is null ? null : "hpm-cron-error")"
+                                       aria-invalid="@(_scheduleError is not null ? "true" : null)"
+                                       value="@_cronDraft"
+                                       @oninput="@(e => _cronDraft = e.Value?.ToString())"
+                                       @onkeydown="OnCronKeyDown" />
+                                @if (_scheduleError is not null)
+                                {
+                                    <div id="hpm-cron-error" class="hpm-field-error" role="alert">@_scheduleError</div>
+                                }
+                                else
+                                {
+                                    <div class="hpm-field-hint">Enter to apply, Escape to undo. e.g. <code>0 6 * * MON-FRI</code></div>
+                                }
                             </div>
 
                             <div class="hpm-tags-editor">

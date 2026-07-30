@@ -1,3 +1,4 @@
+using Healthie.Abstractions.Insights;
 using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
@@ -31,6 +32,7 @@ public sealed class AlertDispatcher : BackgroundService
     private readonly IReadOnlyList<IPulseChecker> _checkers;
     private readonly IReadOnlyList<IAlertSink> _sinks;
     private readonly HealthieAlertOptions _options;
+    private readonly AlertHistory? _history;
     private readonly ILogger<AlertDispatcher>? _logger;
 
     private readonly Channel<Alert> _queue;
@@ -43,11 +45,16 @@ public sealed class AlertDispatcher : BackgroundService
     /// <param name="checkers">Every registered pulse checker.</param>
     /// <param name="sinks">Every registered alert sink.</param>
     /// <param name="options">Which changes alert, and how hard to try.</param>
+    /// <param name="history">
+    /// Keeps the last few alerts for the dashboard. Optional, so an application without one carries
+    /// no history at all.
+    /// </param>
     /// <param name="logger">An optional logger for diagnostic output.</param>
     public AlertDispatcher(
         IEnumerable<IPulseChecker> checkers,
         IEnumerable<IAlertSink> sinks,
         HealthieAlertOptions options,
+        AlertHistory? history = null,
         ILogger<AlertDispatcher>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(checkers);
@@ -56,6 +63,7 @@ public sealed class AlertDispatcher : BackgroundService
         _checkers = [.. checkers];
         _sinks = [.. sinks];
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _history = history;
         _logger = logger;
 
         _queue = Channel.CreateBounded<Alert>(
@@ -84,11 +92,17 @@ public sealed class AlertDispatcher : BackgroundService
     /// </remarks>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        // Nothing to deliver to, so there is no reason to subscribe or to hold a queue.
+        // Still subscribes with no sink registered: the dashboard's alerts panel reads the same
+        // history this fills, so "nowhere to deliver" is no longer "nothing to do".
         if (_sinks.Count == 0)
         {
-            _logger?.LogInformation("Alerting is registered but no sink is; no alerts will be sent.");
-            return Task.CompletedTask;
+            _logger?.LogInformation(
+                "Alerting is registered but no sink is; alerts will show on the dashboard and be sent nowhere.");
+        }
+
+        foreach (var sink in _sinks)
+        {
+            _history?.Register(sink.GetType().Name);
         }
 
         Subscribe();
@@ -172,6 +186,8 @@ public sealed class AlertDispatcher : BackgroundService
     /// </summary>
     private void OnAlertDropped(Alert alert)
     {
+        _history?.RecordDropped();
+
         var dropped = Interlocked.Increment(ref _dropped);
 
         _logger?.LogWarning(
@@ -226,20 +242,30 @@ public sealed class AlertDispatcher : BackgroundService
     /// </remarks>
     private async Task DeliverAsync(Alert alert, CancellationToken stoppingToken)
     {
+        // "Raised" and "delivered" are different facts, and the board shows both: an alert that
+        // fired and reached nobody is the failure worth seeing.
+        var delivered = true;
+
         foreach (var sink in _sinks)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             timeout.CancelAfter(_options.DeliveryTimeout);
 
+            var name = sink.GetType().Name;
+
             try
             {
                 await sink.SendAsync(alert, timeout.Token).ConfigureAwait(false);
+                _history?.RecordDelivery(name, error: null);
             }
             catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
+                delivered = false;
+                _history?.RecordDelivery(name, $"Did not respond within {_options.DeliveryTimeout}.");
+
                 _logger?.LogWarning(
                     "Alert sink {Sink} did not deliver the alert for '{CheckerName}' within {Timeout}.",
-                    sink.GetType().Name,
+                    name,
                     alert.CheckerName,
                     _options.DeliveryTimeout);
             }
@@ -249,13 +275,44 @@ public sealed class AlertDispatcher : BackgroundService
             }
             catch (Exception ex)
             {
+                delivered = false;
+                _history?.RecordDelivery(name, ex.Message);
+
                 _logger?.LogError(
                     ex,
                     "Alert sink {Sink} failed to deliver the alert for '{CheckerName}'.",
-                    sink.GetType().Name,
+                    name,
                     alert.CheckerName);
             }
         }
+
+        _history?.Record(alert, delivered);
+    }
+
+    /// <summary>
+    /// Puts one alert through every sink and reports what each did, bypassing the queue.
+    /// </summary>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>Each sink's tally, including this attempt.</returns>
+    /// <remarks>
+    /// Delivered directly rather than enqueued so the caller can be told the outcome; the queue
+    /// exists to keep a slow sink away from the checks, and nothing is checking here.
+    /// </remarks>
+    public async Task<IReadOnlyList<AlertSinkStatus>> SendTestAlertAsync(CancellationToken cancellationToken = default)
+    {
+        var alert = new Alert(
+            "healthie.test",
+            "Healthie test alert",
+            Group: null,
+            Tags: [],
+            PulseCheckerHealth.Healthy,
+            PulseCheckerHealth.Unhealthy,
+            "Test alert raised from the dashboard. Nothing is wrong.",
+            DateTime.UtcNow);
+
+        await DeliverAsync(alert, cancellationToken).ConfigureAwait(false);
+
+        return _history?.Sinks ?? [];
     }
 
     /// <inheritdoc />

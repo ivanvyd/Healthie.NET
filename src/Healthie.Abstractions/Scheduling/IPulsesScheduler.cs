@@ -34,6 +34,23 @@ public interface IPulsesScheduler : IHostedService
     Task SetIntervalAsync(string name, PulseInterval interval, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sets the schedule a pulse checker runs on, and reschedules it.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="schedule">The schedule to run it on, or <c>null</c> to go back to its interval.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="ArgumentException">
+    /// No pulse checker with the specified <paramref name="name"/> exists, or the registered
+    /// scheduler will not run the schedule.
+    /// </exception>
+    /// <remarks>
+    /// Refused before it is stored rather than after: a schedule the scheduler cannot run, persisted
+    /// and then failed on, leaves a checker that no longer runs and a store that says it should.
+    /// </remarks>
+    Task SetScheduleAsync(string name, PulseSchedule? schedule, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Sets the unhealthy threshold for a specific pulse checker.
     /// </summary>
     /// <param name="name">The name of the pulse checker.</param>

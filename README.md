@@ -446,6 +446,7 @@ The `Healthie.NET.Dashboard` package is a pulse monitor for your services, shipp
 - **Aggregate pulse trace** -- an EKG across the header, with the combined checks-per-minute of everything you monitor.
 - **A row per checker** -- status light, name, checks per minute, and a pulse strip of the last N runs, one blip per run, coloured by the health it reported.
 - **Detail panel** -- select a checker for its uptime, failure streak, last message, and its interval, failure threshold, group and tags, all editable in place.
+- **A panel per feature package you install** -- 24-hour uptime and longest outage from `Healthie.NET.Uptime`, a recent-alerts drawer from `Healthie.NET.Alerting`, a replica badge from `Healthie.NET.LeaderElection`, and an `EXPLAIN` button from `Healthie.NET.AI`. Nothing to configure: the panel appears because the package is registered, and an application that installs none of them gets the board unchanged. All read-only, so all of it survives `AllowMutations = false` -- bar `EXPLAIN`, which spends money on your account.
 - **Groups and tags** -- a checker sits in at most one group and carries any number of tags. Sections the list by group, filters it by tag. Both are declared in code and can be changed here; see [Groups and tags](#groups-and-tags).
 - **Pin** -- keep the checkers worth watching at the top. A pin is shared, not personal.
 - **Rows or cards** -- the same list laid out either way, flat or sectioned by group with per-group healthy/suspicious/failing tallies.
@@ -814,6 +815,8 @@ Both are development-time only. Nothing under `src/` depends on Aspire or Docker
 
 ## Migration
 
+Upgrading from v3.x? See the [v3 to v4 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v3-to-v4.md). 4.0.0 is source-compatible: rebuild and you are done.
+
 Upgrading from v2.x? See the [v2 to v3 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v2-to-v3.md). Most applications need no code changes.
 
 Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v1-to-v2.md) first.
@@ -822,11 +825,12 @@ Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanv
 
 ## Roadmap
 
-Shipped since 3.1.4: alerting on transitions, OpenTelemetry metrics and traces, arbitrary intervals
+Shipped in 4.0.0: alerting on transitions, OpenTelemetry metrics and traces, arbitrary intervals
 and cron, PostgreSQL / SQL Server / SQLite state providers, Hangfire / Coravel / Temporal
 scheduling, ready-made checkers, uptime reporting, leader election, optimistic concurrency
 on `IStateProvider`, `HealthChanged` on the state-changed event, Slack / Teams / PagerDuty alert
-sinks, and a Redis state provider.
+sinks, a Redis state provider, and a dashboard that surfaces each of those packages as it is
+installed.
 
 Every item that was on this list has shipped. Two open questions are decisions rather than features,
 and both are deliberate as they stand:

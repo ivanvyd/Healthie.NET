@@ -1,3 +1,4 @@
+using Healthie.Abstractions.Insights;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -36,6 +37,11 @@ public static class StartupExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<IPulseDiagnostician, PulseDiagnostician>();
+
+        // What the dashboard offers when this package is installed: a button that asks why. Not
+        // referenced from there, so a dashboard does not pull a model client in with it.
+        services.TryAddSingleton<IDiagnosisInsights>(provider =>
+            new DiagnosisInsights(provider.GetRequiredService<IPulseDiagnostician>()));
 
         return services;
     }

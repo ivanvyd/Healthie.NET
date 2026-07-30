@@ -1,4 +1,4 @@
-![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
+﻿![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 # Healthie.NET.Dashboard
 
@@ -57,12 +57,14 @@ app.MapHealthieUI().RequireAuthorization("AdminPolicy"); // With auth
 ## Features
 
 - Event-driven real-time updates via `IPulseChecker.StateChanged` (no polling)
-- Per-checker management: start, stop, trigger, reset, change interval, change threshold
+- Per-checker management: start, stop, trigger, reset, retime by interval or cron expression, change threshold
 - Bulk actions: Start All, Stop All, Trigger All
 - A read-only mode that reports everything and changes nothing — see below
+- Panels for the feature packages you install — uptime, alerts, leadership, AI — see below
 - Groups and tags, both editable here and seeded from code — see below
+- A collapsible left menu: overview, a section per group with its tally, and the alerts, log and about views
 - Pin a checker to the top of the list
-- Rows or cards, flat or sectioned by group with per-group tallies
+- Rows or cards, sectioned by group when it opens or flat on request, with per-group tallies
 - Live event log, with a full-size view behind the expand icon
 - Legend and about behind the `?` in the header
 - Dark/light theme toggle
@@ -83,10 +85,11 @@ builder.Services.AddHealthieUI(options => options.AllowMutations = false);
 
 That leaves a board that only reports. Every state, sparkline, group, tag, and event stays exactly
 where it was; the controls that would change any of it are not rendered. Nothing is lost to the
-reader, because the values behind the editors are on the board already — the interval is the row's
-rate, the threshold is the denominator in `FAILS`, and the group and tags are the chips under each
-name. Searching, filtering, grouping, switching to cards, opening the event log, and the theme
-toggle all still work: they change your view, not the checker.
+reader, because the values behind the editors are on the board already — the schedule is the row's
+rate, or its cron expression where it runs on one; the threshold is the denominator in `FAILS`; and
+the group and tags are the chips under each name. The side menu, searching, filtering, grouping,
+switching to cards, opening the event log, and the theme toggle all still work: they change your
+view, not the checker.
 
 **This is not authorization.** It is one setting for the whole application, applied to every viewer
 alike, so it cannot hand the controls to an admin and withhold them from everyone else. It answers
@@ -98,6 +101,66 @@ it:
 builder.Services.AddHealthieUI(options => options.AllowMutations = false);
 app.MapHealthieUI().RequireAuthorization();
 ```
+
+## Panels for the packages you install
+
+The board grows a panel for each feature package the application registers, and shows none of them
+otherwise. There is nothing to switch on: it renders the panel when the container can resolve the
+contract, so installing the package is the whole configuration.
+
+| Install | What appears |
+|---|---|
+| `Healthie.NET.Uptime` | `24H` on the selected checker — uptime measured over real time — and `WORST`, the longest unbroken outage inside that window |
+| `Healthie.NET.Alerting` | An **ALERTS** view: the paged alert history, where each alert is delivered, and the settings a running dispatcher honours — see below |
+| `AddHealthieMetrics()` | A **METRICS** view: checks run, the share that reported healthy, transitions, overlapped triggers, and mean and slowest check duration |
+| `Healthie.NET.LeaderElection` | A `LEADER` or `FOLLOWER` badge, hover-naming the replica — on a follower every checker sits still, which is otherwise indistinguishable from a broken board |
+| `Healthie.NET.AI` | An `EXPLAIN` button on a failing checker, which asks your `IChatClient` why it has been failing |
+
+### The alerts view
+
+Three things, in the order you need them.
+
+**Where alerts go.** Every registered `IAlertSink`, listed from startup rather than from its first
+delivery, with its delivered and failed counts and its last error. With none configured it says so
+outright — alerts raised and sent nowhere reads identically to alerts being delivered, and those are
+opposite situations. A sink that recovers stops being shown as failing.
+
+**What has fired.** The history, newest first, a page at a time, with a filter for the ones that did
+not reach every sink. It is written through your application's own `IStateProvider`, so on CosmosDB,
+PostgreSQL, SQL Server, SQLite or Redis it **survives a redeploy**; on the in-memory provider it does
+not. The header names the provider it went to and the cap it is kept at, so neither is a guess.
+
+**What alerting is doing.** Minimum severity, deduplication window, delivery timeout and whether
+recoveries alert, all editable and applied from the next alert. Only those four: the dispatcher reads
+them on every alert, whereas its queue capacity and history length are fixed when it is built, and a
+control that quietly did nothing would be worse than no control. `SEND TEST ALERT` puts one through
+the real sinks — the only way to find out a webhook URL is wrong is to use it.
+
+Settings and the test button are gated by `AllowMutations`; everything else in the view is a read and
+stays under read-only mode.
+
+### The metrics view
+
+`AddHealthieMetrics()` attaches a `MeterListener` to the `Healthie.NET` meter, which is where this
+library already emits `healthie.check.duration`, `.results`, `.transitions` and `.overlaps`. It reads
+what is being published rather than instrumenting anything again, so it runs **alongside** an
+OpenTelemetry exporter on the same meter, not instead of one.
+
+It is a live count and not a time series: nothing survives a restart, and an exporter is still the
+way to keep history. Opt-in for that reason — a listener costs a callback on every measurement, and
+an application with an APM in front of it has somewhere better to look.
+
+`OVERLAPS` is the figure worth watching. A checker whose check takes longer than its own interval
+returns immediately, looks healthy, and is quietly running at a fraction of the rate it was asked to;
+this is the only place it shows.
+
+`24H` sits beside the board's own `UPTIME`, which is the share of the runs still in the rolling
+history — a hundred results, so at a one-second interval, the last hundred seconds. They answer
+different questions and disagree for good reasons, which is why both are shown.
+
+All of it reads and none of it writes, so it all stays under `AllowMutations = false`. The exception
+is `EXPLAIN`: still a read, but it spends money on your account, so it is gated with the controls
+that change things.
 
 ## Groups and tags
 

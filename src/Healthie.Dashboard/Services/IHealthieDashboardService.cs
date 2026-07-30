@@ -1,5 +1,6 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 
 namespace Healthie.Dashboard.Services;
 
@@ -67,6 +68,20 @@ internal interface IHealthieDashboardService : IAsyncDisposable
     /// <param name="interval">The interval to set.</param>
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     Task SetIntervalAsync(string name, PulseInterval interval,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the schedule a pulse checker runs on, for a cadence no <see cref="PulseInterval"/>
+    /// expresses.
+    /// </summary>
+    /// <param name="name">The name of the pulse checker.</param>
+    /// <param name="schedule">The schedule, or <c>null</c> to go back to the interval.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <exception cref="ArgumentException">
+    /// The registered scheduler will not run this schedule. The message is written to be shown to
+    /// whoever typed it.
+    /// </exception>
+    Task SetScheduleAsync(string name, PulseSchedule? schedule,
         CancellationToken cancellationToken = default);
 
     /// <summary>

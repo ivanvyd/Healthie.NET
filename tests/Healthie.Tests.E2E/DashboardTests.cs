@@ -1,4 +1,4 @@
-using Microsoft.Playwright;
+﻿using Microsoft.Playwright;
 
 namespace Healthie.Tests.E2E;
 
@@ -101,7 +101,19 @@ public class DashboardTests(BrowserFixture browser)
         await page.Locator(".hpm-sel-name", new() { HasTextString = TargetChecker })
             .WaitForAsync(new() { Timeout = 10_000 });
         Assert.Equal(TargetChecker, (await page.Locator(".hpm-sel-name").TextContentAsync())?.Trim());
-        Assert.Equal(3, await page.Locator(".hpm-stat").CountAsync());
+
+        // A count would be a timing assertion, not a detail one: the sample installs the uptime
+        // package, whose 24H cell appears once a segment has been recorded and whose WORST cell
+        // appears only after an outage. So: the three that are always there, and nothing unexpected.
+        // Scoped to the stats grid: the same label class dresses the GROUP and TAGS editors below it.
+        var labels = await page.Locator(".hpm-stats .hpm-stat-label").AllTextContentsAsync();
+        var trimmed = labels.Select(label => label.Trim()).ToList();
+
+        Assert.Contains("UPTIME", trimmed);
+        Assert.Contains("FAILS", trimmed);
+        Assert.Contains("STATE", trimmed);
+        Assert.Empty(trimmed.Except(["UPTIME", "FAILS", "STATE", "24H", "WORST"]));
+
         browser.AssertNoErrors(page);
     }
 

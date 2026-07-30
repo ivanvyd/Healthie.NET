@@ -1,5 +1,6 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Dashboard.Services;
 
 namespace Healthie.Tests.Unit;
@@ -30,6 +31,8 @@ internal abstract class StubDashboardService : IHealthieDashboardService
     public virtual Task TriggerAllAsync(CancellationToken cancellationToken = default) => throw NotStubbed(nameof(TriggerAllAsync));
 
     public virtual Task SetIntervalAsync(string name, PulseInterval interval, CancellationToken cancellationToken = default) => throw NotStubbed(nameof(SetIntervalAsync));
+
+    public virtual Task SetScheduleAsync(string name, PulseSchedule? schedule, CancellationToken cancellationToken = default) => throw NotStubbed(nameof(SetScheduleAsync));
 
     public virtual Task SetThresholdAsync(string name, uint threshold, CancellationToken cancellationToken = default) => throw NotStubbed(nameof(SetThresholdAsync));
 
