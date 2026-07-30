@@ -13,6 +13,9 @@
     <ProjectReference Include="..\..\src\Healthie.Scheduling.Quartz\Healthie.Scheduling.Quartz.csproj" />
     <ProjectReference Include="..\..\src\Healthie.StateProviding.CosmosDb\Healthie.StateProviding.CosmosDb.csproj" />
     <ProjectReference Include="..\..\src\Healthie.Dashboard\Healthie.Dashboard.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Alerting\Healthie.Alerting.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.Uptime\Healthie.Uptime.csproj" />
+    <ProjectReference Include="..\..\src\Healthie.LeaderElection\Healthie.LeaderElection.csproj" />
   </ItemGroup>
 
   <ItemGroup>

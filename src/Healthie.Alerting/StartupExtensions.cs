@@ -1,3 +1,4 @@
+using Healthie.Abstractions.Insights;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -32,6 +33,13 @@ public static class StartupExtensions
         configure?.Invoke(options);
 
         services.TryAddSingleton(options);
+
+        // What the dashboard renders when this package is installed: the last few alerts and whether
+        // they were delivered. Registered here rather than referenced there, so installing a
+        // dashboard does not drag alerting in with it.
+        services.TryAddSingleton(new AlertHistory(options.HistoryLength));
+        services.TryAddSingleton<IAlertInsights>(p => p.GetRequiredService<AlertHistory>());
+
         services.AddHostedService<AlertDispatcher>();
 
         return services;

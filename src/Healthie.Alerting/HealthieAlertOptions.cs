@@ -55,4 +55,14 @@ public sealed class HealthieAlertOptions
     /// leak in the process being monitored. A dropped alert is counted and logged.
     /// </remarks>
     public int QueueCapacity { get; set; } = 1024;
+
+    /// <summary>
+    /// How many recent alerts the dashboard can show. Defaults to 50.
+    /// </summary>
+    /// <remarks>
+    /// A window onto what just happened rather than a record; the record is wherever the sinks
+    /// deliver to. Kept in memory and bounded, so it costs nothing to leave on.
+    /// </remarks>
+    public int HistoryLength { get; set; } = 50;
+
 }

@@ -169,6 +169,9 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         _initialized = true;
         _isDarkMode = ThemeState.IsDarkMode;
 
+        // Whatever feature packages the application installed. Absent is the normal case.
+        ResolveInsights();
+
         // Hand the states the prerender read across to the interactive render. Without this the
         // circuit starts from an empty board and reads every checker again; the board it renders in
         // the meantime -- momentarily empty, then repopulating -- replaces the one the prerender
@@ -193,6 +196,10 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         {
             await LoadAsync();
         }
+
+        // The first checker is selected by MarkLoaded rather than by a click, so nothing has read its
+        // uptime yet -- without this the panel opens missing the columns every later selection shows.
+        await LoadUptimeAsync(_selected);
 
         _clockLoop = RunClockAsync();
     }
@@ -434,12 +441,27 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         Refresh();
     }
 
-    private void OnRowKeyDown(KeyboardEventArgs args, string name)
+    private async Task OnRowKeyDown(KeyboardEventArgs args, string name)
     {
         if (args.Key is "Enter" or " ")
         {
-            _selected = name;
+            await SelectAsync(name);
         }
+    }
+
+    /// <summary>
+    /// Selects a checker and reads anything the feature packages can add about it.
+    /// </summary>
+    /// <remarks>
+    /// On selection rather than on the clock tick: uptime is a query over recorded segments and the
+    /// board redraws every second.
+    /// </remarks>
+    private async Task SelectAsync(string? name)
+    {
+        _selected = name;
+        _diagnosis = null;
+
+        await LoadUptimeAsync(name);
     }
 
     private void ToggleAbout() => _showAbout = !_showAbout;

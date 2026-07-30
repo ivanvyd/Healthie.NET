@@ -2,7 +2,11 @@ using Healthie.DependencyInjection;
 using Healthie.Sample.BlazorUI.Components;
 using Healthie.Scheduling.Quartz;
 using Healthie.StateProviding.CosmosDb;
+using Healthie.Abstractions.Enums;
+using Healthie.Alerting;
 using Healthie.Dashboard;
+using Healthie.LeaderElection;
+using Healthie.Uptime;
 using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +26,26 @@ builder.Services
         // point: showing what the dashboard can do.
         options.AllowMutations = builder.Configuration.GetValue("Healthie:AllowMutations", true);
     });
+
+// The dashboard shows a panel per feature package the application installs, and shows none of them
+// otherwise. Installing them here is what makes this sample demonstrate the whole board rather than
+// the core of it.
+builder.Services
+    .AddHealthieAlerts(options =>
+    {
+        // Suspicious as well as unhealthy, and a short window, so the alerts panel actually has
+        // something in it while somebody is looking at the sample.
+        options.MinimumSeverity = PulseCheckerHealth.Suspicious;
+        options.DeduplicationWindow = TimeSpan.FromSeconds(20);
+    })
+    .AddHealthieUptime();
+
+// Leader election off by default: with one replica it is always the leader, and the badge would be
+// a permanent reassurance about a problem nobody has. Healthie:LeaderElection=true shows it.
+if (builder.Configuration.GetValue("Healthie:LeaderElection", false))
+{
+    builder.Services.AddHealthieLeaderElection();
+}
 
 // Swap the scheduler with Healthie:Scheduler=Quartz. AddHealthie has already registered the
 // built-in timer, and the last registration wins, so this overrides it.

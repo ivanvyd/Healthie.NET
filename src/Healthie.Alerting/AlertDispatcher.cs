@@ -39,17 +39,26 @@ public sealed class AlertDispatcher : BackgroundService
 
     private long _dropped;
 
+    private readonly AlertHistory? _history;
+
     /// <summary>Initializes a new instance of the <see cref="AlertDispatcher"/> class.</summary>
     /// <param name="checkers">Every registered pulse checker.</param>
     /// <param name="sinks">Every registered alert sink.</param>
     /// <param name="options">Which changes alert, and how hard to try.</param>
+    /// <param name="history">
+    /// Keeps the last few alerts for the dashboard. Optional, so an application without one carries
+    /// no history at all.
+    /// </param>
     /// <param name="logger">An optional logger for diagnostic output.</param>
     public AlertDispatcher(
         IEnumerable<IPulseChecker> checkers,
         IEnumerable<IAlertSink> sinks,
         HealthieAlertOptions options,
+        AlertHistory? history = null,
         ILogger<AlertDispatcher>? logger = null)
     {
+        _history = history;
+
         ArgumentNullException.ThrowIfNull(checkers);
         ArgumentNullException.ThrowIfNull(sinks);
 
@@ -84,11 +93,12 @@ public sealed class AlertDispatcher : BackgroundService
     /// </remarks>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        // Nothing to deliver to, so there is no reason to subscribe or to hold a queue.
+        // Still subscribes with no sink registered: the dashboard's alerts panel reads the same
+        // history this fills, so "nowhere to deliver" is no longer "nothing to do".
         if (_sinks.Count == 0)
         {
-            _logger?.LogInformation("Alerting is registered but no sink is; no alerts will be sent.");
-            return Task.CompletedTask;
+            _logger?.LogInformation(
+                "Alerting is registered but no sink is; alerts will show on the dashboard and be sent nowhere.");
         }
 
         Subscribe();
@@ -172,6 +182,8 @@ public sealed class AlertDispatcher : BackgroundService
     /// </summary>
     private void OnAlertDropped(Alert alert)
     {
+        _history?.RecordDropped();
+
         var dropped = Interlocked.Increment(ref _dropped);
 
         _logger?.LogWarning(
@@ -226,6 +238,10 @@ public sealed class AlertDispatcher : BackgroundService
     /// </remarks>
     private async Task DeliverAsync(Alert alert, CancellationToken stoppingToken)
     {
+        // "Raised" and "delivered" are different facts, and the board shows both: an alert that
+        // fired and reached nobody is the failure worth seeing.
+        var delivered = true;
+
         foreach (var sink in _sinks)
         {
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -237,6 +253,8 @@ public sealed class AlertDispatcher : BackgroundService
             }
             catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
+                delivered = false;
+
                 _logger?.LogWarning(
                     "Alert sink {Sink} did not deliver the alert for '{CheckerName}' within {Timeout}.",
                     sink.GetType().Name,
@@ -249,6 +267,8 @@ public sealed class AlertDispatcher : BackgroundService
             }
             catch (Exception ex)
             {
+                delivered = false;
+
                 _logger?.LogError(
                     ex,
                     "Alert sink {Sink} failed to deliver the alert for '{CheckerName}'.",
@@ -256,6 +276,8 @@ public sealed class AlertDispatcher : BackgroundService
                     alert.CheckerName);
             }
         }
+
+        _history?.Record(alert, delivered);
     }
 
     /// <inheritdoc />

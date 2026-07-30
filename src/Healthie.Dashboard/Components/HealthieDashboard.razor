@@ -51,6 +51,34 @@
                        value="@_searchFilter" @oninput="OnSearchInput" />
             </div>
 
+            @*
+                Only when something is elected. A single-replica application is always the leader and
+                does not need telling.
+            *@
+            @if (_leadershipInsights is not null)
+            {
+                <span class="hpm-replica @(IsLeader ? "hpm-replica--leader" : "hpm-replica--follower")"
+                      role="status"
+                      title="@(IsLeader
+                          ? $"This replica ({_leadershipInsights.ReplicaId}) holds the lease, so it is the one running the checks."
+                          : $"This replica ({_leadershipInsights.ReplicaId}) is a follower. Another replica runs the checks; the states below are shared.")">
+                    @(IsLeader ? "LEADER" : "FOLLOWER")
+                </span>
+            }
+
+            @if (_alertInsights is not null)
+            {
+                <button type="button"
+                        class="hpm-btn hpm-btn--alerts @(_alertInsights.DroppedCount > 0 ? "hpm-btn--alerts-dropped" : null)"
+                        title="@(_alertInsights.DroppedCount > 0
+                            ? $"Recent alerts. {_alertInsights.DroppedCount} were dropped because the queue was full -- nobody was told about those."
+                            : "Alerts raised recently, and whether they reached their sinks")"
+                        aria-expanded="@_alertsOpen"
+                        @onclick="ToggleAlertsAsync">
+                    ALERTS@(_alertInsights.DroppedCount > 0 ? $" ({_alertInsights.DroppedCount} DROPPED)" : null)
+                </button>
+            }
+
             <div class="hpm-actions">
                 @if (Options.AllowMutations)
                 {
@@ -105,6 +133,52 @@
             </div>
         </div>
     </header>
+        @*
+            Reads only, so it shows in read-only mode too: knowing what fired and whether it landed
+            is exactly what a read-only board is for.
+        *@
+        @if (_alertsOpen && _alertInsights is not null)
+        {
+            <section class="hpm-alerts" aria-label="Recent alerts">
+                <div class="hpm-alerts-head">
+                    <span class="hpm-alerts-title">RECENT ALERTS</span>
+                    @if (_alertInsights.DroppedCount > 0)
+                    {
+                        <span class="hpm-alerts-dropped" title="The alert queue filled up and these were discarded rather than delivered late">
+                            @_alertInsights.DroppedCount DROPPED
+                        </span>
+                    }
+                    <div class="hpm-spacer"></div>
+                    <button type="button" class="hpm-sel-btn" @onclick="ToggleAlertsAsync" aria-label="Close recent alerts">CLOSE</button>
+                </div>
+
+                @if (_recentAlerts.Count == 0)
+                {
+                    <div class="hpm-alerts-empty">Nothing has alerted yet. Alerts appear here as checkers change health.</div>
+                }
+                else
+                {
+                    <ul class="hpm-alerts-list">
+                        @foreach (var alert in _recentAlerts)
+                        {
+                            <li class="hpm-alert @(alert.Delivered ? null : "hpm-alert--undelivered")">
+                                <span class="hpm-alert-when" title="@alert.OccurredAt.ToString("u")">@Relative(alert.OccurredAt)</span>
+                                <span class="hpm-alert-name">@alert.DisplayName</span>
+                                <span class="hpm-alert-move">
+                                    @(alert.PreviousHealth?.ToString() ?? "new") &rarr; <b>@alert.CurrentHealth</b>
+                                </span>
+                                <span class="hpm-alert-msg">@alert.Message</span>
+                                @if (!alert.Delivered)
+                                {
+                                    <span class="hpm-alert-flag" title="At least one sink refused or timed out. The alert was raised but did not reach everyone.">NOT DELIVERED</span>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
+        }
+
 
     @*
         The event log at full size. The sidebar copy is a glance; this is the one to read when
@@ -236,7 +310,7 @@
         <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
              role="button" tabindex="0"
              aria-pressed="@(isSelected ? "true" : "false")"
-             @onclick="@(() => _selected = name)"
+             @onclick="@(() => SelectAsync(name))"
              @onkeydown="@(e => OnRowKeyDown(e, name))">
 
                         <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
@@ -435,6 +509,21 @@
                                 <div class="hpm-stat-label">UPTIME</div>
                                 <div class="hpm-stat-value" style="color: @UptimeColor(_selected!)">@Uptime(_selected!)</div>
                             </div>
+                            @* Beside the run-based figure above, so the two are read against each other. *@
+                            @if (_uptime is { } uptime)
+                            {
+                                <div class="hpm-stat">
+                                    <div class="hpm-stat-label" title="Measured over real time from recorded segments, not from the runs still in history">24H</div>
+                                    <div class="hpm-stat-value">@Percent(uptime.Percentage)</div>
+                                </div>
+                                @if (uptime.LongestOutage is { } outage)
+                                {
+                                    <div class="hpm-stat">
+                                        <div class="hpm-stat-label" title="The longest unbroken unhealthy stretch in that window -- a hundred blips and one long outage give the same percentage">WORST</div>
+                                        <div class="hpm-stat-value" style="color: var(--hpm-crit)">@Duration(outage)</div>
+                                    </div>
+                                }
+                            }
                             <div class="hpm-stat">
                                 <div class="hpm-stat-label">FAILS</div>
                                 <div class="hpm-stat-value" style="color: @(selected.ConsecutiveFailureCount > 0 ? "var(--hpm-crit)" : "var(--hpm-text)")">
@@ -457,6 +546,26 @@
                             legible elsewhere: the interval is the rate on the row, the threshold is
                             the denominator in FAILS, and the group and tags are chips on the row.
                         *@
+                        @*
+                            Explaining is a read, but it spends money on the host's account and takes
+                            seconds, so it sits with the actions rather than with the readings.
+                        *@
+                        @if (_diagnosisInsights is not null && Options.AllowMutations)
+                        {
+                            <div class="hpm-explain">
+                                <button type="button" class="hpm-sel-btn hpm-sel-btn--explain"
+                                        disabled="@_diagnosing"
+                                        title="Ask the configured model to explain this checker's recent failures"
+                                        @onclick="@(() => ExplainAsync(_selected!))">
+                                    @(_diagnosing ? "THINKING..." : "EXPLAIN")
+                                </button>
+                                @if (_diagnosis is { } diagnosis)
+                                {
+                                    <p class="hpm-explain-text">@diagnosis</p>
+                                }
+                            </div>
+                        }
+
                         @if (Options.AllowMutations)
                         {
                             <div class="hpm-sel-actions">

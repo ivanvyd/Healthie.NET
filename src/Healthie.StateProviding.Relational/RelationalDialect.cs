@@ -29,7 +29,9 @@ namespace Healthie.StateProviding.Relational;
 /// </param>
 /// <param name="AddVersionColumnFormat">
 /// Statement adding the version column to a table that predates it, with <c>{0}</c> for the table
-/// name. Run only when the column is missing.
+/// name. Run only when the column is missing. Optional: a dialect that does not supply one is left
+/// alone by the migration, which is right for a table this library created and wrong only for one
+/// that predates versioning, where the statement is the whole point.
 /// </param>
 /// <param name="InsertIfAbsentFormat">
 /// Statement inserting one row only if the name is not taken, reporting the outcome through rows
@@ -40,7 +42,7 @@ public sealed record RelationalDialect(
     string Name,
     string CreateTableFormat,
     string UpsertFormat,
-    string AddVersionColumnFormat,
+    string? AddVersionColumnFormat = null,
     string? InsertIfAbsentFormat = null)
 {
     /// <summary>
@@ -199,8 +201,11 @@ public sealed record RelationalDialect(
     /// A plain ALTER, run only when the column is genuinely missing -- the initializer checks first
     /// rather than relying on an IF NOT EXISTS that SQLite does not have for ADD COLUMN.
     /// </remarks>
-    internal string AddVersionColumn(string tableName) =>
-        Format(AddVersionColumnFormat, tableName);
+    /// <summary>
+    /// The statement adding the version column, or <c>null</c> when the dialect does not supply one.
+    /// </summary>
+    internal string? AddVersionColumn(string tableName) =>
+        AddVersionColumnFormat is null ? null : Format(AddVersionColumnFormat, tableName);
 
     internal static string Select(string tableName) => Format(SelectFormat, tableName);
 

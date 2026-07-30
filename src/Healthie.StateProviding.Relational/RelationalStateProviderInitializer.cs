@@ -26,7 +26,7 @@ public sealed class RelationalStateProviderInitializer(
     private readonly string _createTableSql = (dialect ?? throw new ArgumentNullException(nameof(dialect)))
         .CreateTable(Validated(tableName));
 
-    private readonly string _addVersionColumnSql = dialect.AddVersionColumn(Validated(tableName));
+    private readonly string? _addVersionColumnSql = dialect.AddVersionColumn(Validated(tableName));
     private readonly string _tableName = Validated(tableName);
 
     private static string Validated(string tableName)
@@ -73,7 +73,10 @@ public sealed class RelationalStateProviderInitializer(
     /// </remarks>
     private async Task AddVersionColumnIfMissingAsync(DbConnection connection, CancellationToken cancellationToken)
     {
-        if (await HasVersionColumnAsync(connection, cancellationToken).ConfigureAwait(false))
+        // Nothing to add, and nothing to add it with: a hand-built dialect that supplied no
+        // statement is telling us its table already has the column, or that it is not our business.
+        if (_addVersionColumnSql is null
+            || await HasVersionColumnAsync(connection, cancellationToken).ConfigureAwait(false))
         {
             return;
         }

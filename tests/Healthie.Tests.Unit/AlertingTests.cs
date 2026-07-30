@@ -1,4 +1,5 @@
 using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Insights;
 using Healthie.Alerting;
 using Microsoft.Extensions.Hosting;
 
@@ -91,6 +92,50 @@ public class AlertingTests
             Assert.True(await WaitUntilAsync(() => sink.Received.Count == 1, TimeSpan.FromSeconds(5)));
             Assert.Equal(PulseCheckerHealth.Unhealthy, sink.Received[0].CurrentHealth);
             Assert.False(sink.Received[0].IsRecovery);
+        }
+        finally
+        {
+            await ((IHostedService)dispatcher).StopAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>
+    /// An application can install alerting for the dashboard's panel alone and wire up delivery
+    /// later. The dispatcher used to skip subscribing when no sink was registered -- correct while
+    /// sinks were the only consumer, and the reason that panel could never fill once it was one.
+    /// </summary>
+    [Fact]
+    public async Task WithNoSinkRegistered_AlertsStillReachTheHistoryTheDashboardReads()
+    {
+        var checker = new FakePulseChecker("alerting-target");
+        var history = new AlertHistory(capacity: 4);
+        var dispatcher = new AlertDispatcher(
+            [checker],
+            [],
+            new HealthieAlertOptions { DeduplicationWindow = TimeSpan.Zero },
+            history);
+
+        await ((IHostedService)dispatcher).StartAsync(Ct);
+
+        try
+        {
+            Assert.Equal(1, checker.SubscriberCount);
+            checker.RaiseStateChanged(PulseCheckerHealth.Unhealthy);
+
+            IReadOnlyList<AlertInsight> recent = [];
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+
+            while (recent.Count == 0 && DateTime.UtcNow < deadline)
+            {
+                recent = await history.GetRecentAlertsAsync(10, Ct);
+
+                if (recent.Count == 0)
+                {
+                    await Task.Delay(20, Ct);
+                }
+            }
+
+            Assert.Equal(PulseCheckerHealth.Unhealthy, Assert.Single(recent).CurrentHealth);
         }
         finally
         {
