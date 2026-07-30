@@ -300,7 +300,7 @@
       "Healthie.NET.LeaderElection": {
         "type": "Project",
         "dependencies": {
-          "Healthie.NET.Abstractions": "[1.0.0, )"
+          "Healthie.NET.DependencyInjection": "[1.0.0, )"
         }
       },
       "Healthie.NET.Quartz": {
@@ -315,7 +315,7 @@
       "Healthie.NET.Uptime": {
         "type": "Project",
         "dependencies": {
-          "Healthie.NET.Abstractions": "[1.0.0, )"
+          "Healthie.NET.DependencyInjection": "[1.0.0, )"
         }
       },
       "Cronos": {
