@@ -1,4 +1,4 @@
-using Microsoft.Playwright;
+﻿using Microsoft.Playwright;
 
 namespace Healthie.Tests.E2E;
 
@@ -19,9 +19,6 @@ namespace Healthie.Tests.E2E;
 [Collection(nameof(BrowserCollection))]
 public class DashboardReadOnlyTests(BrowserFixture browser) : IAsyncDisposable
 {
-    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
-    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private static readonly ProviderSetup Setup = new("Timer", UseCosmos: false);
@@ -52,6 +49,9 @@ public class DashboardReadOnlyTests(BrowserFixture browser) : IAsyncDisposable
         await DashboardTests.WaitForTheBoardAsync(page);
         return page;
     }
+
+    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
+    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
 
     [Fact]
     public async Task Dashboard_WithMutationsOff_HidesEveryControlThatChangesAChecker()

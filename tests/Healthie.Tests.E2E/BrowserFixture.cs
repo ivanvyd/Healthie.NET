@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using Microsoft.Playwright;
+using Xunit.Sdk;
 
 namespace Healthie.Tests.E2E;
 
@@ -11,7 +12,7 @@ public sealed class BrowserFixture : IAsyncLifetime
 {
     private readonly ConcurrentDictionary<IPage, List<string>> _errors = new();
     private readonly ConcurrentDictionary<IPage, IBrowserContext> _contexts = new();
-    private readonly ConcurrentDictionary<IPage, object> _owners = new();
+    private readonly ConcurrentDictionary<IPage, ITest> _owners = new();
     private IPlaywright? _playwright;
     private IBrowser? _browser;
 

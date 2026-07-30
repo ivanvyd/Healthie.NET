@@ -16,9 +16,6 @@ namespace Healthie.Tests.E2E;
 [Collection(nameof(BrowserCollection))]
 public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
 {
-    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
-    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     /// <summary>Grouped and tagged by the sample, so it exercises both concepts at once.</summary>
@@ -66,6 +63,9 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await DashboardTests.WaitForTheBoardAsync(page);
         return page;
     }
+
+    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
+    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
 
     /// <summary>
     /// The defaults declared in code have to survive the whole way to the screen: seeded into
@@ -178,10 +178,7 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        // Waiting on the panel's title, not on the box: the box is already visible for whichever
-        // checker was selected on load, so it tells you nothing about whether the click has landed.
-        await RowFor(page, CronChecker).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(CronChecker);
+        await SelectCheckerAsync(page, CronChecker);
 
         var box = page.Locator("#hpm-cron");
         var before = await box.InputValueAsync();
@@ -213,12 +210,10 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await RowFor(page, CronChecker).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(CronChecker);
+        await SelectCheckerAsync(page, CronChecker);
         await Assertions.Expect(page.Locator("#hpm-interval")).ToBeDisabledAsync();
 
-        await RowFor(page, TargetChecker).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
+        await SelectCheckerAsync(page, TargetChecker);
         await Assertions.Expect(page.Locator("#hpm-interval")).ToBeEnabledAsync();
 
         browser.AssertNoErrors(page);
@@ -327,7 +322,7 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await RowFor(page, TargetChecker).ClickAsync();
+        await SelectCheckerAsync(page, TargetChecker);
         await page.GetByLabel("Add a tag").FillAsync("e2e-added");
         await page.GetByRole(AriaRole.Button, new() { Name = "ADD" }).ClickAsync();
 
@@ -365,7 +360,7 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         var page = await OpenDashboardAsync(app);
 
         // The log starts empty and fills as checks report in, so give it something to show.
-        await RowFor(page, TargetChecker).ClickAsync();
+        await SelectCheckerAsync(page, TargetChecker);
         await page.GetByRole(AriaRole.Button, new() { Name = "RUN NOW" }).ClickAsync();
         await page.Locator(".hpm-log-body .hpm-event").First.WaitForAsync();
 

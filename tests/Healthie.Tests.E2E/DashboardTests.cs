@@ -10,9 +10,6 @@ namespace Healthie.Tests.E2E;
 [Collection(nameof(BrowserCollection))]
 public class DashboardTests(BrowserFixture browser) : IAsyncDisposable
 {
-    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
-    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     /// <summary>
@@ -81,6 +78,9 @@ public class DashboardTests(BrowserFixture browser) : IAsyncDisposable
     /// </remarks>
     internal static Task WaitForTheBoardAsync(IPage page) =>
         Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(CheckerCount, new() { Timeout = 30_000 });
+
+    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
+    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
 
     [Theory]
     [MemberData(nameof(Setups))]
