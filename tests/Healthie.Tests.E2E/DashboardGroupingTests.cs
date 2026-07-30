@@ -1,4 +1,5 @@
 ﻿using Microsoft.Playwright;
+using System.Text.RegularExpressions;
 
 namespace Healthie.Tests.E2E;
 
@@ -385,9 +386,15 @@ public class DashboardGroupingTests(BrowserFixture browser)
 
         await page.GetByRole(AriaRole.Button, new() { Name = "Legend and about" }).ClickAsync();
 
-        await Assertions.Expect(page.Locator(".hpm-popover")).ToBeVisibleAsync();
-        // The version comes from the assembly; a Razor slip once rendered it as literal text.
-        await Assertions.Expect(page.Locator(".hpm-popover-head .hpm-tag")).Not.ToHaveTextAsync("v@PackageVersion");
+        var about = page.GetByRole(AriaRole.Dialog, new() { Name = "Legend and about" });
+        await Assertions.Expect(about).ToBeVisibleAsync();
+
+        // Scoped to this dialog, and asserted positively. ".hpm-popover-head .hpm-tag" matches the
+        // event log's header too, so it resolved to two elements whenever both were in the DOM --
+        // which is a strict-mode violation, and why this failed only under load. A negative
+        // assertion also passes when the element is simply missing; a version-shaped one cannot.
+        await Assertions.Expect(about.Locator(".hpm-popover-head .hpm-tag"))
+            .ToHaveTextAsync(new Regex(@"^v\d+\.\d+"));
         browser.AssertNoErrors(page);
     }
 
