@@ -21,6 +21,13 @@
     <EnablePackageValidation>false</EnablePackageValidation>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);NU5128</NoWarn>
+
+    <!--
+      No assembly means no .pdb, and nuget.org rejects a symbol package containing none of them
+      with a 400. The repository packs symbols for everything by default, so this has to opt out
+      explicitly or the push fails after the real packages have already gone up.
+    -->
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>
