@@ -136,19 +136,27 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        var everything = await page.Locator(".hpm-row").CountAsync();
-        var inTarget = await GroupFor(page, TargetGroup).Locator(".hpm-row").CountAsync();
-        Assert.True(inTarget > 0 && inTarget < everything);
+        // Asserted as invariants rather than against row totals taken up front: the board settles as
+        // states arrive, so a count read on the way in is a race, and this failed once on a loaded
+        // runner for exactly that reason.
+        await Assertions.Expect(page.Locator(".hpm-group").First).ToBeVisibleAsync();
 
         var entry = page.Locator(".hpm-nav-item").Filter(new() { HasTextString = TargetGroup });
         await entry.ClickAsync();
-
-        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(inTarget);
         await Assertions.Expect(entry).ToHaveAttributeAsync("aria-current", "true");
+
+        // Narrowed to one group: exactly one section, and every row in it carries that group.
+        await Assertions.Expect(page.Locator(".hpm-group")).ToHaveCountAsync(1);
+        await Assertions.Expect(page.Locator(".hpm-group-name")).ToHaveTextAsync(TargetGroup);
+
+        var groups = await page.Locator(".hpm-row .hpm-chip--group").AllTextContentsAsync();
+        Assert.NotEmpty(groups);
+        Assert.All(groups, group => Assert.Equal(TargetGroup, group.Trim()));
 
         // Picking it again is the way back, so the menu cannot strand anyone in one group.
         await entry.ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(everything);
+        await Assertions.Expect(entry).Not.ToHaveAttributeAsync("aria-current", "true");
+        await Assertions.Expect(page.Locator(".hpm-group").Nth(1)).ToBeVisibleAsync();
 
         browser.AssertNoErrors(page);
     }
