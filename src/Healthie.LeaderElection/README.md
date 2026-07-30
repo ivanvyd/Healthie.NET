@@ -1,6 +1,17 @@
-![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
+﻿![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 # Healthie.NET.LeaderElection
+
+> ### Deprecated as of 4.1.0
+>
+> Leader election now ships in **[Healthie.NET](https://www.nuget.org/packages/Healthie.NET)**, the
+> core package. Call `AddHealthieLeaderElection()` there and drop this reference — running the checks
+> on one replica at a time works exactly as it does here.
+>
+> **Nothing breaks if you keep it.** This package is still published, as an assembly of type
+> forwards, so an application referencing it keeps compiling and running untouched. It carried no
+> third-party dependency, so keeping it separate cost you an install and saved you nothing. It will
+> not gain features.
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.LeaderElection.svg)](https://www.nuget.org/packages/Healthie.NET.LeaderElection)
 

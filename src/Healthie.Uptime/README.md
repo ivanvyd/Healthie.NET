@@ -1,6 +1,17 @@
-![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
+﻿![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 # Healthie.NET.Uptime
+
+> ### Deprecated as of 4.1.0
+>
+> Uptime reporting now ships in **[Healthie.NET](https://www.nuget.org/packages/Healthie.NET)**, the
+> core package. Call `AddHealthieUptime()` there and drop this reference — uptime over any window
+> works exactly as it does here.
+>
+> **Nothing breaks if you keep it.** This package is still published, as an assembly of type
+> forwards, so an application referencing it keeps compiling and running untouched. It carried no
+> third-party dependency, so keeping it separate cost you an install and saved you nothing. It will
+> not gain features.
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Uptime.svg)](https://www.nuget.org/packages/Healthie.NET.Uptime)
 
