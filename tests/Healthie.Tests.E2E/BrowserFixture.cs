@@ -87,10 +87,21 @@ public sealed class BrowserFixture : IAsyncLifetime
 
             _contexts.TryRemove(page, out _);
             _owners.TryRemove(page, out _);
-            _errors.TryRemove(page, out _);
+            _errors.TryRemove(page, out var errors);
 
             if (failed)
             {
+                // Straight into the CI log, next to the failure, because the usual cause of a
+                // browser assertion running out of patience is not a slow page: it is a Blazor
+                // circuit that closed, after which nothing on that page can ever change. That reads
+                // as "the element never got the attribute" and costs an afternoon.
+                if (errors is { Count: > 0 })
+                {
+                    TestContext.Current.TestOutputHelper?.WriteLine(
+                        "The browser reported errors before this failed:" + Environment.NewLine +
+                        string.Join(Environment.NewLine, errors));
+                }
+
                 Directory.CreateDirectory(TraceDirectory);
 
                 var safe = string.Concat(name.Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '-'));

@@ -115,9 +115,23 @@ jobs:
 
       # The whole suite, unit and end-to-end, gates the release: nothing is packed, tagged, or
       # published unless the dashboard itself is proven to work in a browser first.
+      #
+      # Run as two steps rather than one solution-level `dotnet test`, which is not a style
+      # preference. That form hands both suites to one runner at once, and the browser suite is then
+      # driving a Blazor Server circuit over a WebSocket while eleven hundred unit tests across two
+      # frameworks saturate the machine. A starved circuit closes with 1006, and every assertion on
+      # that page fails from then on however long it waits -- which is what made releases fail
+      # browser tests that were green on every pull request, where ci.yml gives them a runner each.
       - name: Test
         run: >
-          dotnet test
+          dotnet test tests/Healthie.Tests.Unit
+          --configuration ${{ env.CONFIGURATION }}
+          --no-build
+          --verbosity normal
+
+      - name: Test (browser)
+        run: >
+          dotnet test tests/Healthie.Tests.E2E
           --configuration ${{ env.CONFIGURATION }}
           --no-build
           --verbosity normal
