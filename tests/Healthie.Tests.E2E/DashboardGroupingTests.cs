@@ -250,7 +250,6 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await group.WaitForAsync();
 
         var inside = await group.Locator(".hpm-row").CountAsync();
-        var total = await page.Locator(".hpm-row").CountAsync();
         Assert.True(inside > 0);
 
         await group.Locator(".hpm-group-head").ClickAsync();
@@ -258,7 +257,7 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         // Awaited rather than counted on the spot: the click is a round-trip to the server and back
         // before anything re-renders.
         await Assertions.Expect(group.Locator(".hpm-row")).ToHaveCountAsync(0);
-        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(total - inside);
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(DashboardTests.CheckerCount - inside);
         browser.AssertNoErrors(page);
     }
 
@@ -273,10 +272,8 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        var total = await page.Locator(".hpm-row").CountAsync();
-
         await page.Locator(".hpm-tag-filter").SelectOptionAsync("tier-1");
-        await Assertions.Expect(page.Locator(".hpm-row")).Not.ToHaveCountAsync(total);
+        await Assertions.Expect(page.Locator(".hpm-row")).Not.ToHaveCountAsync(DashboardTests.CheckerCount);
 
         Assert.True(
             await page.Locator(".hpm-row").CountAsync() > 0,

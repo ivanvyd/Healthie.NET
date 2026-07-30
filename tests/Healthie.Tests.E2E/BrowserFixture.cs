@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Microsoft.Playwright;
 using Xunit.Sdk;
 
@@ -87,6 +87,7 @@ public sealed class BrowserFixture : IAsyncLifetime
 
             _contexts.TryRemove(page, out _);
             _owners.TryRemove(page, out _);
+            _errors.TryRemove(page, out _);
 
             if (failed)
             {
