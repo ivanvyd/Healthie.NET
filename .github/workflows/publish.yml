@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Build
         run: >

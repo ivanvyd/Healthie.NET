@@ -30,7 +30,7 @@ jobs:
             10.0.x
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Build
         run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
@@ -58,7 +58,7 @@ jobs:
             10.0.x
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore --locked-mode
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
