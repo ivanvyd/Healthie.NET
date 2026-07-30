@@ -7,8 +7,8 @@ WORKDIR /src
 # Restore against the manifests alone first, so this layer is only rebuilt when dependencies change.
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/ src/
-COPY samples/Healthie.Sample.WebApi/Healthie.Sample.WebApi.csproj samples/Healthie.Sample.WebApi/
-RUN dotnet restore samples/Healthie.Sample.WebApi/Healthie.Sample.WebApi.csproj
+COPY samples/Healthie.Sample.WebApi/Healthie.Sample.WebApi.csproj samples/Healthie.Sample.WebApi/packages.lock.json samples/Healthie.Sample.WebApi/
+RUN dotnet restore samples/Healthie.Sample.WebApi/Healthie.Sample.WebApi.csproj --locked-mode
 
 COPY samples/ samples/
 RUN dotnet publish samples/Healthie.Sample.WebApi/Healthie.Sample.WebApi.csproj \

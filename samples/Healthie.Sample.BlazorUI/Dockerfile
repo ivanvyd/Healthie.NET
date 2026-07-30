@@ -7,8 +7,8 @@ WORKDIR /src
 # Restore against the manifests alone first, so this layer is only rebuilt when dependencies change.
 COPY Directory.Build.props Directory.Packages.props ./
 COPY src/ src/
-COPY samples/Healthie.Sample.BlazorUI/Healthie.Sample.BlazorUI.csproj samples/Healthie.Sample.BlazorUI/
-RUN dotnet restore samples/Healthie.Sample.BlazorUI/Healthie.Sample.BlazorUI.csproj
+COPY samples/Healthie.Sample.BlazorUI/Healthie.Sample.BlazorUI.csproj samples/Healthie.Sample.BlazorUI/packages.lock.json samples/Healthie.Sample.BlazorUI/
+RUN dotnet restore samples/Healthie.Sample.BlazorUI/Healthie.Sample.BlazorUI.csproj --locked-mode
 
 COPY samples/ samples/
 RUN dotnet publish samples/Healthie.Sample.BlazorUI/Healthie.Sample.BlazorUI.csproj \

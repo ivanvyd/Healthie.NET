@@ -1,6 +1,13 @@
 <Project>
 
   <PropertyGroup>
+    <!--
+      Writes the resolved dependency graph to a packages.lock.json beside each project. CI restores
+      in locked mode, so a graph that drifts from the lock fails the build rather than quietly
+      resolving to something else. Changing a version in Directory.Packages.props now also means
+      regenerating the locks; a restore with the force-evaluate switch does that.
+    -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>

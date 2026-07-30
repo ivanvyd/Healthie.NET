@@ -14,6 +14,14 @@
       runs on CI and on arm64. Acknowledged deliberately rather than reverting to the Windows one.
     -->
     <NoWarn>$(NoWarn);ASPIRECOSMOSDB001</NoWarn>
+    <!--
+      The one project that opts out of the repository's lock files. The Aspire SDK adds a
+      runtime-specific Aspire.Dashboard.Sdk package, so the resolved graph differs per operating
+      system: a lock generated on Windows names win-x64 and a Linux restore then asks for
+      linux-x64 and fails as inconsistent. A lock file cannot describe a graph that depends on
+      where the restore runs, and this is a sample orchestrator rather than anything shipped.
+    -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <ItemGroup>
