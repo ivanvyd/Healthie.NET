@@ -28,6 +28,14 @@ public sealed class BrowserFixture : IAsyncLifetime
 
         _playwright = await Playwright.CreateAsync();
         _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
+
+        // Playwright's default is five seconds, which is tuned for a developer's machine driving one
+        // page. Every assertion here waits on a Blazor Server round trip, and the release workflow
+        // runs this suite straight after eleven hundred unit tests across two frameworks -- a loaded
+        // runner made assertions that pass on every pull request fail twice during a release, which
+        // reads as a broken feature rather than a busy machine. Raised once here rather than
+        // sprinkled per call, so no future assertion has to remember.
+        Assertions.SetDefaultExpectTimeout(20_000);
     }
 
     public async Task<IPage> NewPageAsync()
