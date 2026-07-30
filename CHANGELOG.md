@@ -119,7 +119,7 @@ before upgrading:
   contract in `Healthie.NET.Abstractions` that its package implements, and the board renders the
   panel when the container can resolve it: uptime over the last day and the longest outage in it
   beside the run-based percentage, a drawer of recent alerts saying which reached their sinks and
-  which did not, a badge naming the replica when it is not the one running the checks, and a button
+  which did not, a badge saying whether this replica is the one running the checks, and a button
   that asks the model why a checker has been failing. An application that installs none of them gets
   the board exactly as it was.
 

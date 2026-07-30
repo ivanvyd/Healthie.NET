@@ -110,7 +110,7 @@ contract, so installing the package is the whole configuration.
 |---|---|
 | `Healthie.NET.Uptime` | `24H` on the selected checker — uptime measured over real time — and `WORST`, the longest unbroken outage inside that window |
 | `Healthie.NET.Alerting` | An `ALERTS` button opening the recent alerts, each with its health transition, its message, and a flag when it did not reach every sink |
-| `Healthie.NET.LeaderElection` | A badge naming this replica, shown only when it is *not* the one running the checks — a board where nothing is moving is otherwise indistinguishable from a broken one |
+| `Healthie.NET.LeaderElection` | A `LEADER` or `FOLLOWER` badge, hover-naming the replica — on a follower every checker sits still, which is otherwise indistinguishable from a broken board |
 | `Healthie.NET.AI` | An `EXPLAIN` button on a failing checker, which asks your `IChatClient` why it has been failing |
 
 `24H` sits beside the board's own `UPTIME`, which is the share of the runs still in the rolling
