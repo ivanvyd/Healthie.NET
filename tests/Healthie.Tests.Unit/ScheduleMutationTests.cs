@@ -1,4 +1,4 @@
-using Healthie.Abstractions;
+﻿using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
@@ -20,19 +20,30 @@ public class ScheduleMutationTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private sealed class Checker(IStateProvider provider, PulseSchedule schedule)
-        : PulseChecker(provider, schedule)
+    /// <summary>
+    /// A real <see cref="PulseChecker"/> on a cron schedule, because the behaviour under test lives
+    /// in the base class rather than in the interface.
+    /// </summary>
+    /// <remarks>
+    /// Takes only a state provider, like the other checkers in this assembly: assembly scanning
+    /// registers every concrete <see cref="PulseChecker"/> here, so one whose constructor the
+    /// container cannot satisfy fails every registration test in the suite rather than only its own.
+    /// </remarks>
+    internal sealed class CronScheduledChecker(IStateProvider stateProvider)
+        : PulseChecker(stateProvider, PulseSchedule.Cron(InitialCron))
     {
+        public const string InitialCron = "0 3 * * *";
+
         public override string Name => "schedule-target";
 
         public override Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(new PulseCheckerResult(PulseCheckerHealth.Healthy, "ok"));
     }
 
-    private static async Task<(Checker Checker, IStateProvider Provider)> DailyCheckerAsync()
+    private static async Task<(CronScheduledChecker Checker, IStateProvider Provider)> DailyCheckerAsync()
     {
         var provider = new InMemoryStateProvider();
-        var checker = new Checker(provider, PulseSchedule.Cron("0 3 * * *"));
+        var checker = new CronScheduledChecker(provider);
 
         // Seeds the initial state, which is what makes the cron schedule the stored one.
         await checker.TriggerAsync(Ct);
@@ -162,7 +173,7 @@ public class ScheduleMutationTests
     public async Task PulsesScheduler_RefusingASchedule_LeavesTheStoredOneAlone()
     {
         var provider = new InMemoryStateProvider();
-        using var checker = new Checker(provider, PulseSchedule.Cron("0 3 * * *"));
+        using var checker = new CronScheduledChecker(provider);
         await checker.TriggerAsync(Ct);
 
         using var scheduler = new TimerPulseScheduler();
@@ -171,6 +182,6 @@ public class ScheduleMutationTests
         await Assert.ThrowsAsync<ArgumentException>(() =>
             pulses.SetScheduleAsync("schedule-target", PulseSchedule.Cron("99 99 * * *"), Ct));
 
-        Assert.Equal("0 3 * * *", (await StateOf(provider)).Schedule?.CronExpression);
+        Assert.Equal(CronScheduledChecker.InitialCron, (await StateOf(provider)).Schedule?.CronExpression);
     }
 }

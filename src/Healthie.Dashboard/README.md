@@ -1,4 +1,4 @@
-![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
+﻿![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 # Healthie.NET.Dashboard
 
@@ -57,13 +57,14 @@ app.MapHealthieUI().RequireAuthorization("AdminPolicy"); // With auth
 ## Features
 
 - Event-driven real-time updates via `IPulseChecker.StateChanged` (no polling)
-- Per-checker management: start, stop, trigger, reset, change interval, change threshold
+- Per-checker management: start, stop, trigger, reset, retime by interval or cron expression, change threshold
 - Bulk actions: Start All, Stop All, Trigger All
 - A read-only mode that reports everything and changes nothing — see below
 - Panels for the feature packages you install — uptime, alerts, leadership, AI — see below
 - Groups and tags, both editable here and seeded from code — see below
+- A collapsible left menu: overview, a section per group with its tally, and the alerts, log and about views
 - Pin a checker to the top of the list
-- Rows or cards, flat or sectioned by group with per-group tallies
+- Rows or cards, sectioned by group when it opens or flat on request, with per-group tallies
 - Live event log, with a full-size view behind the expand icon
 - Legend and about behind the `?` in the header
 - Dark/light theme toggle
@@ -84,10 +85,11 @@ builder.Services.AddHealthieUI(options => options.AllowMutations = false);
 
 That leaves a board that only reports. Every state, sparkline, group, tag, and event stays exactly
 where it was; the controls that would change any of it are not rendered. Nothing is lost to the
-reader, because the values behind the editors are on the board already — the interval is the row's
-rate, the threshold is the denominator in `FAILS`, and the group and tags are the chips under each
-name. Searching, filtering, grouping, switching to cards, opening the event log, and the theme
-toggle all still work: they change your view, not the checker.
+reader, because the values behind the editors are on the board already — the schedule is the row's
+rate, or its cron expression where it runs on one; the threshold is the denominator in `FAILS`; and
+the group and tags are the chips under each name. The side menu, searching, filtering, grouping,
+switching to cards, opening the event log, and the theme toggle all still work: they change your
+view, not the checker.
 
 **This is not authorization.** It is one setting for the whole application, applied to every viewer
 alike, so it cannot hand the controls to an admin and withhold them from everyone else. It answers

@@ -22,6 +22,9 @@ public class DashboardGroupingTests(BrowserFixture browser)
 
     private const string TargetGroup = "Data Stores";
 
+    /// <summary>The one checker in the sample that runs on a cron expression rather than an interval.</summary>
+    private const string CronChecker = "TLS Certificate";
+
     private static ILocator RowFor(IPage page, string displayName) =>
         page.Locator(".hpm-row").Filter(new() { HasTextString = displayName });
 
@@ -74,13 +77,125 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        var flatCount = await page.Locator(".hpm-row").CountAsync();
-
-        await page.GetByRole(AriaRole.Button, new() { Name = "GROUP", Exact = true }).ClickAsync();
+        // The board opens grouped, so this is the state under test without touching anything.
         await page.Locator(".hpm-group").First.WaitForAsync();
 
-        Assert.Equal(flatCount, await page.Locator(".hpm-row").CountAsync());
+        var groupedCount = await page.Locator(".hpm-row").CountAsync();
         Assert.Equal(1, await RowFor(page, TargetChecker).CountAsync());
+
+        // The same checkers laid out flat: the button goes the other way now, which makes this the
+        // comparison the test always wanted rather than a count taken before grouping was applied.
+        await page.GetByRole(AriaRole.Button, new() { Name = "GROUP", Exact = true }).ClickAsync();
+        await Assertions.Expect(page.Locator(".hpm-group")).ToHaveCountAsync(0);
+
+        Assert.Equal(groupedCount, await page.Locator(".hpm-row").CountAsync());
+        Assert.Equal(1, await RowFor(page, TargetChecker).CountAsync());
+        browser.AssertNoErrors(page);
+    }
+
+    /// <summary>
+    /// The board opens sectioned by group rather than as one flat list, and the GROUP button
+    /// reflects that rather than inviting a click that turns it off unannounced.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(DashboardTests.Setups), MemberType = typeof(DashboardTests))]
+    public async Task Dashboard_OnOpen_IsSectionedByGroup(ProviderSetup setup)
+    {
+        await using var app = await SampleApp.StartAsync(setup, Ct);
+        var page = await OpenDashboardAsync(app);
+
+        await Assertions.Expect(page.Locator(".hpm-group").First).ToBeVisibleAsync();
+        await Assertions.Expect(page.GetByRole(AriaRole.Button, new() { Name = "GROUP", Exact = true }))
+            .ToHaveAttributeAsync("aria-pressed", "true");
+
+        browser.AssertNoErrors(page);
+    }
+
+    /// <summary>
+    /// The side menu narrows the list to one group, and says which one it is narrowed to.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(DashboardTests.Setups), MemberType = typeof(DashboardTests))]
+    public async Task Dashboard_SideMenu_NarrowsTheListToOneGroup(ProviderSetup setup)
+    {
+        await using var app = await SampleApp.StartAsync(setup, Ct);
+        var page = await OpenDashboardAsync(app);
+
+        var everything = await page.Locator(".hpm-row").CountAsync();
+        var inTarget = await GroupFor(page, TargetGroup).Locator(".hpm-row").CountAsync();
+        Assert.True(inTarget > 0 && inTarget < everything);
+
+        var entry = page.Locator(".hpm-nav-item").Filter(new() { HasTextString = TargetGroup });
+        await entry.ClickAsync();
+
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(inTarget);
+        await Assertions.Expect(entry).ToHaveAttributeAsync("aria-current", "true");
+
+        // Picking it again is the way back, so the menu cannot strand anyone in one group.
+        await entry.ClickAsync();
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(everything);
+
+        browser.AssertNoErrors(page);
+    }
+
+    /// <summary>
+    /// A cron expression typed on the board reaches the scheduler, and a bad one is refused without
+    /// touching what is stored.
+    /// </summary>
+    /// <remarks>
+    /// Ordered deliberately: the refusal is asserted first, so a passing "it applied" cannot be the
+    /// result of the field simply ignoring everything typed into it.
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(DashboardTests.Setups), MemberType = typeof(DashboardTests))]
+    public async Task Dashboard_CronEditor_AppliesAValidExpressionAndRefusesABadOne(ProviderSetup setup)
+    {
+        await using var app = await SampleApp.StartAsync(setup, Ct);
+        var page = await OpenDashboardAsync(app);
+
+        // Waiting on the panel's title, not on the box: the box is already visible for whichever
+        // checker was selected on load, so it tells you nothing about whether the click has landed.
+        await RowFor(page, CronChecker).ClickAsync();
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(CronChecker);
+
+        var box = page.Locator("#hpm-cron");
+        var before = await box.InputValueAsync();
+        Assert.False(string.IsNullOrWhiteSpace(before));
+
+        await box.FillAsync("99 99 * * *");
+        await box.PressAsync("Enter");
+
+        await Assertions.Expect(page.Locator(".hpm-field-error")).ToBeVisibleAsync();
+        await Assertions.Expect(RowFor(page, CronChecker).Locator(".hpm-rate")).ToHaveTextAsync(before);
+
+        await box.FillAsync("0 6 * * MON-FRI");
+        await box.PressAsync("Enter");
+
+        await Assertions.Expect(page.Locator(".hpm-field-error")).ToHaveCountAsync(0);
+        await Assertions.Expect(RowFor(page, CronChecker).Locator(".hpm-rate")).ToHaveTextAsync("0 6 * * MON-FRI");
+
+        browser.AssertNoErrors(page);
+    }
+
+    /// <summary>
+    /// The interval picker is inert while a cron expression is in force, because the schedule
+    /// overrides it -- a live picker would store a value nothing reads.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(DashboardTests.Setups), MemberType = typeof(DashboardTests))]
+    public async Task Dashboard_ForACronChecker_DisablesTheIntervalPicker(ProviderSetup setup)
+    {
+        await using var app = await SampleApp.StartAsync(setup, Ct);
+        var page = await OpenDashboardAsync(app);
+
+        await RowFor(page, CronChecker).ClickAsync();
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(CronChecker);
+        await Assertions.Expect(page.Locator("#hpm-interval")).ToBeDisabledAsync();
+
+        await RowFor(page, TargetChecker).ClickAsync();
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
+        await Assertions.Expect(page.Locator("#hpm-interval")).ToBeEnabledAsync();
+
         browser.AssertNoErrors(page);
     }
 
@@ -92,7 +207,6 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "GROUP", Exact = true }).ClickAsync();
         var group = GroupFor(page, TargetGroup);
         await group.WaitForAsync();
 
@@ -112,7 +226,6 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "GROUP", Exact = true }).ClickAsync();
         var group = GroupFor(page, TargetGroup);
         await group.WaitForAsync();
 

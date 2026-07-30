@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Healthie.NET dashboard -- Pulse Monitor.
  *
  * No third-party CSS and no web fonts: this ships inside someone else's application, which may run
@@ -736,51 +736,6 @@
     .hpm-side {
         position: static;
         grid-column: 1 / -1;
-    }
-}
-
-/*
- * Below this a rail costs more width than it earns, so it becomes a strip above the list: one
- * horizontally scrolling row of the same items. Still every entry, still no JavaScript, and nothing
- * overlays the content -- which is what an off-canvas drawer would need a focus trap to do honestly.
- */
-@media (max-width: 820px) {
-    .hpm-body,
-    .hpm-body--nav-collapsed {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .hpm-nav {
-        position: static;
-        flex-direction: row;
-        align-items: center;
-        gap: 6px;
-        overflow-x: auto;
-        scrollbar-width: thin;
-    }
-
-    .hpm-nav-toggle,
-    .hpm-nav-heading {
-        display: none;
-    }
-
-    .hpm-nav-item {
-        width: auto;
-        flex: 0 0 auto;
-        border-left: 0;
-        border-bottom: 2px solid transparent;
-        border-radius: 6px;
-    }
-
-    .hpm-nav-item--current {
-        border-left-color: transparent;
-        border-bottom-color: var(--hpm-accent, var(--hpm-ok));
-    }
-
-    /* The labels come back here even when the rail was left collapsed on a wider screen. */
-    .hpm-body--nav-collapsed .hpm-nav-text,
-    .hpm-body--nav-collapsed .hpm-nav-count {
-        display: inline;
     }
 }
 
@@ -1925,4 +1880,73 @@
     font-family: var(--hpm-mono);
     font-size: 11px;
     letter-spacing: 0;
+}
+
+/*
+ * A disabled control that still looks live invites the click it will ignore -- which is the same
+ * complaint as the interval picker silently doing nothing, moved one step later. The browser's own
+ * 0.7 opacity is not enough against this palette.
+ */
+.hpm-field select:disabled,
+.hpm-field input:disabled {
+    color: var(--hpm-faint);
+    background: var(--hpm-panel2);
+    border-style: dashed;
+    cursor: not-allowed;
+}
+
+.hpm-field:has(select:disabled) > label,
+.hpm-field:has(input:disabled) > label {
+    color: var(--hpm-faint);
+}
+/*
+ * Below this a rail costs more width than it earns, so it becomes a strip above the list: one
+ * horizontally scrolling row of the same items. Still every entry, still no JavaScript, and nothing
+ * overlays the content -- which is what an off-canvas drawer would need a focus trap to do honestly.
+ */
+@media (max-width: 820px) {
+    .hpm-body,
+    .hpm-body--nav-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hpm-nav {
+        position: static;
+        padding: 6px;
+    }
+
+    /* The items live in this wrapper, so this is what has to become the row. */
+    .hpm-nav-body {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--hpm-line2) transparent;
+    }
+
+    .hpm-nav-toggle,
+    .hpm-nav-heading {
+        display: none;
+    }
+
+    .hpm-nav-item {
+        width: auto;
+        flex: 0 0 auto;
+        border-left: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 6px;
+    }
+
+    .hpm-nav-item--current {
+        border-left-color: transparent;
+        border-bottom-color: var(--hpm-accent, var(--hpm-ok));
+    }
+
+    /* The labels come back here even when the rail was left collapsed on a wider screen. */
+    .hpm-body--nav-collapsed .hpm-nav-text,
+    .hpm-body--nav-collapsed .hpm-nav-count {
+        display: inline;
+    }
 }

@@ -275,8 +275,9 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
         }
         catch (CronFormatException ex)
         {
-            error = $"Expected standard Unix cron -- five fields, or six with a leading seconds " +
-                    $"field. {ex.Message}";
+            // Cronos names the field and the range it wanted, which is more use than restating the
+            // format -- the field this is shown beside already gives an example of one.
+            error = ex.Message;
 
             return false;
         }

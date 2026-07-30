@@ -105,9 +105,10 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
 
         if (schedule is not null && !_pulseScheduler.TryValidateSchedule(schedule, out var error))
         {
-            throw new ArgumentException(
-                $"The registered scheduler will not run '{schedule}' for pulse checker '{name}'. {error}",
-                nameof(schedule));
+            // No parameter name: this message is written to be shown to whoever typed the
+            // expression, and "(Parameter 'schedule')" is plumbing to everyone but a debugger. The
+            // caller named the checker, so the message does not repeat it back.
+            throw new ArgumentException($"'{schedule}' cannot be scheduled. {error}");
         }
 
         await pulseChecker.SetScheduleAsync(schedule, cancellationToken).ConfigureAwait(false);

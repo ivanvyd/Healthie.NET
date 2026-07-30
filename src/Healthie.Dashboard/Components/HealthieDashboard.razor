@@ -688,7 +688,7 @@
                                 <input id="hpm-cron" type="text" spellcheck="false"
                                        placeholder="empty -- runs on the interval above"
                                        aria-describedby="@(_scheduleError is null ? null : "hpm-cron-error")"
-                                       aria-invalid="@(_scheduleError is not null)"
+                                       aria-invalid="@(_scheduleError is not null ? "true" : null)"
                                        value="@_cronDraft"
                                        @oninput="@(e => _cronDraft = e.Value?.ToString())"
                                        @onkeydown="OnCronKeyDown" />

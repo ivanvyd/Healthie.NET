@@ -126,9 +126,44 @@ before upgrading:
   Read-only throughout, so all of it shows under `HealthieUIOptions.AllowMutations = false` -- the
   one exception is asking the model, which is still a read but spends money on the host's account,
   and is gated with the controls that change things.
+- **A side menu on the dashboard**, listing an overview, a section per group with its tally and worst
+  state, and the alerts, event-log and about views. Picking a group narrows the list and picking it
+  again is the way back; it combines with the search box and the tag filter rather than clearing
+  them, and the groups it lists come from the store rather than from the rows currently surviving
+  those filters -- a menu that dropped a group because a search had narrowed it away would take away
+  the means of getting back to it.
+
+  A rail rather than an overlay drawer, and collapsing to its icons rather than disappearing. This
+  package ships no JavaScript of its own, and an off-canvas drawer needs a focus trap to be honest
+  about keyboard use. Below 820px it becomes a scrolling strip above the list.
+- **The dashboard opens sectioned by group** rather than as one flat list. A group is a partition, so
+  the sectioned view answers what is wrong and where at a glance; a flat list of forty checkers asks
+  the reader to do that grouping themselves. Checkers with no group collect under one heading, so the
+  default hides nothing. The `GROUP` button still switches to the flat list.
+- **A cron expression can be set from the dashboard**, beside the interval picker, and through
+  `PUT /healthie/{checkerName}/schedule` on the REST API. The scheduler judges the expression before
+  anything is stored -- `IPulseScheduler.TryValidateSchedule`, defaulted to accept so an existing
+  scheduler is unaffected -- because Cronos, Quartz and Temporal do not agree on cron dialects and
+  the only answer worth having is from the implementation that will run it. A refusal carries that
+  implementation's own reason and leaves the stored schedule alone; storing first and failing on the
+  reschedule would leave a checker that no longer runs and a store that says it should.
+
+  `IPulseChecker.SetScheduleAsync` and `IPulsesScheduler.SetScheduleAsync` are the API behind it. A
+  schedule an interval can express exactly is stored as that interval, so only a genuinely custom
+  period or a cron expression occupies `PulseCheckerState.Schedule`.
 
 ### Fixed
 
+- **The dashboard ignored `PulseSchedule` everywhere it showed a cadence.** It read
+  `PulseCheckerState.Interval` for the rate column, for the aggregate checks-per-minute, and for the
+  interval picker -- and that field is documented as ignored once `Schedule` is set. So a checker on
+  a cron expression advertised a rate it was not running at, was summed into the aggregate at that
+  rate, and offered a picker whose every change stored a field nothing reads. The board now reads
+  `EffectiveSchedule`, shows a cron expression as one, counts cron checkers separately rather than
+  inventing a rate for them, and disables the picker while an expression is in force.
+- **`SetIntervalAsync` did nothing to a checker that had a schedule.** The schedule overrides the
+  interval, so choosing one left the checker at its old cadence with nothing to say so. It now clears
+  the schedule, which is what choosing an interval means.
 - **The dashboard's own page did not encode its title.** `MapHealthieUI` builds that one page as a
   string rather than through Razor, which encodes every interpolation for you, so a
   `HealthieUIOptions.DashboardTitle` built from anything the host did not write itself could close
