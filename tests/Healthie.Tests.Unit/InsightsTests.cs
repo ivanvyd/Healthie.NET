@@ -173,6 +173,32 @@ public class InsightsTests
         Assert.True(recent[1].Delivered);
     }
 
+    /// <summary>
+    /// Trimming used to happen before the enqueue, which made a capacity of zero the empty-queue
+    /// case on every single call -- so the first alert raised took down the dispatcher's delivery
+    /// loop rather than being discarded.
+    /// </summary>
+    [Fact]
+    public async Task AlertHistory_WithNoRoomAtAll_DiscardsRatherThanThrows()
+    {
+        var history = new AlertHistory(capacity: 0);
+
+        history.Record(Alert("nowhere"), delivered: true);
+
+        Assert.Empty(await history.GetRecentAlertsAsync(10, Ct));
+    }
+
+    /// <summary>
+    /// And the supported route there cannot reach zero: the option clamps, as MaxHistoryLength does,
+    /// so a board configured with no history shows the last alert rather than nothing at all.
+    /// </summary>
+    [Fact]
+    public void HistoryLength_BelowOne_IsClamped()
+    {
+        Assert.Equal(1, new HealthieAlertOptions { HistoryLength = 0 }.HistoryLength);
+        Assert.Equal(1, new HealthieAlertOptions { HistoryLength = -5 }.HistoryLength);
+    }
+
     [Fact]
     public void AlertHistory_CountsWhatNeverReachedTheQueue()
     {

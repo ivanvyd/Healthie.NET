@@ -195,15 +195,13 @@ public sealed record RelationalDialect(
     internal const string DeleteFormat = "DELETE FROM {0} WHERE name = @name";
 
     /// <summary>
-    /// Adds the version column to a table created before it existed.
+    /// Adds the version column to a table created before it existed, or <c>null</c> when the
+    /// dialect does not supply the statement.
     /// </summary>
     /// <remarks>
     /// A plain ALTER, run only when the column is genuinely missing -- the initializer checks first
     /// rather than relying on an IF NOT EXISTS that SQLite does not have for ADD COLUMN.
     /// </remarks>
-    /// <summary>
-    /// The statement adding the version column, or <c>null</c> when the dialect does not supply one.
-    /// </summary>
     internal string? AddVersionColumn(string tableName) =>
         AddVersionColumnFormat is null ? null : Format(AddVersionColumnFormat, tableName);
 

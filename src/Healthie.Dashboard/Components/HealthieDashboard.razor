@@ -1,4 +1,4 @@
-@* Healthie.NET dashboard -- Pulse Monitor. *@
+﻿@* Healthie.NET dashboard -- Pulse Monitor. *@
 @implements IAsyncDisposable
 @using Healthie.Abstractions.Extensions
 @using Healthie.Dashboard.Components
@@ -133,52 +133,51 @@
             </div>
         </div>
     </header>
-        @*
-            Reads only, so it shows in read-only mode too: knowing what fired and whether it landed
-            is exactly what a read-only board is for.
-        *@
-        @if (_alertsOpen && _alertInsights is not null)
-        {
-            <section class="hpm-alerts" aria-label="Recent alerts">
-                <div class="hpm-alerts-head">
-                    <span class="hpm-alerts-title">RECENT ALERTS</span>
-                    @if (_alertInsights.DroppedCount > 0)
+    @*
+        Reads only, so it shows in read-only mode too: knowing what fired and whether it landed
+        is exactly what a read-only board is for.
+    *@
+    @if (_alertsOpen && _alertInsights is not null)
+    {
+        <section class="hpm-alerts" aria-label="Recent alerts">
+            <div class="hpm-alerts-head">
+                <span class="hpm-alerts-title">RECENT ALERTS</span>
+                @if (_alertInsights.DroppedCount > 0)
+                {
+                    <span class="hpm-alerts-dropped" title="The alert queue filled up and these were discarded rather than delivered late">
+                        @_alertInsights.DroppedCount DROPPED
+                    </span>
+                }
+                <div class="hpm-spacer"></div>
+                <button type="button" class="hpm-sel-btn" @onclick="ToggleAlertsAsync" aria-label="Close recent alerts">CLOSE</button>
+            </div>
+
+            @if (_recentAlerts.Count == 0)
+            {
+                <div class="hpm-alerts-empty">Nothing has alerted yet. Alerts appear here as checkers change health.</div>
+            }
+            else
+            {
+                <ul class="hpm-alerts-list">
+                    @foreach (var alert in _recentAlerts)
                     {
-                        <span class="hpm-alerts-dropped" title="The alert queue filled up and these were discarded rather than delivered late">
-                            @_alertInsights.DroppedCount DROPPED
-                        </span>
+                        <li class="hpm-alert @(alert.Delivered ? null : "hpm-alert--undelivered")">
+                            <span class="hpm-alert-when" title="@alert.OccurredAt.ToString("u")">@Relative(alert.OccurredAt)</span>
+                            <span class="hpm-alert-name">@alert.DisplayName</span>
+                            <span class="hpm-alert-move">
+                                @(alert.PreviousHealth?.ToString() ?? "new") &rarr; <b>@alert.CurrentHealth</b>
+                            </span>
+                            <span class="hpm-alert-msg">@alert.Message</span>
+                            @if (!alert.Delivered)
+                            {
+                                <span class="hpm-alert-flag" title="At least one sink refused or timed out. The alert was raised but did not reach everyone.">NOT DELIVERED</span>
+                            }
+                        </li>
                     }
-                    <div class="hpm-spacer"></div>
-                    <button type="button" class="hpm-sel-btn" @onclick="ToggleAlertsAsync" aria-label="Close recent alerts">CLOSE</button>
-                </div>
-
-                @if (_recentAlerts.Count == 0)
-                {
-                    <div class="hpm-alerts-empty">Nothing has alerted yet. Alerts appear here as checkers change health.</div>
-                }
-                else
-                {
-                    <ul class="hpm-alerts-list">
-                        @foreach (var alert in _recentAlerts)
-                        {
-                            <li class="hpm-alert @(alert.Delivered ? null : "hpm-alert--undelivered")">
-                                <span class="hpm-alert-when" title="@alert.OccurredAt.ToString("u")">@Relative(alert.OccurredAt)</span>
-                                <span class="hpm-alert-name">@alert.DisplayName</span>
-                                <span class="hpm-alert-move">
-                                    @(alert.PreviousHealth?.ToString() ?? "new") &rarr; <b>@alert.CurrentHealth</b>
-                                </span>
-                                <span class="hpm-alert-msg">@alert.Message</span>
-                                @if (!alert.Delivered)
-                                {
-                                    <span class="hpm-alert-flag" title="At least one sink refused or timed out. The alert was raised but did not reach everyone.">NOT DELIVERED</span>
-                                }
-                            </li>
-                        }
-                    </ul>
-                }
-            </section>
-        }
-
+                </ul>
+            }
+        </section>
+    }
 
     @*
         The event log at full size. The sidebar copy is a glance; this is the one to read when

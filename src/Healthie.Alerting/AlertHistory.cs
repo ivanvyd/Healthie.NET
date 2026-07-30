@@ -45,12 +45,14 @@ public sealed class AlertHistory(int capacity) : IAlertInsights
 
         lock (_gate)
         {
-            if (_recent.Count == capacity)
+            // Trims after enqueuing rather than before. Dropping the oldest first has to special-case
+            // an empty queue, and a capacity of zero makes every call the empty case.
+            _recent.Enqueue(insight);
+
+            while (_recent.Count > capacity)
             {
                 _recent.Dequeue();
             }
-
-            _recent.Enqueue(insight);
         }
     }
 

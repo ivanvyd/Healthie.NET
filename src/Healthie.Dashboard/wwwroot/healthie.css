@@ -1650,7 +1650,7 @@
 
 /* An alert that fired and reached nobody is the one worth seeing from across the room. */
 .hpm-alert--undelivered {
-    background: var(--hpm-crit-bg, rgba(255, 90, 100, 0.08));
+    background: var(--hpm-crit-bg);
 }
 
 .hpm-alert-flag {

@@ -31,6 +31,7 @@ public sealed class AlertDispatcher : BackgroundService
     private readonly IReadOnlyList<IPulseChecker> _checkers;
     private readonly IReadOnlyList<IAlertSink> _sinks;
     private readonly HealthieAlertOptions _options;
+    private readonly AlertHistory? _history;
     private readonly ILogger<AlertDispatcher>? _logger;
 
     private readonly Channel<Alert> _queue;
@@ -38,8 +39,6 @@ public sealed class AlertDispatcher : BackgroundService
     private readonly List<(IPulseChecker Checker, EventHandler<PulseCheckerStateChangedEventArgs> Handler)> _subscriptions = [];
 
     private long _dropped;
-
-    private readonly AlertHistory? _history;
 
     /// <summary>Initializes a new instance of the <see cref="AlertDispatcher"/> class.</summary>
     /// <param name="checkers">Every registered pulse checker.</param>
@@ -57,14 +56,13 @@ public sealed class AlertDispatcher : BackgroundService
         AlertHistory? history = null,
         ILogger<AlertDispatcher>? logger = null)
     {
-        _history = history;
-
         ArgumentNullException.ThrowIfNull(checkers);
         ArgumentNullException.ThrowIfNull(sinks);
 
         _checkers = [.. checkers];
         _sinks = [.. sinks];
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _history = history;
         _logger = logger;
 
         _queue = Channel.CreateBounded<Alert>(

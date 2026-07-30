@@ -45,13 +45,6 @@ public sealed partial class HealthieDashboard
     private string? _diagnosis;
     private bool _diagnosing;
 
-    /// <summary>Whether anything installed has something to add to the board.</summary>
-    private bool HasInsights =>
-        _uptimeInsights is not null
-        || _alertInsights is not null
-        || _leadershipInsights is not null
-        || _diagnosisInsights is not null;
-
     /// <summary>Whether this replica is the one running the checks.</summary>
     /// <remarks>
     /// True when nothing is elected: a single replica runs everything, and saying "follower" there
