@@ -12,11 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 Twelve new packages, the schedule model several of them needed, and optimistic concurrency on the
 state contract.
 
-**The major number is about the size of the release, not about a break in it.** Everything here is
-additive: nothing public was removed, renamed or changed shape, every new interface member is a
-defaulted one, and an application that upgrades without touching its code behaves as it did. The one
-thing to read before upgrading is what the relational providers do to an existing table on startup,
-under *Optimistic concurrency* below.
+**Source-compatible: an application that upgrades without touching its code still compiles and still
+behaves as it did.** Nothing public was removed or renamed, and every new interface member is a
+defaulted one, so a provider or scheduler written against 3.x keeps working. Two things to know
+before upgrading:
+
+- **One binary break.** `HealthieTools`, the MCP read-only tool class, gained a defaulted
+  `HealthieMcpOptions?` parameter on its constructor so it could read the page-size option it had
+  been ignoring. Calling code still compiles unchanged; an assembly compiled against 3.1.4 and not
+  rebuilt does not. Recompiling is enough, and that break is why this is a major rather than a minor.
+- **The relational providers alter an existing table on startup** to add the version column
+  optimistic concurrency needs. See *Optimistic concurrency* below.
 
 ### Added
 
