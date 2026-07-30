@@ -80,7 +80,7 @@ public class PackageLayoutTests
     /// The meta-package must stay a pointer, not a bundle.
     /// </summary>
     /// <remarks>
-    /// One stray <c>ProjectReference</c> in Healthie.Meta.csproj turns <c>dotnet add package
+    /// One stray <c>ProjectReference</c> in Healthie.NET.Package.csproj turns <c>dotnet add package
     /// Healthie.NET</c> into an install that drags a database driver, a scheduler and a UI framework
     /// onto machines that asked for none of them. Nothing else would catch that: it builds, it packs,
     /// and the damage is only visible in the restore graph of whoever installed it.
@@ -88,7 +88,7 @@ public class PackageLayoutTests
     [Fact]
     public void TheMetaPackage_DependsOnTheCorePackageAndNothingElse()
     {
-        var csproj = FindRepositoryFile("src/Healthie.Meta/Healthie.Meta.csproj");
+        var csproj = FindRepositoryFile("src/Healthie.NET.Package/Healthie.NET.Package.csproj");
 
         var referenced = System.Text.RegularExpressions.Regex
             .Matches(File.ReadAllText(csproj), @"<ProjectReference\s+Include=""[^""]*[\\/]([A-Za-z.]+)\.csproj""")
