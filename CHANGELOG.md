@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [4.0.0] - 2026-07-30
 
-Eleven new packages, the schedule model several of them needed, and optimistic concurrency on the
+Twelve new packages, the schedule model several of them needed, and optimistic concurrency on the
 state contract.
 
 **The major number is about the size of the release, not about a break in it.** Everything here is
