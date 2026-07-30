@@ -8,7 +8,7 @@ namespace Healthie.Tests.E2E;
 /// the Blazor circuit, the CSS, or the render loop fails the test -- none of which a unit test sees.
 /// </summary>
 [Collection(nameof(BrowserCollection))]
-public class DashboardTests(BrowserFixture browser)
+public class DashboardTests(BrowserFixture browser) : IAsyncDisposable
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -43,6 +43,13 @@ public class DashboardTests(BrowserFixture browser)
     /// </summary>
     private const string TargetChecker = "Redis Cache";
 
+    /// <summary>How many pulse checkers the sample declares.</summary>
+    /// <remarks>
+    /// Asserted rather than ignored: the board losing a row is exactly the kind of regression a
+    /// "some rows are present" check waves through.
+    /// </remarks>
+    internal const int CheckerCount = 14;
+
     private static ILocator RowFor(IPage page, string displayName) =>
         page.Locator(".hpm-row").Filter(new() { HasTextString = displayName });
 
@@ -55,10 +62,25 @@ public class DashboardTests(BrowserFixture browser)
         browser.TrackErrors(page, errors);
 
         await page.GotoAsync(app.DashboardUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
-        // Rows only appear once the checkers have been read, so this is the real readiness signal.
-        await page.Locator(".hpm-row").First.WaitForAsync(new() { Timeout = 30_000 });
+        await WaitForTheBoardAsync(page);
         return page;
     }
+
+    /// <summary>
+    /// Waits until the board is showing every checker, which is what "loaded" means here.
+    /// </summary>
+    /// <remarks>
+    /// Rows arrive as the checkers are read, so waiting for the first one only proves the list has
+    /// started. A count taken at that moment can catch it half-built -- and a count is the thing
+    /// most of these tests then compare against, which is how a suite that passes on a developer's
+    /// machine fails on a loaded runner. Waiting for the full set here is what makes reading a
+    /// count downstream safe at all.
+    /// </remarks>
+    internal static Task WaitForTheBoardAsync(IPage page) =>
+        Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(CheckerCount, new() { Timeout = 30_000 });
+
+    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
+    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
 
     [Theory]
     [MemberData(nameof(Setups))]
@@ -67,8 +89,8 @@ public class DashboardTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        Assert.Equal(14, await page.Locator(".hpm-row").CountAsync());
-        Assert.Equal("HEALTHIE·PULSE", (await page.Locator(".hpm-wordmark").TextContentAsync())?.Trim());
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(CheckerCount);
+        await Assertions.Expect(page.Locator(".hpm-wordmark")).ToHaveTextAsync("HEALTHIE·PULSE");
         browser.AssertNoErrors(page);
     }
 
@@ -98,9 +120,7 @@ public class DashboardTests(BrowserFixture browser)
 
         await RowFor(page, TargetChecker).ClickAsync();
 
-        await page.Locator(".hpm-sel-name", new() { HasTextString = TargetChecker })
-            .WaitForAsync(new() { Timeout = 10_000 });
-        Assert.Equal(TargetChecker, (await page.Locator(".hpm-sel-name").TextContentAsync())?.Trim());
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
 
         // A count would be a timing assertion, not a detail one: the sample installs the uptime
         // package, whose 24H cell appears once a segment has been recorded and whose WORST cell
@@ -125,12 +145,11 @@ public class DashboardTests(BrowserFixture browser)
         var page = await OpenDashboardAsync(app);
 
         await page.FillAsync(".hpm-search input", "no-such-checker");
-        await page.Locator(".hpm-empty").WaitForAsync(new() { Timeout = 10_000 });
-        Assert.Equal(0, await page.Locator(".hpm-row").CountAsync());
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(0);
+        await Assertions.Expect(page.Locator(".hpm-empty")).ToBeVisibleAsync();
 
         await page.FillAsync(".hpm-search input", "");
-        await page.Locator(".hpm-row").First.WaitForAsync(new() { Timeout = 10_000 });
-        Assert.Equal(14, await page.Locator(".hpm-row").CountAsync());
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(CheckerCount);
         browser.AssertNoErrors(page);
     }
 
@@ -145,8 +164,7 @@ public class DashboardTests(BrowserFixture browser)
 
         await page.Locator(".hpm-btn", new() { HasTextString = "RUN ALL" }).ClickAsync();
 
-        await page.Locator(".hpm-event").First.WaitForAsync(new() { Timeout = 20_000 });
-        Assert.True(await page.Locator(".hpm-event").CountAsync() > 0);
+        await Assertions.Expect(page.Locator(".hpm-event").First).ToBeVisibleAsync();
         browser.AssertNoErrors(page);
     }
 
@@ -160,19 +178,23 @@ public class DashboardTests(BrowserFixture browser)
         var page = await OpenDashboardAsync(app);
 
         await RowFor(page, TargetChecker).ClickAsync();
-        await page.Locator("#hpm-interval").WaitForAsync(new() { Timeout = 10_000 });
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
         await page.SelectOptionAsync("#hpm-interval", "Every5Minutes");
-        await page.WaitForTimeoutAsync(1500);
+
+        // The event log entry is written once the write to the provider has returned, so waiting for
+        // it waits for the round trip. A fixed sleep only guessed at how long that takes, and guessed
+        // from a developer's machine.
+        await Assertions.Expect(page.Locator(".hpm-event").Filter(new() { HasTextString = "interval set to" }).First)
+            .ToBeVisibleAsync();
 
         // Reloading drops every scrap of component state, so what comes back can only have come
         // from the state provider.
         await page.ReloadAsync(new() { WaitUntil = WaitUntilState.NetworkIdle });
-        await RowFor(page, TargetChecker).WaitForAsync(new() { Timeout = 30_000 });
+        await WaitForTheBoardAsync(page);
         await RowFor(page, TargetChecker).ClickAsync();
-        await page.Locator(".hpm-sel-name", new() { HasTextString = TargetChecker })
-            .WaitForAsync(new() { Timeout = 10_000 });
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
 
-        Assert.Equal("Every5Minutes", await page.Locator("#hpm-interval").InputValueAsync());
+        await Assertions.Expect(page.Locator("#hpm-interval")).ToHaveValueAsync("Every5Minutes");
         browser.AssertNoErrors(page);
     }
 
@@ -183,15 +205,15 @@ public class DashboardTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        Assert.Equal("dark", await page.Locator(".healthie-dashboard").GetAttributeAsync("data-hpm"));
+        var board = page.Locator(".healthie-dashboard");
+
+        await Assertions.Expect(board).ToHaveAttributeAsync("data-hpm", "dark");
 
         await page.Locator(".hpm-btn--theme").ClickAsync();
-        await page.WaitForTimeoutAsync(600);
-        Assert.Equal("light", await page.Locator(".healthie-dashboard").GetAttributeAsync("data-hpm"));
+        await Assertions.Expect(board).ToHaveAttributeAsync("data-hpm", "light");
 
         await page.Locator(".hpm-btn--theme").ClickAsync();
-        await page.WaitForTimeoutAsync(600);
-        Assert.Equal("dark", await page.Locator(".healthie-dashboard").GetAttributeAsync("data-hpm"));
+        await Assertions.Expect(board).ToHaveAttributeAsync("data-hpm", "dark");
         browser.AssertNoErrors(page);
     }
 

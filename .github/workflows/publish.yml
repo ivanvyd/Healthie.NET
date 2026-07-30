@@ -115,12 +115,39 @@ jobs:
 
       # The whole suite, unit and end-to-end, gates the release: nothing is packed, tagged, or
       # published unless the dashboard itself is proven to work in a browser first.
+      #
+      # Run as two steps rather than one solution-level `dotnet test`, which is not a style
+      # preference. That form hands both suites to one runner at once, and the browser suite is then
+      # driving a Blazor Server circuit over a WebSocket while eleven hundred unit tests across two
+      # frameworks saturate the machine. A starved circuit closes with 1006, and every assertion on
+      # that page fails from then on however long it waits -- which is what made releases fail
+      # browser tests that were green on every pull request, where ci.yml gives them a runner each.
       - name: Test
         run: >
-          dotnet test
+          dotnet test tests/Healthie.Tests.Unit
           --configuration ${{ env.CONFIGURATION }}
           --no-build
           --verbosity normal
+
+      - name: Test (browser)
+        run: >
+          dotnet test tests/Healthie.Tests.E2E
+          --configuration ${{ env.CONFIGURATION }}
+          --no-build
+          --verbosity normal
+
+      # This is where a browser failure costs the most: the release stops, and all anybody has is a
+      # stack trace from a runner nobody can reach. The suite keeps a Playwright trace for each test
+      # that failed -- open the downloaded zip at https://trace.playwright.dev for the DOM, the
+      # network and a screenshot at the moment it gave up.
+      - name: Upload failure traces
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-traces
+          path: tests/Healthie.Tests.E2E/bin/${{ env.CONFIGURATION }}/net8.0/playwright-traces
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Pack
         run: >

@@ -166,13 +166,20 @@ public class MetricsInsightsTests
         using var checker = Checker(provider, PulseCheckerHealth.Healthy, "disposal-target");
 
         await checker.TriggerAsync(Ct);
-        var before = metrics.Snapshot(Ct).Checks;
-        Assert.True(before > 0);
+        Assert.True(metrics.Snapshot(Ct).Checks > 0);
 
         metrics.Dispose();
 
+        // Read after disposal, not before it. A listener subscribes to the meter by name, so it
+        // counts every checker in the process -- including the ones other tests are running at the
+        // same time. A count taken before the Dispose call can be overtaken by one of those in the
+        // gap, which is a difference the assertion below then reads as a listener still attached.
+        // Taken here the number is frozen by the very thing under test, and a Dispose that failed
+        // to detach still moves it.
+        var frozen = metrics.Snapshot(Ct).Checks;
+
         await checker.TriggerAsync(Ct);
 
-        Assert.Equal(before, metrics.Snapshot(Ct).Checks);
+        Assert.Equal(frozen, metrics.Snapshot(Ct).Checks);
     }
 }

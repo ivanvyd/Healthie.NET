@@ -14,7 +14,7 @@ namespace Healthie.Tests.E2E;
 /// is the test that would have caught it.
 /// </remarks>
 [Collection(nameof(BrowserCollection))]
-public class DashboardGroupingTests(BrowserFixture browser)
+public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -60,9 +60,12 @@ public class DashboardGroupingTests(BrowserFixture browser)
         browser.TrackErrors(page, errors);
 
         await page.GotoAsync(app.DashboardUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
-        await page.Locator(".hpm-row").First.WaitForAsync(new() { Timeout = 30_000 });
+        await DashboardTests.WaitForTheBoardAsync(page);
         return page;
     }
+
+    /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
+    public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
 
     /// <summary>
     /// The defaults declared in code have to survive the whole way to the screen: seeded into
@@ -94,18 +97,16 @@ public class DashboardGroupingTests(BrowserFixture browser)
         var page = await OpenDashboardAsync(app);
 
         // The board opens grouped, so this is the state under test without touching anything.
-        await page.Locator(".hpm-group").First.WaitForAsync();
-
-        var groupedCount = await page.Locator(".hpm-row").CountAsync();
-        Assert.Equal(1, await RowFor(page, TargetChecker).CountAsync());
+        await Assertions.Expect(page.Locator(".hpm-group").First).ToBeVisibleAsync();
+        await Assertions.Expect(RowFor(page, TargetChecker)).ToHaveCountAsync(1);
 
         // The same checkers laid out flat: the button goes the other way now, which makes this the
         // comparison the test always wanted rather than a count taken before grouping was applied.
         await page.GetByRole(AriaRole.Button, new() { Name = "GROUP", Exact = true }).ClickAsync();
         await Assertions.Expect(page.Locator(".hpm-group")).ToHaveCountAsync(0);
 
-        Assert.Equal(groupedCount, await page.Locator(".hpm-row").CountAsync());
-        Assert.Equal(1, await RowFor(page, TargetChecker).CountAsync());
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(DashboardTests.CheckerCount);
+        await Assertions.Expect(RowFor(page, TargetChecker)).ToHaveCountAsync(1);
         browser.AssertNoErrors(page);
     }
 
@@ -177,10 +178,7 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        // Waiting on the panel's title, not on the box: the box is already visible for whichever
-        // checker was selected on load, so it tells you nothing about whether the click has landed.
-        await RowFor(page, CronChecker).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(CronChecker);
+        await SelectCheckerAsync(page, CronChecker);
 
         var box = page.Locator("#hpm-cron");
         var before = await box.InputValueAsync();
@@ -212,12 +210,10 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await RowFor(page, CronChecker).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(CronChecker);
+        await SelectCheckerAsync(page, CronChecker);
         await Assertions.Expect(page.Locator("#hpm-interval")).ToBeDisabledAsync();
 
-        await RowFor(page, TargetChecker).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
+        await SelectCheckerAsync(page, TargetChecker);
         await Assertions.Expect(page.Locator("#hpm-interval")).ToBeEnabledAsync();
 
         browser.AssertNoErrors(page);
@@ -254,7 +250,6 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await group.WaitForAsync();
 
         var inside = await group.Locator(".hpm-row").CountAsync();
-        var total = await page.Locator(".hpm-row").CountAsync();
         Assert.True(inside > 0);
 
         await group.Locator(".hpm-group-head").ClickAsync();
@@ -262,7 +257,7 @@ public class DashboardGroupingTests(BrowserFixture browser)
         // Awaited rather than counted on the spot: the click is a round-trip to the server and back
         // before anything re-renders.
         await Assertions.Expect(group.Locator(".hpm-row")).ToHaveCountAsync(0);
-        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(total - inside);
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(DashboardTests.CheckerCount - inside);
         browser.AssertNoErrors(page);
     }
 
@@ -277,16 +272,19 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        var total = await page.Locator(".hpm-row").CountAsync();
-
         await page.Locator(".hpm-tag-filter").SelectOptionAsync("tier-1");
-        await Assertions.Expect(page.Locator(".hpm-row")).Not.ToHaveCountAsync(total);
+        await Assertions.Expect(page.Locator(".hpm-row")).Not.ToHaveCountAsync(DashboardTests.CheckerCount);
 
-        var shown = await page.Locator(".hpm-row").CountAsync();
-        Assert.True(shown > 0, "filtering by a tag the sample uses should leave something on screen");
+        Assert.True(
+            await page.Locator(".hpm-row").CountAsync() > 0,
+            "filtering by a tag the sample uses should leave something on screen");
 
-        // Every row left has to carry the tag, which is the only claim the filter makes.
-        Assert.Equal(shown, await page.Locator(".hpm-row").Filter(new() { Has = page.Locator(".hpm-chip", new() { HasTextString = "tier-1" }) }).CountAsync());
+        // Every row left has to carry the tag, which is the only claim the filter makes. Stated as
+        // "nothing without it", so it is one assertion over the live list rather than two counts
+        // read a moment apart and compared.
+        await Assertions.Expect(page.Locator(".hpm-row")
+                .Filter(new() { HasNot = page.Locator(".hpm-chip", new() { HasTextString = "tier-1" }) }))
+            .ToHaveCountAsync(0);
         browser.AssertNoErrors(page);
     }
 
@@ -306,7 +304,8 @@ public class DashboardGroupingTests(BrowserFixture browser)
         Assert.Equal(TargetChecker, await FirstRowNameAsync(page));
 
         await page.ReloadAsync(new() { WaitUntil = WaitUntilState.NetworkIdle });
-        await page.Locator(".hpm-row").First.WaitForAsync();
+        await DashboardTests.WaitForTheBoardAsync(page);
+        await Assertions.Expect(page.Locator(".hpm-row").First.Locator(".hpm-pin-mark")).ToBeVisibleAsync();
 
         Assert.Equal(TargetChecker, await FirstRowNameAsync(page));
         browser.AssertNoErrors(page);
@@ -320,7 +319,7 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await RowFor(page, TargetChecker).ClickAsync();
+        await SelectCheckerAsync(page, TargetChecker);
         await page.GetByLabel("Add a tag").FillAsync("e2e-added");
         await page.GetByRole(AriaRole.Button, new() { Name = "ADD" }).ClickAsync();
 
@@ -329,7 +328,7 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await Assertions.Expect(tagged).ToBeVisibleAsync();
 
         await page.ReloadAsync(new() { WaitUntil = WaitUntilState.NetworkIdle });
-        await page.Locator(".hpm-row").First.WaitForAsync();
+        await DashboardTests.WaitForTheBoardAsync(page);
 
         await Assertions.Expect(page.Locator(".hpm-row").Filter(new() { HasTextString = TargetChecker })
             .Locator(".hpm-chip", new() { HasTextString = "e2e-added" })).ToBeVisibleAsync();
@@ -343,12 +342,10 @@ public class DashboardGroupingTests(BrowserFixture browser)
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        var total = await page.Locator(".hpm-row").CountAsync();
-
         await page.GetByRole(AriaRole.Button, new() { Name = "Card view" }).ClickAsync();
         await Assertions.Expect(page.Locator(".hpm-list--cards")).ToBeVisibleAsync();
 
-        Assert.Equal(total, await page.Locator(".hpm-row").CountAsync());
+        await Assertions.Expect(page.Locator(".hpm-row")).ToHaveCountAsync(DashboardTests.CheckerCount);
         browser.AssertNoErrors(page);
     }
 
@@ -360,7 +357,7 @@ public class DashboardGroupingTests(BrowserFixture browser)
         var page = await OpenDashboardAsync(app);
 
         // The log starts empty and fills as checks report in, so give it something to show.
-        await RowFor(page, TargetChecker).ClickAsync();
+        await SelectCheckerAsync(page, TargetChecker);
         await page.GetByRole(AriaRole.Button, new() { Name = "RUN NOW" }).ClickAsync();
         await page.Locator(".hpm-log-body .hpm-event").First.WaitForAsync();
 
