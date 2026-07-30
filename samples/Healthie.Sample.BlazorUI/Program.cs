@@ -1,4 +1,4 @@
-using Healthie.DependencyInjection;
+﻿using Healthie.DependencyInjection;
 using Healthie.Sample.BlazorUI.Components;
 using Healthie.Scheduling.Quartz;
 using Healthie.StateProviding.CosmosDb;
@@ -38,7 +38,9 @@ builder.Services
         options.MinimumSeverity = PulseCheckerHealth.Suspicious;
         options.DeduplicationWindow = TimeSpan.FromSeconds(20);
     })
-    .AddHealthieUptime();
+    .AddHealthieUptime()
+    // Reads the library's own meter in-process, so the board can show what it has counted.
+    .AddHealthieMetrics();
 
 // Leader election off by default: with one replica it is always the leader, and the badge would be
 // a permanent reassurance about a problem nobody has. Healthie:LeaderElection=true shows it.

@@ -103,6 +103,22 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     /// </remarks>
     private string? _navSection;
 
+    /// <summary>What the middle column is showing.</summary>
+    /// <remarks>
+    /// A view rather than a panel that pushes the board down. The alerts list used to open as a
+    /// full-width band above everything, which displaced every row on the page and had nowhere to sit
+    /// once the side menu existed. Views switch what the middle column renders and leave the menu and
+    /// the detail panel where they are.
+    /// </remarks>
+    private enum BoardView
+    {
+        Checkers,
+        Alerts,
+        Metrics,
+    }
+
+    private BoardView _view = BoardView.Checkers;
+
     /// <summary>What is in the cron box, which is not the stored schedule until it is applied.</summary>
     private string? _cronDraft;
 
@@ -512,6 +528,7 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
 
     private Task ShowEverythingAsync()
     {
+        _view = BoardView.Checkers;
         _navSection = null;
         Refresh();
 
@@ -521,10 +538,32 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     /// <summary>Narrows the list to one group, or back to everything when it is picked again.</summary>
     private Task ShowGroupAsync(string group)
     {
+        _view = BoardView.Checkers;
         _navSection = string.Equals(_navSection, group, StringComparison.OrdinalIgnoreCase) ? null : group;
         Refresh();
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>Switches the middle column, loading whatever the view needs on the way in.</summary>
+    private async Task ShowViewAsync(BoardView view)
+    {
+        // Picking the view you are already on goes back to the checkers, so every menu entry toggles
+        // and none of them is a trap.
+        _view = _view == view ? BoardView.Checkers : view;
+
+        switch (_view)
+        {
+            case BoardView.Alerts:
+                _alertPage = 0;
+                await LoadAlertsAsync();
+                break;
+            case BoardView.Metrics:
+                LoadMetrics();
+                break;
+        }
+
+        Refresh();
     }
 
     private void OnTagFilterChanged(ChangeEventArgs args)

@@ -1,5 +1,6 @@
-using Healthie.Abstractions.Enums;
+﻿using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Insights;
+using Healthie.Abstractions.StateProviding;
 using Healthie.Alerting;
 using Healthie.DependencyInjection;
 using Healthie.LeaderElection;
@@ -148,7 +149,7 @@ public class InsightsTests
             history.Record(Alert($"checker-{i}"), delivered: true);
         }
 
-        var recent = await history.GetRecentAlertsAsync(10, Ct);
+        var recent = (await history.GetAlertsAsync(0, 10, Ct)).Alerts;
 
         Assert.Equal(2, recent.Count);
         Assert.Equal("checker-3", recent[0].CheckerName);
@@ -167,7 +168,7 @@ public class InsightsTests
         history.Record(Alert("delivered"), delivered: true);
         history.Record(Alert("failed"), delivered: false);
 
-        var recent = await history.GetRecentAlertsAsync(10, Ct);
+        var recent = (await history.GetAlertsAsync(0, 10, Ct)).Alerts;
 
         Assert.False(recent[0].Delivered);
         Assert.True(recent[1].Delivered);
@@ -185,7 +186,112 @@ public class InsightsTests
 
         history.Record(Alert("nowhere"), delivered: true);
 
-        Assert.Empty(await history.GetRecentAlertsAsync(10, Ct));
+        Assert.Empty((await history.GetAlertsAsync(0, 10, Ct)).Alerts);
+    }
+
+    /// <summary>
+    /// The point of writing the log through the state provider: an operator arriving after a
+    /// redeploy is looking for what happened before it.
+    /// </summary>
+    [Fact]
+    public async Task AlertHistory_OnADurableProvider_SurvivesTheProcessThatWroteIt()
+    {
+        // One provider, two histories: the second is the same application after a restart.
+        var store = new InMemoryStateProvider();
+
+        var before = new AlertHistory(capacity: 10, store);
+        before.Record(Alert("checker-1"), delivered: true);
+        before.Record(Alert("checker-2"), delivered: false);
+
+        // The write is off the delivery path, so it is finished when the read can see it.
+        await WaitForAsync(async () => (await new AlertHistory(10, store).GetAlertsAsync(0, 10, Ct)).Total == 2);
+
+        var after = await new AlertHistory(capacity: 10, store).GetAlertsAsync(0, 10, Ct);
+
+        Assert.Equal(2, after.Total);
+        Assert.Equal("checker-2", after.Alerts[0].CheckerName);
+        Assert.False(after.Alerts[0].Delivered);
+    }
+
+    /// <summary>
+    /// A page is a window on the whole history, and the total it reports is what a pager counts
+    /// against -- not the size of the page it happens to be looking at.
+    /// </summary>
+    [Fact]
+    public async Task AlertHistory_PagesOverEverythingItHolds()
+    {
+        var history = new AlertHistory(capacity: 10);
+
+        foreach (var i in Enumerable.Range(1, 7))
+        {
+            history.Record(Alert($"checker-{i}"), delivered: true);
+        }
+
+        var first = await history.GetAlertsAsync(0, 3, Ct);
+        var second = await history.GetAlertsAsync(3, 3, Ct);
+        var last = await history.GetAlertsAsync(6, 3, Ct);
+
+        Assert.Equal(7, first.Total);
+        Assert.Equal(7, second.Total);
+
+        Assert.Equal(3, first.Alerts.Count);
+        Assert.Equal(3, second.Alerts.Count);
+        Assert.Single(last.Alerts);
+
+        // Newest first, and no alert appears on two pages.
+        Assert.Equal("checker-7", first.Alerts[0].CheckerName);
+        Assert.Equal("checker-4", second.Alerts[0].CheckerName);
+        Assert.Equal("checker-1", last.Alerts[0].CheckerName);
+    }
+
+    /// <summary>
+    /// "Nothing has alerted" and "nothing is configured to deliver" look identical on a board and
+    /// mean opposite things, so a sink is listed from startup rather than from its first delivery.
+    /// </summary>
+    [Fact]
+    public void AlertHistory_ListsASinkBeforeItHasDoneAnything()
+    {
+        var history = new AlertHistory(capacity: 4);
+
+        Assert.Empty(history.Sinks);
+
+        history.Register("SlackAlertSink");
+
+        var sink = Assert.Single(history.Sinks);
+        Assert.Equal("SlackAlertSink", sink.Name);
+        Assert.Equal(0, sink.Delivered);
+        Assert.True(sink.IsHealthy);
+    }
+
+    /// <summary>
+    /// A sink that failed once and recovered is working, so the board must stop showing it in red.
+    /// </summary>
+    [Fact]
+    public void AlertHistory_ASinkThatRecovers_StopsBeingReportedAsFailing()
+    {
+        var history = new AlertHistory(capacity: 4);
+
+        history.RecordDelivery("WebhookAlertSink", error: "500 Internal Server Error");
+
+        Assert.False(Assert.Single(history.Sinks).IsHealthy);
+
+        history.RecordDelivery("WebhookAlertSink", error: null);
+
+        var sink = Assert.Single(history.Sinks);
+
+        Assert.True(sink.IsHealthy);
+        Assert.Equal(1, sink.Delivered);
+        Assert.Equal(1, sink.Failed);
+    }
+
+    private static async Task WaitForAsync(Func<Task<bool>> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+
+        while (DateTime.UtcNow < deadline && !await condition())
+        {
+            await Task.Delay(20, Ct);
+        }
     }
 
     /// <summary>

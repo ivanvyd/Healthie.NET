@@ -1,3 +1,4 @@
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Insights;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,16 +32,29 @@ public sealed partial class HealthieDashboard
     [Inject]
     private IServiceProvider Services { get; set; } = default!;
 
+    /// <summary>How many alerts a page of the history holds.</summary>
+    private const int AlertsPerPage = 25;
+
     private IUptimeInsights? _uptimeInsights;
     private IAlertInsights? _alertInsights;
     private ILeadershipInsights? _leadershipInsights;
     private IDiagnosisInsights? _diagnosisInsights;
+    private IMetricsInsights? _metricsInsights;
+    private IAlertConfiguration? _alertConfiguration;
 
     private UptimeInsight? _uptime;
     private string? _uptimeFor;
 
-    private IReadOnlyList<AlertInsight> _recentAlerts = [];
-    private bool _alertsOpen;
+    private AlertPage? _alerts;
+    private int _alertPage;
+    private bool _undeliveredOnly;
+
+    private MetricsSnapshot? _metrics;
+
+    private AlertSettings? _settingsDraft;
+    private string? _settingsError;
+    private IReadOnlyList<AlertSinkStatus>? _testResult;
+    private bool _testing;
 
     private string? _diagnosis;
     private bool _diagnosing;
@@ -59,6 +73,9 @@ public sealed partial class HealthieDashboard
         _alertInsights = Services.GetService<IAlertInsights>();
         _leadershipInsights = Services.GetService<ILeadershipInsights>();
         _diagnosisInsights = Services.GetService<IDiagnosisInsights>();
+        _metricsInsights = Services.GetService<IMetricsInsights>();
+        _alertConfiguration = Services.GetService<IAlertConfiguration>();
+        _settingsDraft = _alertConfiguration?.Current;
     }
 
     /// <summary>Reads the uptime for the selected checker.</summary>
@@ -84,7 +101,7 @@ public sealed partial class HealthieDashboard
         _uptime = await _uptimeInsights.GetUptimeAsync(checkerName, UptimeWindow);
     }
 
-    /// <summary>Reads the recent alerts, newest first.</summary>
+    /// <summary>Reads one page of the alert history, newest first.</summary>
     private async Task LoadAlertsAsync()
     {
         if (_alertInsights is null)
@@ -92,19 +109,92 @@ public sealed partial class HealthieDashboard
             return;
         }
 
-        _recentAlerts = await _alertInsights.GetRecentAlertsAsync(AlertsShown);
+        _alerts = await _alertInsights.GetAlertsAsync(_alertPage * AlertsPerPage, AlertsPerPage);
     }
 
-    /// <summary>How many alerts the panel lists.</summary>
-    private const int AlertsShown = 20;
+    /// <summary>The alerts this page shows, after the undelivered filter.</summary>
+    /// <remarks>
+    /// Filtered here rather than in the query: the store pages over everything it holds, and a filter
+    /// pushed into it would make the page counts disagree with the pager. This narrows what is shown
+    /// on the page you are on, which is what the toggle says it does.
+    /// </remarks>
+    private IReadOnlyList<AlertInsight> VisibleAlerts =>
+        _alerts is null
+            ? []
+            : _undeliveredOnly
+                ? [.. _alerts.Alerts.Where(alert => !alert.Delivered)]
+                : _alerts.Alerts;
 
-    private async Task ToggleAlertsAsync()
+    private int AlertPageCount =>
+        _alerts is null || _alerts.Total == 0 ? 1 : (_alerts.Total + AlertsPerPage - 1) / AlertsPerPage;
+
+    private async Task GoToAlertPageAsync(int page)
     {
-        _alertsOpen = !_alertsOpen;
+        _alertPage = Math.Clamp(page, 0, AlertPageCount - 1);
 
-        if (_alertsOpen)
+        await LoadAlertsAsync();
+    }
+
+    private async Task ToggleUndeliveredOnlyAsync()
+    {
+        _undeliveredOnly = !_undeliveredOnly;
+
+        await LoadAlertsAsync();
+    }
+
+    /// <summary>Reads what the library's own instruments have counted.</summary>
+    private void LoadMetrics() => _metrics = _metricsInsights?.Snapshot();
+
+    /// <summary>
+    /// Applies the alerting settings in the form, from the next alert onwards.
+    /// </summary>
+    private void ApplyAlertSettings()
+    {
+        if (_alertConfiguration is null || _settingsDraft is null)
         {
+            return;
+        }
+
+        _settingsError = null;
+
+        try
+        {
+            _alertConfiguration.Apply(_settingsDraft);
+            AddEvent("CONF", Status.Paused, "Alerting settings changed");
+        }
+        catch (ArgumentException ex)
+        {
+            _settingsError = ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Sends one alert through the real sinks, because the only way to find out that a webhook URL is
+    /// wrong is to use it.
+    /// </summary>
+    private async Task SendTestAlertAsync()
+    {
+        if (_alertConfiguration is null || _testing)
+        {
+            return;
+        }
+
+        _testing = true;
+        _testResult = null;
+
+        try
+        {
+            _testResult = await _alertConfiguration.SendTestAlertAsync();
+            AddEvent("TEST", Status.Ok, "Test alert sent to every sink");
             await LoadAlertsAsync();
+        }
+        catch (Exception ex)
+        {
+            _settingsError = $"Could not send the test alert: {ex.Message}";
+        }
+        finally
+        {
+            _testing = false;
         }
     }
 
@@ -141,6 +231,19 @@ public sealed partial class HealthieDashboard
 
     /// <summary>Formats an uptime percentage the way the rest of the board formats one.</summary>
     private static string Percent(double value) => $"{value:0.##}%";
+
+    /// <summary>A check duration, in the unit a person reads durations of checks in.</summary>
+    private static string Milliseconds(TimeSpan span) =>
+        span.TotalMilliseconds < 1000 ? $"{span.TotalMilliseconds:0} ms" : $"{span.TotalSeconds:0.##} s";
+
+    /// <summary>The status class for a health, so an alert row is coloured like everything else.</summary>
+    private static string HealthClass(PulseCheckerHealth? health) => health switch
+    {
+        PulseCheckerHealth.Healthy => "hpm-ok",
+        PulseCheckerHealth.Suspicious => "hpm-warn",
+        PulseCheckerHealth.Unhealthy => "hpm-crit",
+        _ => "hpm-paused",
+    };
 
     /// <summary>A short, human length: "4m", "2h 10m".</summary>
     private static string Duration(TimeSpan span) => span switch

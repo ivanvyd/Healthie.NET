@@ -1579,269 +1579,6 @@
     border-color: var(--hpm-crit);
 }
 
-.hpm-alerts {
-    border-bottom: 1px solid var(--hpm-line);
-    background: var(--hpm-panel);
-}
-
-.hpm-alerts-head {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--hpm-line);
-}
-
-.hpm-alerts-title {
-    font-family: var(--hpm-mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    color: var(--hpm-faint);
-}
-
-.hpm-alerts-dropped {
-    font-family: var(--hpm-mono);
-    font-size: 11px;
-    font-weight: 700;
-    color: var(--hpm-crit);
-}
-
-.hpm-alerts-empty {
-    padding: 16px;
-    color: var(--hpm-faint);
-    font-size: 13px;
-}
-
-.hpm-alerts-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    max-height: 260px;
-    overflow-y: auto;
-}
-
-.hpm-alert {
-    display: grid;
-    grid-template-columns: 72px 160px 150px 1fr auto;
-    gap: 12px;
-    align-items: baseline;
-    padding: 8px 16px;
-    border-bottom: 1px solid var(--hpm-line);
-    font-size: 12.5px;
-}
-
-.hpm-alert:last-child {
-    border-bottom: 0;
-}
-
-.hpm-alert-when,
-.hpm-alert-move {
-    font-family: var(--hpm-mono);
-    font-size: 11.5px;
-    color: var(--hpm-faint);
-}
-
-.hpm-alert-name {
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.hpm-alert-msg {
-    color: var(--hpm-faint);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-/* An alert that fired and reached nobody is the one worth seeing from across the room. */
-.hpm-alert--undelivered {
-    background: var(--hpm-crit-bg);
-}
-
-.hpm-alert-flag {
-    font-family: var(--hpm-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    color: var(--hpm-crit);
-    white-space: nowrap;
-}
-
-.hpm-explain {
-    margin: 12px 0 4px;
-}
-
-.hpm-sel-btn--explain {
-    border-color: var(--hpm-line2);
-}
-
-.hpm-sel-btn--explain[disabled] {
-    opacity: 0.6;
-    cursor: default;
-}
-
-.hpm-explain-text {
-    margin: 10px 0 0;
-    padding: 10px 12px;
-    border-left: 2px solid var(--hpm-line2);
-    background: var(--hpm-panel2);
-    color: var(--hpm-text);
-    font-size: 13px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-}
-
-/* The alert row is five columns of fixed intent; below the detail breakpoint it stacks instead of
-   squeezing every one of them to nothing. */
-@media (max-width: 860px) {
-    .hpm-alert {
-        grid-template-columns: 1fr;
-        gap: 4px;
-    }
-
-    .hpm-alert-msg,
-    .hpm-alert-name {
-        white-space: normal;
-    }
-}
-
-/* ---------------------------------------------------------------------------
-   Side menu
-
-   A rail rather than a drawer, and no JavaScript, because this package ships
-   without any: an overlay drawer needs a backdrop and a focus trap to be
-   honest about keyboard use, and neither is doable in CSS alone. Collapsed it
-   keeps its icons and its toggle, so nothing becomes unreachable and the page
-   does not reflow onto a different set of controls.
-   --------------------------------------------------------------------------- */
-
-.hpm-nav {
-    position: sticky;
-    top: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    padding: 8px;
-    border: 1px solid var(--hpm-line);
-    border-radius: 8px;
-    background: var(--hpm-panel);
-}
-
-.hpm-nav-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 9px;
-    border: 0;
-    border-radius: 6px;
-    background: none;
-    color: var(--hpm-faint);
-    font: inherit;
-    font-size: 11.5px;
-    letter-spacing: 0.09em;
-    cursor: pointer;
-}
-
-.hpm-nav-toggle:hover {
-    color: var(--hpm-text);
-    background: var(--hpm-line);
-}
-
-.hpm-nav-burger {
-    flex: 0 0 auto;
-    width: 16px;
-    height: 16px;
-}
-
-.hpm-nav-heading {
-    margin: 12px 0 4px;
-    padding: 0 9px;
-    color: var(--hpm-faint);
-    font-size: 9.5px;
-    letter-spacing: 0.16em;
-}
-
-.hpm-nav-item {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    width: 100%;
-    padding: 7px 9px;
-    border: 0;
-    border-left: 2px solid transparent;
-    border-radius: 0 6px 6px 0;
-    background: none;
-    color: var(--hpm-text);
-    font: inherit;
-    font-size: 11.5px;
-    letter-spacing: 0.05em;
-    text-align: left;
-    cursor: pointer;
-}
-
-.hpm-nav-item:hover {
-    background: var(--hpm-line);
-}
-
-.hpm-nav-item--current {
-    border-left-color: var(--hpm-accent, var(--hpm-ok));
-    background: var(--hpm-line);
-}
-
-.hpm-nav-dot {
-    flex: 0 0 auto;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--hpm-faint);
-}
-
-.hpm-nav-dot.hpm-ok { background: var(--hpm-ok); }
-.hpm-nav-dot.hpm-warn { background: var(--hpm-warn); }
-.hpm-nav-dot.hpm-crit { background: var(--hpm-crit); }
-
-.hpm-nav-text {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.hpm-nav-count {
-    flex: 0 0 auto;
-    color: var(--hpm-faint);
-    font-size: 10px;
-}
-
-.hpm-nav-count--warn {
-    color: var(--hpm-crit);
-}
-
-/* Collapsed: the labels go, the icons and the toggle stay. */
-.hpm-body--nav-collapsed .hpm-nav-text,
-.hpm-body--nav-collapsed .hpm-nav-count,
-.hpm-body--nav-collapsed .hpm-nav-label,
-.hpm-body--nav-collapsed .hpm-nav-heading {
-    display: none;
-}
-
-.hpm-body--nav-collapsed .hpm-nav-item,
-.hpm-body--nav-collapsed .hpm-nav-toggle {
-    justify-content: center;
-    padding-inline: 0;
-}
-
-.hpm-body--nav-collapsed .hpm-nav-dot {
-    width: 9px;
-    height: 9px;
-}
-
 /* The cron box sits under the interval and threshold pair, full width. */
 .hpm-field--cron {
     margin-top: 10px;
@@ -1949,4 +1686,280 @@
     .hpm-body--nav-collapsed .hpm-nav-count {
         display: inline;
     }
+}
+
+/* ---------------------------------------------------------------------------
+   Views
+
+   Alerts and metrics render in the middle column, in place of the checker list,
+   rather than as a band above it. The band displaced every row on the page when
+   it opened and had nowhere to sit once the side menu existed.
+   --------------------------------------------------------------------------- */
+
+.hpm-list--hidden {
+    display: none;
+}
+
+.hpm-view {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+    padding: 16px 18px 20px;
+    border: 1px solid var(--hpm-line);
+    border-radius: 8px;
+    background: var(--hpm-panel);
+}
+
+.hpm-view-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.hpm-view-title {
+    margin: 0;
+    font-family: var(--hpm-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+}
+
+.hpm-view-subtitle {
+    margin: 6px 0 0;
+    color: var(--hpm-faint);
+    font-family: var(--hpm-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+}
+
+.hpm-view-sub,
+.hpm-view-note {
+    margin: 4px 0 0;
+    color: var(--hpm-muted);
+    font-size: 11.5px;
+    line-height: 1.5;
+}
+
+.hpm-view-sub code,
+.hpm-view-note code,
+.hpm-sink-note code {
+    font-family: var(--hpm-mono);
+    font-size: 10.5px;
+    color: var(--hpm-text);
+}
+
+.hpm-view-empty {
+    padding: 26px 4px;
+    color: var(--hpm-faint);
+    font-size: 12px;
+    text-align: center;
+}
+
+.hpm-view-section {
+    margin-top: 6px;
+    padding-top: 14px;
+    border-top: 1px solid var(--hpm-line);
+}
+
+.hpm-view-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------------ sinks -- */
+
+.hpm-sinks {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 8px;
+}
+
+.hpm-sink {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 11px;
+    border: 1px solid var(--hpm-line);
+    border-left: 2px solid var(--hpm-status, var(--hpm-faint));
+    border-radius: 6px;
+    background: var(--hpm-bg);
+}
+
+.hpm-sink--ok { --hpm-status: var(--hpm-ok); }
+.hpm-sink--failing { --hpm-status: var(--hpm-crit); }
+.hpm-sink--none { --hpm-status: var(--hpm-warn); }
+
+.hpm-sink-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: var(--hpm-status);
+}
+
+.hpm-sink-body {
+    min-width: 0;
+}
+
+.hpm-sink-name {
+    font-family: var(--hpm-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+}
+
+.hpm-sink-note {
+    margin-top: 3px;
+    color: var(--hpm-muted);
+    font-size: 10.5px;
+    line-height: 1.5;
+}
+
+.hpm-sink-error {
+    color: var(--hpm-crit);
+}
+
+/* ------------------------------------------------------------------ alerts -- */
+
+.hpm-alert-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hpm-alert {
+    padding: 9px 12px;
+    border: 1px solid var(--hpm-line);
+    border-left: 3px solid var(--hpm-status, var(--hpm-faint));
+    border-radius: 6px;
+    background: var(--hpm-bg);
+}
+
+.hpm-alert--undelivered {
+    background: var(--hpm-crit-bg);
+}
+
+.hpm-alert-main {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-wrap: wrap;
+}
+
+.hpm-alert-name {
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.hpm-alert-move {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.hpm-alert-arrow {
+    color: var(--hpm-faint);
+}
+
+/* A health, as a chip, coloured by the health it names. */
+.hpm-hchip {
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--hpm-status);
+    background: var(--hpm-status-bg);
+    font-family: var(--hpm-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+}
+
+.hpm-alert-when {
+    color: var(--hpm-faint);
+    font-family: var(--hpm-mono);
+    font-size: 10.5px;
+    white-space: nowrap;
+}
+
+.hpm-alert-msg {
+    margin-top: 5px;
+    color: var(--hpm-muted);
+    font-size: 11.5px;
+    line-height: 1.5;
+}
+
+.hpm-pill {
+    padding: 2px 7px;
+    border-radius: 3px;
+    color: var(--hpm-status, var(--hpm-faint));
+    background: var(--hpm-status-bg, transparent);
+    font-family: var(--hpm-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    white-space: nowrap;
+}
+
+.hpm-pill--crit { --hpm-status: var(--hpm-crit); --hpm-status-bg: var(--hpm-crit-bg); }
+
+.hpm-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding-top: 4px;
+}
+
+.hpm-pager-at {
+    color: var(--hpm-faint);
+    font-family: var(--hpm-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+}
+
+.hpm-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    color: var(--hpm-muted);
+    font-size: 11.5px;
+}
+
+/* ----------------------------------------------------------------- metrics -- */
+
+.hpm-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+}
+
+.hpm-metric {
+    padding: 11px 13px;
+    border: 1px solid var(--hpm-line);
+    border-radius: 6px;
+    background: var(--hpm-bg);
+}
+
+.hpm-metric--warn {
+    border-color: var(--hpm-warn);
+}
+
+.hpm-metric-label {
+    color: var(--hpm-faint);
+    font-family: var(--hpm-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+}
+
+.hpm-metric-value {
+    margin-top: 5px;
+    font-family: var(--hpm-mono);
+    font-size: 19px;
+    font-weight: 600;
 }

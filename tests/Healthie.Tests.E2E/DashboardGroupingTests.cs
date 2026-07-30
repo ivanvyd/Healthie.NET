@@ -1,4 +1,4 @@
-using Microsoft.Playwright;
+﻿using Microsoft.Playwright;
 
 namespace Healthie.Tests.E2E;
 
@@ -27,6 +27,21 @@ public class DashboardGroupingTests(BrowserFixture browser)
 
     private static ILocator RowFor(IPage page, string displayName) =>
         page.Locator(".hpm-row").Filter(new() { HasTextString = displayName });
+
+
+    /// <summary>
+    /// Selects a checker and waits for the panel to actually be showing it.
+    /// </summary>
+    /// <remarks>
+    /// The click is a round trip to the server. Waiting on a panel control instead proves nothing --
+    /// they are already on screen for whichever checker was selected on load, so a test that typed
+    /// straight after the click edited the wrong checker and failed somewhere else entirely.
+    /// </remarks>
+    private static async Task SelectCheckerAsync(IPage page, string displayName)
+    {
+        await RowFor(page, displayName).ClickAsync();
+        await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(displayName);
+    }
 
     private static ILocator GroupFor(IPage page, string group) =>
         page.Locator(".hpm-group").Filter(new() { Has = page.Locator(".hpm-group-name", new() { HasTextString = group }) });

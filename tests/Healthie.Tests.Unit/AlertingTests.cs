@@ -1,4 +1,4 @@
-using Healthie.Abstractions.Enums;
+﻿using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Insights;
 using Healthie.Alerting;
 using Microsoft.Extensions.Hosting;
@@ -127,7 +127,7 @@ public class AlertingTests
 
             while (recent.Count == 0 && DateTime.UtcNow < deadline)
             {
-                recent = await history.GetRecentAlertsAsync(10, Ct);
+                recent = (await history.GetAlertsAsync(0, 10, Ct)).Alerts;
 
                 if (recent.Count == 0)
                 {

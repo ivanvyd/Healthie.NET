@@ -1,3 +1,4 @@
+using Healthie.Abstractions.Insights;
 using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
@@ -97,6 +98,11 @@ public sealed class AlertDispatcher : BackgroundService
         {
             _logger?.LogInformation(
                 "Alerting is registered but no sink is; alerts will show on the dashboard and be sent nowhere.");
+        }
+
+        foreach (var sink in _sinks)
+        {
+            _history?.Register(sink.GetType().Name);
         }
 
         Subscribe();
@@ -245,17 +251,21 @@ public sealed class AlertDispatcher : BackgroundService
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             timeout.CancelAfter(_options.DeliveryTimeout);
 
+            var name = sink.GetType().Name;
+
             try
             {
                 await sink.SendAsync(alert, timeout.Token).ConfigureAwait(false);
+                _history?.RecordDelivery(name, error: null);
             }
             catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
             {
                 delivered = false;
+                _history?.RecordDelivery(name, $"Did not respond within {_options.DeliveryTimeout}.");
 
                 _logger?.LogWarning(
                     "Alert sink {Sink} did not deliver the alert for '{CheckerName}' within {Timeout}.",
-                    sink.GetType().Name,
+                    name,
                     alert.CheckerName,
                     _options.DeliveryTimeout);
             }
@@ -266,16 +276,43 @@ public sealed class AlertDispatcher : BackgroundService
             catch (Exception ex)
             {
                 delivered = false;
+                _history?.RecordDelivery(name, ex.Message);
 
                 _logger?.LogError(
                     ex,
                     "Alert sink {Sink} failed to deliver the alert for '{CheckerName}'.",
-                    sink.GetType().Name,
+                    name,
                     alert.CheckerName);
             }
         }
 
         _history?.Record(alert, delivered);
+    }
+
+    /// <summary>
+    /// Puts one alert through every sink and reports what each did, bypassing the queue.
+    /// </summary>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>Each sink's tally, including this attempt.</returns>
+    /// <remarks>
+    /// Delivered directly rather than enqueued so the caller can be told the outcome; the queue
+    /// exists to keep a slow sink away from the checks, and nothing is checking here.
+    /// </remarks>
+    public async Task<IReadOnlyList<AlertSinkStatus>> SendTestAlertAsync(CancellationToken cancellationToken = default)
+    {
+        var alert = new Alert(
+            "healthie.test",
+            "Healthie test alert",
+            Group: null,
+            Tags: [],
+            PulseCheckerHealth.Healthy,
+            PulseCheckerHealth.Unhealthy,
+            "Test alert raised from the dashboard. Nothing is wrong.",
+            DateTime.UtcNow);
+
+        await DeliverAsync(alert, cancellationToken).ConfigureAwait(false);
+
+        return _history?.Sinks ?? [];
     }
 
     /// <inheritdoc />
