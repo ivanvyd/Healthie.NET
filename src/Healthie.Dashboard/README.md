@@ -60,7 +60,7 @@ app.MapHealthieUI().RequireAuthorization("AdminPolicy"); // With auth
 - Per-checker management: start, stop, trigger, reset, retime by interval or cron expression, change threshold
 - Bulk actions: Start All, Stop All, Trigger All
 - A read-only mode that reports everything and changes nothing — see below
-- Panels for the feature packages you install — uptime, alerts, leadership, AI — see below
+- Panels for what you register — uptime, alerts, metrics, leadership, AI — see below
 - Groups and tags, both editable here and seeded from code — see below
 - A collapsible left menu: overview, a section per group with its tally, and the alerts, log and about views
 - Pin a checker to the top of the list
@@ -102,18 +102,21 @@ builder.Services.AddHealthieUI(options => options.AllowMutations = false);
 app.MapHealthieUI().RequireAuthorization();
 ```
 
-## Panels for the packages you install
+## Panels for what you register
 
-The board grows a panel for each feature package the application registers, and shows none of them
+The board grows a panel for each capability the application registers, and shows none of them
 otherwise. There is nothing to switch on: it renders the panel when the container can resolve the
-contract, so installing the package is the whole configuration.
+contract, so the registration is the whole configuration.
 
-| Install | What appears |
+Uptime, leader election and metrics live in the core package, so those three need no extra install —
+just the call. Alerting and AI are separate packages, because each carries a dependency of its own.
+
+| Register | What appears |
 |---|---|
-| `Healthie.NET.Uptime` | `24H` on the selected checker — uptime measured over real time — and `WORST`, the longest unbroken outage inside that window |
+| `AddHealthieUptime()` | `24H` on the selected checker — uptime measured over real time — and `WORST`, the longest unbroken outage inside that window |
 | `Healthie.NET.Alerting` | An **ALERTS** view: the paged alert history, where each alert is delivered, and the settings a running dispatcher honours — see below |
 | `AddHealthieMetrics()` | A **METRICS** view: checks run, the share that reported healthy, transitions, overlapped triggers, and mean and slowest check duration |
-| `Healthie.NET.LeaderElection` | A `LEADER` or `FOLLOWER` badge, hover-naming the replica — on a follower every checker sits still, which is otherwise indistinguishable from a broken board |
+| `AddHealthieLeaderElection()` | A `LEADER` or `FOLLOWER` badge, hover-naming the replica — on a follower every checker sits still, which is otherwise indistinguishable from a broken board |
 | `Healthie.NET.AI` | An `EXPLAIN` button on a failing checker, which asks your `IChatClient` why it has been failing |
 
 ### The alerts view
