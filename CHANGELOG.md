@@ -126,8 +126,36 @@ before upgrading:
   Read-only throughout, so all of it shows under `HealthieUIOptions.AllowMutations = false` -- the
   one exception is asking the model, which is still a read but spends money on the host's account,
   and is gated with the controls that change things.
+- **The alert history is persisted and paged.** It is written through the application's own
+  `IStateProvider`, so a deployment on CosmosDB, PostgreSQL, SQL Server, SQLite or Redis keeps its
+  alerts across a redeploy and one left on the in-memory provider does not. There is no second
+  storage contract to configure and no provider had to learn about alerts. `IAlertInsights` reads a
+  page at a time and reports the total, because the question asked most often is asked just after a
+  restart, about what happened before it -- which is exactly what a last-twenty list throws away.
+  Bounded at `HistoryLength`, and the view says how many are kept, of what cap, in which provider.
+- **The dashboard shows where alerts are delivered**, with each sink's delivered and failed counts
+  and its last error. An application that installed alerting and never configured a sink raises
+  alerts that reach nobody, and a healthy-looking list of them was indistinguishable from one that
+  was notifying people; sinks are now listed from startup rather than from their first delivery, and
+  one that recovers stops being reported as failing.
+- **Alerting is configurable from the dashboard**: minimum severity, deduplication window, delivery
+  timeout, and whether recoveries alert. Those four and no others, because they are the ones the
+  dispatcher reads on every alert -- its queue capacity and history length are fixed when it is
+  built, so they are shown as facts rather than offered as controls that would quietly do nothing.
+  There is also a test alert, which goes through the real sinks: the only way to find out that a
+  webhook URL is wrong is to use it.
+- **`AddHealthieMetrics()`** collects the library's own instruments in-process behind
+  `IMetricsInsights`, and the dashboard grows a metrics view: checks run, the share that reported
+  healthy, transitions, mean and slowest check duration, and results by health. A `MeterListener` on
+  the `Healthie.NET` meter, so it reads what is already being emitted and runs alongside an
+  OpenTelemetry exporter rather than instead of one. Opt-in, because a listener costs a callback on
+  every measurement and an application with an APM has somewhere better to look.
+
+  Overlapped triggers get their own figure. A checker whose check outlasts its own interval looks
+  healthy and is quietly running at a fraction of the rate it was asked to, and this is the only
+  place that shows.
 - **A side menu on the dashboard**, listing an overview, a section per group with its tally and worst
-  state, and the alerts, event-log and about views. Picking a group narrows the list and picking it
+  state, and the alerts, metrics, event-log and about views. Picking a group narrows the list and picking it
   again is the way back; it combines with the search box and the tag filter rather than clearing
   them, and the groups it lists come from the store rather than from the rows currently surviving
   those filters -- a menu that dropped a group because a search had narrowed it away would take away

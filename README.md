@@ -815,6 +815,8 @@ Both are development-time only. Nothing under `src/` depends on Aspire or Docker
 
 ## Migration
 
+Upgrading from v3.x? See the [v3 to v4 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v3-to-v4.md). 4.0.0 is source-compatible: rebuild and you are done.
+
 Upgrading from v2.x? See the [v2 to v3 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v2-to-v3.md). Most applications need no code changes.
 
 Upgrading from v1.x? See the [v1 to v2 migration guide](https://github.com/ivanvyd/Healthie.NET/blob/main/docs/migration-v1-to-v2.md) first.

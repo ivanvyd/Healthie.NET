@@ -111,9 +111,48 @@ contract, so installing the package is the whole configuration.
 | Install | What appears |
 |---|---|
 | `Healthie.NET.Uptime` | `24H` on the selected checker — uptime measured over real time — and `WORST`, the longest unbroken outage inside that window |
-| `Healthie.NET.Alerting` | An `ALERTS` button opening the recent alerts, each with its health transition, its message, and a flag when it did not reach every sink |
+| `Healthie.NET.Alerting` | An **ALERTS** view: the paged alert history, where each alert is delivered, and the settings a running dispatcher honours — see below |
+| `AddHealthieMetrics()` | A **METRICS** view: checks run, the share that reported healthy, transitions, overlapped triggers, and mean and slowest check duration |
 | `Healthie.NET.LeaderElection` | A `LEADER` or `FOLLOWER` badge, hover-naming the replica — on a follower every checker sits still, which is otherwise indistinguishable from a broken board |
 | `Healthie.NET.AI` | An `EXPLAIN` button on a failing checker, which asks your `IChatClient` why it has been failing |
+
+### The alerts view
+
+Three things, in the order you need them.
+
+**Where alerts go.** Every registered `IAlertSink`, listed from startup rather than from its first
+delivery, with its delivered and failed counts and its last error. With none configured it says so
+outright — alerts raised and sent nowhere reads identically to alerts being delivered, and those are
+opposite situations. A sink that recovers stops being shown as failing.
+
+**What has fired.** The history, newest first, a page at a time, with a filter for the ones that did
+not reach every sink. It is written through your application's own `IStateProvider`, so on CosmosDB,
+PostgreSQL, SQL Server, SQLite or Redis it **survives a redeploy**; on the in-memory provider it does
+not. The header names the provider it went to and the cap it is kept at, so neither is a guess.
+
+**What alerting is doing.** Minimum severity, deduplication window, delivery timeout and whether
+recoveries alert, all editable and applied from the next alert. Only those four: the dispatcher reads
+them on every alert, whereas its queue capacity and history length are fixed when it is built, and a
+control that quietly did nothing would be worse than no control. `SEND TEST ALERT` puts one through
+the real sinks — the only way to find out a webhook URL is wrong is to use it.
+
+Settings and the test button are gated by `AllowMutations`; everything else in the view is a read and
+stays under read-only mode.
+
+### The metrics view
+
+`AddHealthieMetrics()` attaches a `MeterListener` to the `Healthie.NET` meter, which is where this
+library already emits `healthie.check.duration`, `.results`, `.transitions` and `.overlaps`. It reads
+what is being published rather than instrumenting anything again, so it runs **alongside** an
+OpenTelemetry exporter on the same meter, not instead of one.
+
+It is a live count and not a time series: nothing survives a restart, and an exporter is still the
+way to keep history. Opt-in for that reason — a listener costs a callback on every measurement, and
+an application with an APM in front of it has somewhere better to look.
+
+`OVERLAPS` is the figure worth watching. A checker whose check takes longer than its own interval
+returns immediately, looks healthy, and is quietly running at a fraction of the rate it was asked to;
+this is the only place it shows.
 
 `24H` sits beside the board's own `UPTIME`, which is the share of the runs still in the rolling
 history — a hundred results, so at a one-second interval, the last hundred seconds. They answer

@@ -17,8 +17,4 @@ public sealed record AlertPage(
     IReadOnlyList<AlertInsight> Alerts,
     int Total,
     string StoredIn,
-    int Capacity)
-{
-    /// <summary>An empty page, for a provider that has never been written to.</summary>
-    public static AlertPage Empty(string storedIn, int capacity) => new([], 0, storedIn, capacity);
-}
+    int Capacity);

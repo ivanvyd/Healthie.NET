@@ -43,7 +43,6 @@ public sealed partial class HealthieDashboard
     private IAlertConfiguration? _alertConfiguration;
 
     private UptimeInsight? _uptime;
-    private string? _uptimeFor;
 
     private AlertPage? _alerts;
     private int _alertPage;
@@ -80,24 +79,19 @@ public sealed partial class HealthieDashboard
 
     /// <summary>Reads the uptime for the selected checker.</summary>
     /// <remarks>
-    /// Only on selection, not on the clock tick: it is a query over recorded segments, and the board
-    /// redraws every second.
+    /// On selection, not on the clock tick: it is a query over recorded segments and the board
+    /// redraws every second. Re-selecting a checker re-reads rather than short-circuiting, so
+    /// clicking the row you are on is how you refresh a window that has been open a while.
     /// </remarks>
     private async Task LoadUptimeAsync(string? checkerName)
     {
         if (_uptimeInsights is null || checkerName is null)
         {
             _uptime = null;
-            _uptimeFor = null;
+
             return;
         }
 
-        if (_uptimeFor == checkerName)
-        {
-            return;
-        }
-
-        _uptimeFor = checkerName;
         _uptime = await _uptimeInsights.GetUptimeAsync(checkerName, UptimeWindow);
     }
 
