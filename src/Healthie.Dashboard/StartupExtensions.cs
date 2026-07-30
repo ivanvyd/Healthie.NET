@@ -1,8 +1,11 @@
+using Healthie.Dashboard.Diagnostics;
 using Healthie.Dashboard.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using System.Net;
 
 namespace Healthie.Dashboard;
@@ -41,6 +44,11 @@ public static class StartupExtensions
         services.AddSingleton<DashboardStateHandoff>();
         services.AddScoped<IHealthieDashboardService, HealthieDashboardService>();
         services.AddScoped<HealthieThemeState>();
+
+        // Says so at startup if the board ends up reachable without authenticating while its
+        // controls are on. TryAdd because calling this twice should not warn twice.
+        services.TryAddEnumerable(
+            ServiceDescriptor.Singleton<IHostedService, UnauthenticatedDashboardWarning>());
 
         return services;
     }
