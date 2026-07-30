@@ -46,6 +46,9 @@ public sealed class AlertHistory(
     // A plain object, not System.Threading.Lock: this package targets net8.0 as well.
     private readonly object _gate = new();
 
+    /// <summary>Lets one write reach the state provider at a time. See <see cref="PersistAsync"/>.</summary>
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
+
     private bool _loaded;
 
     private readonly Dictionary<string, SinkTally> _sinks = [];
@@ -134,8 +137,6 @@ public sealed class AlertHistory(
             alert.OccurredAt,
             delivered);
 
-        List<AlertInsight> toPersist;
-
         lock (_gate)
         {
             // Trims after enqueuing rather than before. Dropping the oldest first has to special-case
@@ -146,13 +147,11 @@ public sealed class AlertHistory(
             {
                 _recent.Dequeue();
             }
-
-            toPersist = [.. _recent];
         }
 
-        // Outside the lock: this is a round trip to the state store, and holding a lock across it
-        // would stall every reader of the board for the duration of a database write.
-        _ = PersistAsync(toPersist);
+        // Outside the lock: a round trip to the state store held under it would stall every reader of
+        // the board for the duration of a database write.
+        _ = PersistAsync();
     }
 
     /// <summary>Records that an alert never reached the queue.</summary>
@@ -231,15 +230,34 @@ public sealed class AlertHistory(
         }
     }
 
-    private async Task PersistAsync(List<AlertInsight> log)
+    /// <summary>
+    /// Writes the whole log, one writer at a time.
+    /// </summary>
+    /// <remarks>
+    /// The snapshot is taken <em>inside</em> the gate, not passed in. Two alerts raised back to back
+    /// start two writes, and nothing orders them: with the snapshot captured at call time the older
+    /// one could land last and silently drop the newer alert. Taking it here means whichever write
+    /// goes last writes the newest state, so the store converges on what is actually held. A real
+    /// PostgreSQL under CI timing found this; two writes in a row on a fast local disk did not.
+    /// </remarks>
+    private async Task PersistAsync()
     {
         if (stateProvider is null)
         {
             return;
         }
 
+        await _writeGate.WaitAsync().ConfigureAwait(false);
+
         try
         {
+            List<AlertInsight> log;
+
+            lock (_gate)
+            {
+                log = [.. _recent];
+            }
+
             await stateProvider.SetStateAsync(StorageKey, log).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -247,6 +265,10 @@ public sealed class AlertHistory(
             // Never propagated. This runs on the alert-delivery path, and a state store that is down
             // must not take alerting down with it -- the alert has already reached its sinks.
             logger?.LogWarning(ex, "Could not persist the alert history to the state provider.");
+        }
+        finally
+        {
+            _writeGate.Release();
         }
     }
 }

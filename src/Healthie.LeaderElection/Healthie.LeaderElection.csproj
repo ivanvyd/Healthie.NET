@@ -1,17 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Deprecated. Everything this package defined now ships in Healthie.NET.DependencyInjection; what
+    is left is an assembly of type forwards, so an application that references this one keeps
+    compiling and keeps running without touching a line. See TypeForwards.cs.
+  -->
   <PropertyGroup>
     <PackageId>Healthie.NET.LeaderElection</PackageId>
-    <Description>Leader election for Healthie.NET: runs pulse checks on one replica at a time, so a scaled-out application checks each component once rather than once per replica.</Description>
-    <PackageTags>$(HealthieCommonTags);leader-election;distributed;lease;ha</PackageTags>
+    <Description>DEPRECATED -- use Healthie.NET.DependencyInjection, which now contains leader election. This package remains as type forwards so existing applications keep working; it will not gain new features.</Description>
+    <PackageTags>$(HealthieCommonTags);leader-election;ha;replicas;deprecated</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Healthie.Tests.Unit" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Healthie.Abstractions\Healthie.Abstractions.csproj" />
+    <ProjectReference Include="..\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
   </ItemGroup>
 
 </Project>

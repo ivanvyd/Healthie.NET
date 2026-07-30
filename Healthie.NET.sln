@@ -68,6 +68,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.LeaderElection", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.StateProviding.Redis", "src\Healthie.StateProviding.Redis\Healthie.StateProviding.Redis.csproj", "{AE94818D-ABCF-4B84-AF49-525A16D7890C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Healthie.NET.Package", "src\Healthie.NET.Package\Healthie.NET.Package.csproj", "{A5B438EB-322F-4467-962E-190E22061BDB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -390,6 +392,18 @@ Global
 		{AE94818D-ABCF-4B84-AF49-525A16D7890C}.Release|x64.Build.0 = Release|Any CPU
 		{AE94818D-ABCF-4B84-AF49-525A16D7890C}.Release|x86.ActiveCfg = Release|Any CPU
 		{AE94818D-ABCF-4B84-AF49-525A16D7890C}.Release|x86.Build.0 = Release|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Debug|x64.Build.0 = Debug|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Debug|x86.Build.0 = Debug|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Release|x64.ActiveCfg = Release|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Release|x64.Build.0 = Release|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Release|x86.ActiveCfg = Release|Any CPU
+		{A5B438EB-322F-4467-962E-190E22061BDB}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -421,6 +435,7 @@ Global
 		{4E2A9262-B7AC-4E51-9CB1-EDD8D81D2CBE} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{0EF6CF0A-9019-4A1D-A668-6C4982832BC6} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 		{AE94818D-ABCF-4B84-AF49-525A16D7890C} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
+		{A5B438EB-322F-4467-962E-190E22061BDB} = {9BAF98D2-CC85-4721-9C67-88576218F61C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0EE98644-4A9C-4D31-8145-997C8B5A8119}

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The package somebody reaches for first. `dotnet add package Healthie.NET` is the name people
+    guess, and before this it did not exist — the entry point was Healthie.NET.DependencyInjection,
+    which reads like plumbing rather than the way in. This carries no code of its own: it depends on
+    that package and nothing else, so it stays one install rather than becoming a bundle that drags
+    a dashboard into a console app.
+  -->
+  <PropertyGroup>
+    <PackageId>Healthie.NET</PackageId>
+    <Description>Health monitoring for .NET. Install this to get started: pulse checkers on a schedule, a three-state health model, and pluggable storage. Providers, the dashboard and the REST API are separate packages you add only if you want them.</Description>
+    <PackageTags>$(HealthieCommonTags);health;monitoring;healthcheck</PackageTags>
+
+    <!--
+      No assembly of its own, so nothing to compile, sign, document or validate. NU5128 fires
+      because a package with dependencies normally ships lib assets too; that is exactly what a
+      meta-package is not.
+    -->
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <EnablePackageValidation>false</EnablePackageValidation>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Healthie.DependencyInjection\Healthie.DependencyInjection.csproj" />
+  </ItemGroup>
+
+</Project>

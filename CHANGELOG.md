@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -6,6 +6,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [4.1.0] - 2026-07-30
+
+Twenty packages was too many, and two of them had no business being separate. This release fixes
+that without breaking anything: **an application on 4.0.0 upgrades by changing nothing.**
+
+### Added
+
+- **`Healthie.NET`**, the package to install first. It carries no code of its own, only a dependency
+  on `Healthie.NET.DependencyInjection`, so it is one install and one dependency rather than a
+  bundle -- no provider, scheduler or UI framework arrives with it. The name people guess did not
+  exist before, and the actual entry point was called `DependencyInjection`, which reads like
+  plumbing rather than the way in.
+- **Uptime reporting and leader election are in the core package.** `AddHealthieUptime()` and
+  `AddHealthieLeaderElection()` need nothing else installed. Both stay opt-in: nothing runs until
+  you call them.
+
+### Deprecated
+
+- **`Healthie.NET.Uptime`** and **`Healthie.NET.LeaderElection`**. Neither carried a third-party
+  dependency, so keeping them separate cost two installs and saved nothing -- the provider packages
+  exist to keep Npgsql or Temporalio off machines that do not use them, and these two were not
+  providers.
+
+  **Nothing breaks.** Both packages are still published, now as assemblies of type forwards, so an
+  application that references either keeps compiling *and* keeps running untouched. That is what
+  makes this a minor release: moving a type between assemblies is a binary break the compiler cannot
+  see, because source keeps building and only the runtime finds out. Remove the reference whenever it
+  suits you; neither package will gain features.
+
+### Fixed
+
+- **The sample Dockerfiles took their .NET base images by mutable tag.** A tag is a different image
+  next week, so the build that passed review is not the build that ships. Both are pinned by digest,
+  which Dependabot updates the way it updates a package version. Closes four OpenSSF Scorecard
+  *Pinned-Dependencies* findings.
+
+### Security
+
+- **An Azure CosmosDB key committed in May 2025 was confirmed dead and the alert closed.** It had
+  already been removed from the working tree; the account it belonged to no longer exists in the
+  owning tenant, verified by enumerating every Cosmos account across that tenant's subscriptions, so
+  the key authenticates to nothing. It remains in history at `ee0c78e`, inert.
+- **Stray screenshots can no longer be committed.** Root-level PNGs are ignored, scoped to the root
+  so the images the docs and samples genuinely ship are untouched.
 
 ## [4.0.0] - 2026-07-30
 
@@ -520,7 +565,8 @@ Blazor dashboard, and the CosmosDB and Quartz.NET providers.
 
 - Dashboard UI improvements and additional sample pulse checkers.
 
-[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v4.0.0...HEAD
+[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v4.1.0...HEAD
+[4.1.0]: https://github.com/ivanvyd/Healthie.NET/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v3.1.4...v4.0.0
 [3.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v2.3.0...v3.0.0
 [2.3.0]: https://github.com/ivanvyd/Healthie.NET/releases/tag/v2.3.0

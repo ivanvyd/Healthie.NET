@@ -214,6 +214,60 @@ public class InsightsTests
     }
 
     /// <summary>
+    /// A store slow enough to make the ordering of concurrent writes visible.
+    /// </summary>
+    /// <remarks>
+    /// The first write is held up longer than the second, which is what a real database does under
+    /// load and what a fast local disk does not. Without serialised persistence the older, shorter
+    /// snapshot lands last and the newer alert is silently lost.
+    /// </remarks>
+    private sealed class SlowFirstWriteProvider : IStateProvider
+    {
+        private const int SlowWriteMs = 250;
+
+        /// <summary>Comfortably past both writes, so the assert sees the state they settled on.</summary>
+        public static readonly TimeSpan SettleFor = TimeSpan.FromMilliseconds(SlowWriteMs * 4);
+
+        private readonly InMemoryStateProvider _inner = new();
+        private int _writes;
+
+        public async Task SetStateAsync<T>(string name, T state, CancellationToken cancellationToken = default)
+        {
+            var delay = Interlocked.Increment(ref _writes) == 1 ? SlowWriteMs : 10;
+            await Task.Delay(delay, cancellationToken);
+
+            await _inner.SetStateAsync(name, state, cancellationToken);
+        }
+
+        public Task<T?> GetStateAsync<T>(string name, CancellationToken cancellationToken = default) =>
+            _inner.GetStateAsync<T>(name, cancellationToken);
+    }
+
+    /// <summary>
+    /// Two alerts raised back to back must both survive. Nothing orders the writes they trigger, so
+    /// a snapshot captured at call time could be written after a newer one and undo it.
+    /// </summary>
+    [Fact]
+    public async Task AlertHistory_WhenTwoAlertsRaceToPersist_NeitherIsLost()
+    {
+        var store = new SlowFirstWriteProvider();
+        var history = new AlertHistory(capacity: 10, store);
+
+        history.Record(Alert("first"), delivered: true);
+        history.Record(Alert("second"), delivered: true);
+
+        // A fixed settle, deliberately not a poll for the answer. Polling until the store holds two
+        // passes the moment the fast write lands and asserts before the slow one overwrites it --
+        // which is the very failure under test, observed and then looked away from.
+        await Task.Delay(SlowFirstWriteProvider.SettleFor, Ct);
+
+        var reloaded = await new AlertHistory(capacity: 10, store).GetAlertsAsync(0, 10, Ct);
+
+        Assert.Equal(2, reloaded.Total);
+        Assert.Equal(["second", "first"], reloaded.Alerts.Select(alert => alert.CheckerName));
+    }
+
+    /// <summary>
     /// A page is a window on the whole history, and the total it reports is what a pager counts
     /// against -- not the size of the page it happens to be looking at.
     /// </summary>
