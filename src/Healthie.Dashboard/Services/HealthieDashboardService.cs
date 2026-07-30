@@ -51,6 +51,22 @@ internal sealed class HealthieDashboardService(
     }
 
     /// <inheritdoc />
+    public async Task SetScheduleAsync(string name, PulseSchedule? schedule,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await pulsesScheduler.SetScheduleAsync(name, schedule, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Failed to set the schedule for checker '{CheckerName}'.", name);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task SetThresholdAsync(string name, uint threshold,
         CancellationToken cancellationToken = default)
     {

@@ -1,5 +1,6 @@
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 
 namespace Healthie.Abstractions;
 
@@ -44,6 +45,27 @@ public interface IPulseChecker : IPulse, IState, IAsyncDisposable
     /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
     Task SetIntervalAsync(PulseInterval interval, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sets the schedule the pulse check runs on, which a <see cref="PulseInterval"/> may not be
+    /// able to express.
+    /// </summary>
+    /// <param name="schedule">The schedule to run on, or <c>null</c> to go back to the interval.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <exception cref="NotSupportedException">
+    /// This implementation does not support being rescheduled. The default throws; anything deriving
+    /// from <c>PulseChecker</c> overrides it.
+    /// </exception>
+    /// <remarks>
+    /// Defaulted rather than abstract so a checker written against the older interface keeps
+    /// compiling. It throws rather than doing nothing, because a scheduling call that silently has
+    /// no effect leaves a checker running on the old schedule and a caller believing otherwise.
+    /// </remarks>
+    Task SetScheduleAsync(PulseSchedule? schedule, CancellationToken cancellationToken = default) =>
+        throw new NotSupportedException(
+            $"{GetType().Name} does not support being given a {nameof(PulseSchedule)}. Derive from " +
+            "PulseChecker, or implement this method.");
 
     /// <summary>
     /// Sets the unhealthy threshold for the pulse checker asynchronously.

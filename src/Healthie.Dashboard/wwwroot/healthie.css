@@ -279,13 +279,19 @@
 /* ------------------------------------------------------------------ body -- */
 
 .hpm-body {
+    --hpm-nav-w: 208px;
+
     max-width: 1500px;
     margin: 0 auto;
     padding: 22px 26px 70px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 400px;
+    grid-template-columns: var(--hpm-nav-w) minmax(0, 1fr) 400px;
     gap: 18px;
     align-items: start;
+}
+
+.hpm-body--nav-collapsed {
+    --hpm-nav-w: 54px;
 }
 
 .hpm-list {
@@ -722,12 +728,59 @@
 /* ------------------------------------------------------------ responsive -- */
 
 @media (max-width: 1100px) {
+    /* The detail panel drops below the list; the rail keeps its column. */
     .hpm-body {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: var(--hpm-nav-w) minmax(0, 1fr);
     }
 
     .hpm-side {
         position: static;
+        grid-column: 1 / -1;
+    }
+}
+
+/*
+ * Below this a rail costs more width than it earns, so it becomes a strip above the list: one
+ * horizontally scrolling row of the same items. Still every entry, still no JavaScript, and nothing
+ * overlays the content -- which is what an off-canvas drawer would need a focus trap to do honestly.
+ */
+@media (max-width: 820px) {
+    .hpm-body,
+    .hpm-body--nav-collapsed {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .hpm-nav {
+        position: static;
+        flex-direction: row;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+    }
+
+    .hpm-nav-toggle,
+    .hpm-nav-heading {
+        display: none;
+    }
+
+    .hpm-nav-item {
+        width: auto;
+        flex: 0 0 auto;
+        border-left: 0;
+        border-bottom: 2px solid transparent;
+        border-radius: 6px;
+    }
+
+    .hpm-nav-item--current {
+        border-left-color: transparent;
+        border-bottom-color: var(--hpm-accent, var(--hpm-ok));
+    }
+
+    /* The labels come back here even when the rail was left collapsed on a wider screen. */
+    .hpm-body--nav-collapsed .hpm-nav-text,
+    .hpm-body--nav-collapsed .hpm-nav-count {
+        display: inline;
     }
 }
 
@@ -1698,4 +1751,178 @@
     .hpm-alert-name {
         white-space: normal;
     }
+}
+
+/* ---------------------------------------------------------------------------
+   Side menu
+
+   A rail rather than a drawer, and no JavaScript, because this package ships
+   without any: an overlay drawer needs a backdrop and a focus trap to be
+   honest about keyboard use, and neither is doable in CSS alone. Collapsed it
+   keeps its icons and its toggle, so nothing becomes unreachable and the page
+   does not reflow onto a different set of controls.
+   --------------------------------------------------------------------------- */
+
+.hpm-nav {
+    position: sticky;
+    top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid var(--hpm-line);
+    border-radius: 8px;
+    background: var(--hpm-panel);
+}
+
+.hpm-nav-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 9px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--hpm-faint);
+    font: inherit;
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    cursor: pointer;
+}
+
+.hpm-nav-toggle:hover {
+    color: var(--hpm-text);
+    background: var(--hpm-line);
+}
+
+.hpm-nav-burger {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+}
+
+.hpm-nav-heading {
+    margin: 12px 0 4px;
+    padding: 0 9px;
+    color: var(--hpm-faint);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+}
+
+.hpm-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 9px;
+    border: 0;
+    border-left: 2px solid transparent;
+    border-radius: 0 6px 6px 0;
+    background: none;
+    color: var(--hpm-text);
+    font: inherit;
+    font-size: 11.5px;
+    letter-spacing: 0.05em;
+    text-align: left;
+    cursor: pointer;
+}
+
+.hpm-nav-item:hover {
+    background: var(--hpm-line);
+}
+
+.hpm-nav-item--current {
+    border-left-color: var(--hpm-accent, var(--hpm-ok));
+    background: var(--hpm-line);
+}
+
+.hpm-nav-dot {
+    flex: 0 0 auto;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--hpm-faint);
+}
+
+.hpm-nav-dot.hpm-ok { background: var(--hpm-ok); }
+.hpm-nav-dot.hpm-warn { background: var(--hpm-warn); }
+.hpm-nav-dot.hpm-crit { background: var(--hpm-crit); }
+
+.hpm-nav-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.hpm-nav-count {
+    flex: 0 0 auto;
+    color: var(--hpm-faint);
+    font-size: 10px;
+}
+
+.hpm-nav-count--warn {
+    color: var(--hpm-crit);
+}
+
+/* Collapsed: the labels go, the icons and the toggle stay. */
+.hpm-body--nav-collapsed .hpm-nav-text,
+.hpm-body--nav-collapsed .hpm-nav-count,
+.hpm-body--nav-collapsed .hpm-nav-label,
+.hpm-body--nav-collapsed .hpm-nav-heading {
+    display: none;
+}
+
+.hpm-body--nav-collapsed .hpm-nav-item,
+.hpm-body--nav-collapsed .hpm-nav-toggle {
+    justify-content: center;
+    padding-inline: 0;
+}
+
+.hpm-body--nav-collapsed .hpm-nav-dot {
+    width: 9px;
+    height: 9px;
+}
+
+/* The cron box sits under the interval and threshold pair, full width. */
+.hpm-field--cron {
+    margin-top: 10px;
+}
+
+.hpm-field--cron input {
+    font-family: var(--hpm-mono);
+}
+
+.hpm-field--cron input[aria-invalid="true"] {
+    border-color: var(--hpm-crit);
+}
+
+.hpm-field-hint,
+.hpm-field-error {
+    margin-top: 5px;
+    font-size: 10.5px;
+    line-height: 1.45;
+}
+
+.hpm-field-hint {
+    color: var(--hpm-faint);
+}
+
+.hpm-field-hint code {
+    font-family: var(--hpm-mono);
+    color: var(--hpm-muted);
+}
+
+.hpm-field-error {
+    color: var(--hpm-crit);
+}
+
+/* A cron expression is text, not a number, so it does not get the big numeric treatment. */
+.hpm-rate--cron {
+    font-family: var(--hpm-mono);
+    font-size: 11px;
+    letter-spacing: 0;
 }

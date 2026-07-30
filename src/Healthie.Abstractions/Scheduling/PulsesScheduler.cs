@@ -99,6 +99,22 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     }
 
     /// <inheritdoc />
+    public async Task SetScheduleAsync(string name, PulseSchedule? schedule, CancellationToken cancellationToken = default)
+    {
+        var pulseChecker = GetCheckerOrThrow(name);
+
+        if (schedule is not null && !_pulseScheduler.TryValidateSchedule(schedule, out var error))
+        {
+            throw new ArgumentException(
+                $"The registered scheduler will not run '{schedule}' for pulse checker '{name}'. {error}",
+                nameof(schedule));
+        }
+
+        await pulseChecker.SetScheduleAsync(schedule, cancellationToken).ConfigureAwait(false);
+        await ScheduleAsync(pulseChecker, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task SetUnhealthyThresholdAsync(string name, uint threshold, CancellationToken cancellationToken = default)
     {
         var pulseChecker = GetCheckerOrThrow(name);

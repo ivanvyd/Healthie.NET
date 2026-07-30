@@ -58,6 +58,9 @@ internal static class HealthieIcons
     public static MarkupString X => Svg(
         "<path d='M18 6 6 18'/><path d='m6 6 12 12'/>");
 
+    public static MarkupString Menu => Svg(
+        "<path d='M4 6h16'/><path d='M4 12h16'/><path d='M4 18h16'/>");
+
     public static MarkupString Rows => Svg(
         "<rect x='3' y='4' width='18' height='4' rx='1'/><rect x='3' y='10' width='18' height='4' rx='1'/><rect x='3' y='16' width='18' height='4' rx='1'/>");
 

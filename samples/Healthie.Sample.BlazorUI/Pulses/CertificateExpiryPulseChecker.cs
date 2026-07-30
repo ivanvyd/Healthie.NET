@@ -1,6 +1,7 @@
 using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Abstractions.StateProviding;
 
 namespace Healthie.Sample.BlazorUI.Pulses;
@@ -9,8 +10,12 @@ public class CertificateExpiryPulseChecker : PulseChecker
 {
     private readonly Random _random = new();
 
+    // On a cron expression rather than an interval, because that is what a certificate check
+    // actually wants and because it is the case the board has to render: no rate a minute, and an
+    // interval picker that must not pretend to apply. Every two minutes here so the sample shows it
+    // running rather than waiting until 03:20.
     public CertificateExpiryPulseChecker(IStateProvider stateProvider)
-        : base(stateProvider, PulseInterval.Every2Minutes, 1)
+        : base(stateProvider, PulseSchedule.Cron("*/2 * * * *"), 1)
     {
     }
 

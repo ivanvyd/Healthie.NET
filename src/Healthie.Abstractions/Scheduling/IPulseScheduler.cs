@@ -51,6 +51,30 @@ public interface IPulseScheduler
     }
 
     /// <summary>
+    /// Judges a schedule before anything is asked to store it.
+    /// </summary>
+    /// <param name="schedule">The schedule to judge.</param>
+    /// <param name="error">Why it was refused, or <c>null</c> when it was accepted.</param>
+    /// <returns><c>true</c> when this scheduler could run it.</returns>
+    /// <remarks>
+    /// Asked of the scheduler because the scheduler is the authority: Cronos, Quartz and Temporal do
+    /// not agree on cron dialects, so the only implementation whose answer means anything is the one
+    /// that will run it. This exists so a schedule typed into the dashboard is refused before it is
+    /// persisted -- storing it first and discovering the problem while rescheduling leaves a checker
+    /// with a schedule nothing can run.
+    /// <para>
+    /// Defaulted to accept, so a scheduler written against the older interface is unaffected and
+    /// reports the problem when scheduling, as it does today.
+    /// </para>
+    /// </remarks>
+    bool TryValidateSchedule(PulseSchedule schedule, out string? error)
+    {
+        error = null;
+
+        return true;
+    }
+
+    /// <summary>
     /// Unschedules a previously scheduled pulse checker.
     /// </summary>
     /// <param name="checker">The pulse checker to unschedule.</param>

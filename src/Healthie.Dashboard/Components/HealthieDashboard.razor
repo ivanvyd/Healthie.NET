@@ -52,8 +52,9 @@
             </div>
 
             @*
-                Only when something is elected. A single-replica application is always the leader and
-                does not need telling.
+                Only when something is elected: an application with no leader election installed has
+                one replica running everything, and a permanent LEADER badge there would reassure
+                about a problem nobody has.
             *@
             @if (_leadershipInsights is not null)
             {
@@ -129,7 +130,10 @@
                     </defs>
                     <rect x="0" y="0" width="100%" height="64" fill="url(#@_traceId)" />
                 </svg>
-                <div class="hpm-trace-label">AGGREGATE PULSE · @ChecksPerMinute CHECKS/MIN</div>
+                <div class="hpm-trace-label"
+                     title="@(CronCheckerCount > 0 ? "Cron checkers are counted separately: a schedule like \"weekdays at 06:00\" has no rate per minute." : null)">
+                    AGGREGATE PULSE · @ChecksPerMinute CHECKS/MIN@(CronCheckerCount > 0 ? $" · {CronCheckerCount} CRON" : null)
+                </div>
             </div>
         </div>
     </header>
@@ -337,8 +341,9 @@
                         </div>
 
                         <div class="hpm-rate-cell">
-                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused")">@RatePerMinute(state)</span>
-                            <span class="hpm-rate-unit">per min</span>
+                            <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused") @(state.EffectiveSchedule.IsCron ? "hpm-rate--cron" : "")"
+                                  title="@(state.EffectiveSchedule.IsCron ? $"Runs on the cron expression {state.EffectiveSchedule.CronExpression}, evaluated in UTC" : null)">@RateLabel(state)</span>
+                            <span class="hpm-rate-unit">@RateUnit(state)</span>
                         </div>
 
                         @if (history.Count == 0)
@@ -385,13 +390,95 @@
     </text>;
     }
 
-    <div class="hpm-body">
+    <div class="hpm-body @(_navOpen ? "" : "hpm-body--nav-collapsed")">
+
+        @*
+            Reads and filters only, so it shows in read-only mode: every entry either scrolls to a
+            section or opens a panel. Rendered before the list in the DOM as well as to its left, so
+            tab order matches reading order.
+        *@
+        <nav class="hpm-nav" aria-label="Dashboard sections">
+            <button type="button" class="hpm-nav-toggle"
+                    title="@(_navOpen ? "Collapse the menu" : "Expand the menu")"
+                    aria-expanded="@(_navOpen ? "true" : "false")"
+                    aria-controls="hpm-nav-body"
+                    @onclick="ToggleNav">
+                <span class="hpm-nav-burger" aria-hidden="true">@HealthieIcons.Menu</span>
+                <span class="hpm-nav-label">MENU</span>
+            </button>
+
+            <div class="hpm-nav-body" id="hpm-nav-body">
+                <button type="button"
+                        class="hpm-nav-item @(_navSection is null ? "hpm-nav-item--current" : "")"
+                        aria-current="@(_navSection is null ? "true" : null)"
+                        title="Every checker, ungrouped filtering cleared"
+                        @onclick="ShowEverythingAsync">
+                    <span class="hpm-nav-dot hpm-nav-dot--all" aria-hidden="true"></span>
+                    <span class="hpm-nav-text">OVERVIEW</span>
+                    <span class="hpm-nav-count">@_states.Count</span>
+                </button>
+
+                @if (NavGroups().Any())
+                {
+                    <div class="hpm-nav-heading">GROUPS</div>
+
+                    @foreach (var group in NavGroups())
+                    {
+                        <button type="button"
+                                class="hpm-nav-item @(string.Equals(_navSection, group.Name, StringComparison.OrdinalIgnoreCase) ? "hpm-nav-item--current" : "")"
+                                aria-current="@(string.Equals(_navSection, group.Name, StringComparison.OrdinalIgnoreCase) ? "true" : null)"
+                                title="Show only the @group.Rows.Count checker(s) in @group.Name"
+                                @onclick="@(() => ShowGroupAsync(group.Name))">
+                            <span class="hpm-nav-dot @StatusClass(group.Worst)" aria-hidden="true"></span>
+                            <span class="hpm-nav-text">@group.Name</span>
+                            <span class="hpm-nav-count">@group.Rows.Count</span>
+                        </button>
+                    }
+                }
+
+                <div class="hpm-nav-heading">VIEWS</div>
+
+                @if (_alertInsights is not null)
+                {
+                    <button type="button" class="hpm-nav-item @(_alertsOpen ? "hpm-nav-item--current" : "")"
+                            aria-expanded="@(_alertsOpen ? "true" : "false")"
+                            title="Alerts raised recently, and whether they reached their sinks"
+                            @onclick="ToggleAlertsAsync">
+                        <span class="hpm-nav-dot hpm-nav-dot--alert" aria-hidden="true"></span>
+                        <span class="hpm-nav-text">ALERTS</span>
+                        @if (_alertInsights.DroppedCount > 0)
+                        {
+                            <span class="hpm-nav-count hpm-nav-count--warn"
+                                  title="@_alertInsights.DroppedCount dropped because the queue was full">@_alertInsights.DroppedCount</span>
+                        }
+                    </button>
+                }
+
+                <button type="button" class="hpm-nav-item @(_showLog ? "hpm-nav-item--current" : "")"
+                        aria-expanded="@(_showLog ? "true" : "false")"
+                        title="Every state change this dashboard has watched happen"
+                        @onclick="ToggleLog">
+                    <span class="hpm-nav-dot hpm-nav-dot--log" aria-hidden="true"></span>
+                    <span class="hpm-nav-text">EVENT LOG</span>
+                    <span class="hpm-nav-count">@_events.Count</span>
+                </button>
+
+                <button type="button" class="hpm-nav-item @(_showAbout ? "hpm-nav-item--current" : "")"
+                        aria-expanded="@(_showAbout ? "true" : "false")"
+                        title="What the colours and controls mean"
+                        @onclick="ToggleAbout">
+                    <span class="hpm-nav-dot hpm-nav-dot--about" aria-hidden="true"></span>
+                    <span class="hpm-nav-text">ABOUT</span>
+                </button>
+            </div>
+        </nav>
+
         <div class="hpm-list @(_asCards ? "hpm-list--cards" : "") @(Options.AllowMutations ? "" : "hpm-list--readonly")">
 
             <div class="hpm-toolbar">
-                <button type="button" class="hpm-btn hpm-btn--sm @(_groupByTags ? "hpm-btn--on" : "")"
-                        title="@(_groupByTags ? "Show one flat list again" : "Collect the checkers into a section per group")"
-                        aria-pressed="@(_groupByTags ? "true" : "false")"
+                <button type="button" class="hpm-btn hpm-btn--sm @(_sectionByGroup ? "hpm-btn--on" : "")"
+                        title="@(_sectionByGroup ? "Show one flat list again" : "Collect the checkers into a section per group")"
+                        aria-pressed="@(_sectionByGroup ? "true" : "false")"
                         @onclick="ToggleGrouping">GROUP</button>
 
                 <div class="hpm-spacer"></div>
@@ -440,21 +527,21 @@
                     }
                 </div>
             }
-            else if (_groupByTags)
+            else if (_sectionByGroup)
             {
                 foreach (var group in GroupedRows())
                 {
-                    var collapsed = _collapsedGroups.Contains(group.Tag);
+                    var collapsed = _collapsedGroups.Contains(group.Name);
 
                     <div class="hpm-group @StatusClass(group.Worst)">
                         <button type="button" class="hpm-group-head"
                                 aria-expanded="@(collapsed ? "false" : "true")"
-                                title="@(collapsed ? "Show" : "Hide") the @group.Rows.Count checker(s) in @group.Tag"
-                                @onclick="@(() => ToggleGroup(group.Tag))">
+                                title="@(collapsed ? "Show" : "Hide") the @group.Rows.Count checker(s) in @group.Name"
+                                @onclick="@(() => ToggleGroup(group.Name))">
                             <span class="hpm-group-chevron @(collapsed ? "" : "hpm-group-chevron--open")" aria-hidden="true">
                                 @HealthieIcons.ChevronRight
                             </span>
-                            <span class="hpm-group-name">@group.Tag</span>
+                            <span class="hpm-group-name">@group.Name</span>
                             <span class="hpm-group-count">@group.Rows.Count</span>
 
                             <div class="hpm-spacer"></div>
@@ -574,9 +661,16 @@
                             </div>
 
                             <div class="hpm-fields">
+                                @*
+                                    Disabled while a cron expression is in force rather than left
+                                    live: the schedule overrides the interval, so a picker that
+                                    still moved would store a value nothing reads.
+                                *@
                                 <div class="hpm-field">
-                                    <label for="hpm-interval" title="How often this check runs on its own">INTERVAL</label>
-                                    <select id="hpm-interval" value="@selected.Interval" @onchange="OnIntervalChanged">
+                                    <label for="hpm-interval" title="@(selected.EffectiveSchedule.IsCron ? "Not in use: this checker runs on the cron expression below. Clear it to go back to an interval." : "How often this check runs on its own")">INTERVAL</label>
+                                    <select id="hpm-interval" value="@selected.Interval"
+                                            disabled="@selected.EffectiveSchedule.IsCron"
+                                            @onchange="OnIntervalChanged">
                                         @foreach (var interval in Intervals)
                                         {
                                             <option value="@interval" selected="@(interval == selected.Interval)">@Describe(interval)</option>
@@ -587,6 +681,25 @@
                                     <label for="hpm-threshold" title="How many failures in a row before this is called failing rather than suspicious. 0 means the first failure counts.">FAIL THRESHOLD</label>
                                     <input id="hpm-threshold" type="number" min="0" value="@selected.UnhealthyThreshold" @onchange="OnThresholdChanged" />
                                 </div>
+                            </div>
+
+                            <div class="hpm-field hpm-field--cron">
+                                <label for="hpm-cron" title="A standard Unix cron expression -- five fields, or six with a leading seconds field. Evaluated in UTC. Leave it empty to run on the interval instead.">CRON SCHEDULE</label>
+                                <input id="hpm-cron" type="text" spellcheck="false"
+                                       placeholder="empty -- runs on the interval above"
+                                       aria-describedby="@(_scheduleError is null ? null : "hpm-cron-error")"
+                                       aria-invalid="@(_scheduleError is not null)"
+                                       value="@_cronDraft"
+                                       @oninput="@(e => _cronDraft = e.Value?.ToString())"
+                                       @onkeydown="OnCronKeyDown" />
+                                @if (_scheduleError is not null)
+                                {
+                                    <div id="hpm-cron-error" class="hpm-field-error" role="alert">@_scheduleError</div>
+                                }
+                                else
+                                {
+                                    <div class="hpm-field-hint">Enter to apply, Escape to undo. e.g. <code>0 6 * * MON-FRI</code></div>
+                                }
                             </div>
 
                             <div class="hpm-tags-editor">

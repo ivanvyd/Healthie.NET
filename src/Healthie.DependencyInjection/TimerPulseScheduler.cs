@@ -252,18 +252,50 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
         }
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Cronos is what actually drives the timer, so asking Cronos is the only answer worth giving.
+    /// </remarks>
+    public bool TryValidateSchedule(PulseSchedule schedule, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+
+        error = null;
+
+        if (schedule.CronExpression is not { } expression)
+        {
+            return true;
+        }
+
+        try
+        {
+            CronExpression.Parse(expression, CronFormatFor(expression));
+
+            return true;
+        }
+        catch (CronFormatException ex)
+        {
+            error = $"Expected standard Unix cron -- five fields, or six with a leading seconds " +
+                    $"field. {ex.Message}";
+
+            return false;
+        }
+    }
+
+    /// <summary>Six fields or more means the leading one is seconds.</summary>
+    private static CronFormat CronFormatFor(string expression) =>
+        expression.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 6
+            ? CronFormat.IncludeSeconds
+            : CronFormat.Standard;
+
     /// <summary>
     /// Parses a standard Unix cron expression, in five fields or six with a leading seconds field.
     /// </summary>
     private static CronExpression ParseCron(string expression, string checkerName)
     {
-        var format = expression.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 6
-            ? CronFormat.IncludeSeconds
-            : CronFormat.Standard;
-
         try
         {
-            return CronExpression.Parse(expression, format);
+            return CronExpression.Parse(expression, CronFormatFor(expression));
         }
         catch (CronFormatException ex)
         {

@@ -352,9 +352,46 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Clears any <see cref="PulseCheckerState.Schedule"/>, because that overrides the interval:
+    /// without this, choosing an interval on a cron-scheduled checker stored a field nothing reads
+    /// and the checker carried on at its old cadence.
+    /// </remarks>
     public async Task SetIntervalAsync(PulseInterval interval, CancellationToken cancellationToken = default)
     {
-        await UpdateStateAsync(state => state.Interval = interval, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(
+            state =>
+            {
+                state.Interval = interval;
+                state.Schedule = null;
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// A schedule an interval can express exactly is stored as that interval, so the common case
+    /// keeps the shape every stored state and every older reader already understands, and only a
+    /// genuinely custom period or a cron expression occupies <see cref="PulseCheckerState.Schedule"/>.
+    /// </remarks>
+    public async Task SetScheduleAsync(PulseSchedule? schedule, CancellationToken cancellationToken = default)
+    {
+        if (schedule is null)
+        {
+            // Back to whatever interval is stored, which is what the field is there to hold.
+            await UpdateStateAsync(state => state.Schedule = null, cancellationToken).ConfigureAwait(false);
+
+            return;
+        }
+
+        if (schedule.TryToInterval(out var interval))
+        {
+            await SetIntervalAsync(interval, cancellationToken).ConfigureAwait(false);
+
+            return;
+        }
+
+        await UpdateStateAsync(state => state.Schedule = schedule, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
