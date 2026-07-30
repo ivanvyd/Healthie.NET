@@ -223,12 +223,17 @@ public class InsightsTests
     /// </remarks>
     private sealed class SlowFirstWriteProvider : IStateProvider
     {
+        private const int SlowWriteMs = 250;
+
+        /// <summary>Comfortably past both writes, so the assert sees the state they settled on.</summary>
+        public static readonly TimeSpan SettleFor = TimeSpan.FromMilliseconds(SlowWriteMs * 4);
+
         private readonly InMemoryStateProvider _inner = new();
         private int _writes;
 
         public async Task SetStateAsync<T>(string name, T state, CancellationToken cancellationToken = default)
         {
-            var delay = Interlocked.Increment(ref _writes) == 1 ? 250 : 10;
+            var delay = Interlocked.Increment(ref _writes) == 1 ? SlowWriteMs : 10;
             await Task.Delay(delay, cancellationToken);
 
             await _inner.SetStateAsync(name, state, cancellationToken);
@@ -251,8 +256,10 @@ public class InsightsTests
         history.Record(Alert("first"), delivered: true);
         history.Record(Alert("second"), delivered: true);
 
-        // Long enough for both writes to have finished, whichever order they ran in.
-        await WaitForAsync(async () => (await new AlertHistory(10, store).GetAlertsAsync(0, 10, Ct)).Total == 2);
+        // A fixed settle, deliberately not a poll for the answer. Polling until the store holds two
+        // passes the moment the fast write lands and asserts before the slow one overwrites it --
+        // which is the very failure under test, observed and then looked away from.
+        await Task.Delay(SlowFirstWriteProvider.SettleFor, Ct);
 
         var reloaded = await new AlertHistory(capacity: 10, store).GetAlertsAsync(0, 10, Ct);
 
