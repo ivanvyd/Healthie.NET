@@ -77,6 +77,43 @@ public class PackageLayoutTests
     }
 
     /// <summary>
+    /// The meta-package must stay a pointer, not a bundle.
+    /// </summary>
+    /// <remarks>
+    /// One stray <c>ProjectReference</c> in Healthie.Meta.csproj turns <c>dotnet add package
+    /// Healthie.NET</c> into an install that drags a database driver, a scheduler and a UI framework
+    /// onto machines that asked for none of them. Nothing else would catch that: it builds, it packs,
+    /// and the damage is only visible in the restore graph of whoever installed it.
+    /// </remarks>
+    [Fact]
+    public void TheMetaPackage_DependsOnTheCorePackageAndNothingElse()
+    {
+        var csproj = FindRepositoryFile("src/Healthie.Meta/Healthie.Meta.csproj");
+
+        var referenced = System.Text.RegularExpressions.Regex
+            .Matches(File.ReadAllText(csproj), @"<ProjectReference\s+Include=""[^""]*[\\/]([A-Za-z.]+)\.csproj""")
+            .Select(match => match.Groups[1].Value)
+            .ToList();
+
+        Assert.Equal(["Healthie.DependencyInjection"], referenced);
+    }
+
+    /// <summary>Walks up from the test binaries to the repository root.</summary>
+    private static string FindRepositoryFile(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, relativePath)))
+        {
+            directory = directory.Parent;
+        }
+
+        Assert.True(directory is not null, $"Could not find '{relativePath}' above {AppContext.BaseDirectory}.");
+
+        return Path.Combine(directory!.FullName, relativePath);
+    }
+
+    /// <summary>
     /// Still opt-in. Folding them into core was about how many packages you install, not about
     /// starting services nobody asked for.
     /// </summary>

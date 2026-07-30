@@ -1,4 +1,4 @@
-![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
+﻿![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 **Trust your uptime.** A lightweight, extensible health monitoring framework for .NET applications.
 
@@ -39,37 +39,105 @@ Watch it all through a live dashboard, a REST API, Kubernetes probes, or an AI a
 - **A dashboard with no dependencies.** Pure HTML and CSS, no UI framework, no web fonts -- two lines to add, and it runs air-gapped.
 - **Built for agents.** An [MCP server](#ai-agents-mcp) that is read-only until you say otherwise, plus [optional diagnostics](#ai-diagnostics) through any `IChatClient`.
 - **It tells someone.** [Alerting](https://www.nuget.org/packages/Healthie.NET.Alerting) fires on a health change rather than on every check, with recovery notices and flap suppression -- and a webhook that is down cannot delay a check or make a healthy component look unhealthy.
-- **It reports on itself.** A `Meter` and an `ActivitySource` OpenTelemetry finds by name, with no package to install. Plus [uptime over any window](https://www.nuget.org/packages/Healthie.NET.Uptime), which the hundred-entry history cannot answer.
-- **It scales out.** [Leader election](https://www.nuget.org/packages/Healthie.NET.LeaderElection) runs the checks on one replica at a time, so three replicas do not check everything three times.
+- **It reports on itself.** A `Meter` and an `ActivitySource` OpenTelemetry finds by name, with no package to install. Plus uptime over any window, which the hundred-entry history cannot answer -- `AddHealthieUptime()`, in the core package.
+- **It scales out.** `AddHealthieLeaderElection()` runs the checks on one replica at a time, so three replicas do not check everything three times.
 
-Everything heavy is opt-in: `Healthie.NET.Abstractions` carries exactly one dependency, and every provider, scheduler, sink and the dashboard is a separate package you add only if you want it.
+Everything heavy is opt-in. One package gets you running; a provider, a scheduler, the dashboard or the REST API is a separate install, and each of those exists to keep its driver off machines that do not need it.
 
 ---
 
 ## NuGet Packages
 
-| Package | Description | Install |
+**You need one.** `Healthie.NET` gets you checkers on a schedule, the three-state health model,
+in-memory storage and the `IHealthCheck` bridge — everything below is something you add only when
+you want it.
+
+```shell
+dotnet add package Healthie.NET
+```
+
+That is one package and one dependency — `Healthie.NET` → `Healthie.NET.DependencyInjection` →
+`Healthie.NET.Abstractions`. It is **not** a bundle: nothing below is pulled in with it, so no
+database driver, scheduler or UI framework arrives on your machine unless you name it.
+
+<details>
+<summary><strong>Swap the storage</strong> — state survives a restart</summary>
+
+Checker state is written on every tick. The in-memory default loses it when the process ends; pick
+one of these and it does not. Each is separate because each carries a database driver, and nobody
+wanting PostgreSQL should be made to download Cosmos.
+
+| Package | For |
+|---|---|
+| **[Healthie.NET.Postgres](https://www.nuget.org/packages/Healthie.NET.Postgres)** | PostgreSQL, including Databricks Lakebase |
+| **[Healthie.NET.SqlServer](https://www.nuget.org/packages/Healthie.NET.SqlServer)** | SQL Server and Azure SQL |
+| **[Healthie.NET.Sqlite](https://www.nuget.org/packages/Healthie.NET.Sqlite)** | SQLite — durable, with no server to stand up |
+| **[Healthie.NET.CosmosDb](https://www.nuget.org/packages/Healthie.NET.CosmosDb)** | Azure CosmosDB |
+| **[Healthie.NET.Redis](https://www.nuget.org/packages/Healthie.NET.Redis)** | Redis — the fastest, for state written every tick |
+| **[Healthie.NET.Relational](https://www.nuget.org/packages/Healthie.NET.Relational)** | The engine behind the three SQL providers. Use it directly for any other ADO.NET database |
+
+</details>
+
+<details>
+<summary><strong>Swap the scheduler</strong> — where the schedule lives</summary>
+
+The built-in timer schedules in-process and forgets on restart, which is right for most
+applications. These put the schedule somewhere that outlives it.
+
+| Package | For |
+|---|---|
+| **[Healthie.NET.Quartz](https://www.nuget.org/packages/Healthie.NET.Quartz)** | Quartz.NET, if you already run it |
+| **[Healthie.NET.Hangfire](https://www.nuget.org/packages/Healthie.NET.Hangfire)** | Hangfire — schedules survive a restart, each occurrence runs on one replica |
+| **[Healthie.NET.Coravel](https://www.nuget.org/packages/Healthie.NET.Coravel)** | Coravel, if you already run it |
+| **[Healthie.NET.Temporal](https://www.nuget.org/packages/Healthie.NET.Temporal)** | Temporal — schedules live in the cluster |
+
+</details>
+
+<details>
+<summary><strong>Add a surface</strong> — somewhere to look, or something to call</summary>
+
+| Package | For |
+|---|---|
+| **[Healthie.NET.Dashboard](https://www.nuget.org/packages/Healthie.NET.Dashboard)** | The Blazor dashboard. Zero third-party dependencies, no web fonts |
+| **[Healthie.NET.Api](https://www.nuget.org/packages/Healthie.NET.Api)** | REST endpoints for managing checkers, plus liveness and readiness probes |
+| **[Healthie.NET.Mcp](https://www.nuget.org/packages/Healthie.NET.Mcp)** | A Model Context Protocol server, so an agent can read and act on health |
+
+</details>
+
+<details>
+<summary><strong>Add a capability</strong> — alerting, ready-made checkers, AI</summary>
+
+| Package | For |
+|---|---|
+| **[Healthie.NET.Alerting](https://www.nuget.org/packages/Healthie.NET.Alerting)** | Health changes become alerts, delivered to Slack, Teams, PagerDuty, a webhook, or your own sink |
+| **[Healthie.NET.Checkers](https://www.nuget.org/packages/Healthie.NET.Checkers)** | HTTP endpoints, TCP ports, TLS expiry, DNS and disk space, with no checker code to write |
+| **[Healthie.NET.AI](https://www.nuget.org/packages/Healthie.NET.AI)** | Explains a checker's recent failures through any `IChatClient` |
+
+Uptime reporting and leader election used to be packages of their own. They are in the core package
+now — call `AddHealthieUptime()` or `AddHealthieLeaderElection()` and nothing else to install. See
+[deprecated packages](#deprecated-packages).
+
+</details>
+
+<details>
+<summary><strong>Reference it directly</strong> — for library authors</summary>
+
+| Package | For |
+|---|---|
+| **[Healthie.NET.Abstractions](https://www.nuget.org/packages/Healthie.NET.Abstractions)** | The contracts and `PulseChecker`, with exactly one dependency. Reference this if you are shipping a provider of your own |
+| **[Healthie.NET.DependencyInjection](https://www.nuget.org/packages/Healthie.NET.DependencyInjection)** | What `Healthie.NET` resolves to. Reference it directly if you would rather be explicit |
+
+</details>
+
+#### Deprecated packages
+
+| Package | Replaced by | Still works? |
 |---|---|---|
-| **[Healthie.NET.Abstractions](https://www.nuget.org/packages/Healthie.NET.Abstractions)** | Core interfaces, models, enums, and the `PulseChecker` abstract base class. | `dotnet add package Healthie.NET.Abstractions` |
-| **[Healthie.NET.DependencyInjection](https://www.nuget.org/packages/Healthie.NET.DependencyInjection)** | DI registration (`AddHealthie`), assembly scanning, the built-in `TimerPulseScheduler`, the in-memory state provider, and the `IHealthCheck` bridge. | `dotnet add package Healthie.NET.DependencyInjection` |
-| **[Healthie.NET.Api](https://www.nuget.org/packages/Healthie.NET.Api)** | ASP.NET Core API controller for managing pulse checkers via REST, plus liveness and readiness probe endpoints. | `dotnet add package Healthie.NET.Api` |
-| **[Healthie.NET.CosmosDb](https://www.nuget.org/packages/Healthie.NET.CosmosDb)** | Azure CosmosDB `IStateProvider` implementation for persisting pulse checker state. | `dotnet add package Healthie.NET.CosmosDb` |
-| **[Healthie.NET.Postgres](https://www.nuget.org/packages/Healthie.NET.Postgres)** | PostgreSQL `IStateProvider` implementation. Also covers Databricks Lakebase, which is managed PostgreSQL. | `dotnet add package Healthie.NET.Postgres` |
-| **[Healthie.NET.SqlServer](https://www.nuget.org/packages/Healthie.NET.SqlServer)** | SQL Server and Azure SQL `IStateProvider` implementation. | `dotnet add package Healthie.NET.SqlServer` |
-| **[Healthie.NET.Sqlite](https://www.nuget.org/packages/Healthie.NET.Sqlite)** | SQLite `IStateProvider` implementation -- durable state with no server to stand up. | `dotnet add package Healthie.NET.Sqlite` |
-| **[Healthie.NET.Redis](https://www.nuget.org/packages/Healthie.NET.Redis)** | Redis `IStateProvider` implementation -- the fastest option for state written on every tick. | `dotnet add package Healthie.NET.Redis` |
-| **[Healthie.NET.Relational](https://www.nuget.org/packages/Healthie.NET.Relational)** | The engine behind the three above. Use it directly for any other database with an ADO.NET driver. | `dotnet add package Healthie.NET.Relational` |
-| **[Healthie.NET.Dashboard](https://www.nuget.org/packages/Healthie.NET.Dashboard)** | Blazor health monitoring dashboard (Razor Class Library, zero third-party dependencies). | `dotnet add package Healthie.NET.Dashboard` |
-| **[Healthie.NET.Quartz](https://www.nuget.org/packages/Healthie.NET.Quartz)** | Quartz.NET `IPulseScheduler` implementation for CRON-based scheduling. | `dotnet add package Healthie.NET.Quartz` |
-| **[Healthie.NET.Hangfire](https://www.nuget.org/packages/Healthie.NET.Hangfire)** | Hangfire `IPulseScheduler` implementation -- schedules survive a restart, and each occurrence runs on exactly one replica. | `dotnet add package Healthie.NET.Hangfire` |
-| **[Healthie.NET.Coravel](https://www.nuget.org/packages/Healthie.NET.Coravel)** | Coravel `IPulseScheduler` implementation, for applications already running Coravel. | `dotnet add package Healthie.NET.Coravel` |
-| **[Healthie.NET.Temporal](https://www.nuget.org/packages/Healthie.NET.Temporal)** | Temporal `IPulseScheduler` implementation -- schedules live in the cluster and survive a restart. | `dotnet add package Healthie.NET.Temporal` |
-| **[Healthie.NET.Mcp](https://www.nuget.org/packages/Healthie.NET.Mcp)** | Model Context Protocol server, so an AI agent can read and act on service health. | `dotnet add package Healthie.NET.Mcp` |
-| **[Healthie.NET.AI](https://www.nuget.org/packages/Healthie.NET.AI)** | Optional AI diagnostics that explain a checker's recent failures. Bring any `IChatClient`. | `dotnet add package Healthie.NET.AI` |
-| **[Healthie.NET.Checkers](https://www.nuget.org/packages/Healthie.NET.Checkers)** | Ready-made checkers for HTTP endpoints, TCP ports, TLS certificate expiry, DNS and disk space. | `dotnet add package Healthie.NET.Checkers` |
-| **[Healthie.NET.Alerting](https://www.nuget.org/packages/Healthie.NET.Alerting)** | Turns health changes into alerts and delivers them to a webhook or your own sink. | `dotnet add package Healthie.NET.Alerting` |
-| **[Healthie.NET.Uptime](https://www.nuget.org/packages/Healthie.NET.Uptime)** | Uptime and SLA reporting over any window, by recording transitions rather than every check. | `dotnet add package Healthie.NET.Uptime` |
-| **[Healthie.NET.LeaderElection](https://www.nuget.org/packages/Healthie.NET.LeaderElection)** | Runs the checks on one replica at a time, so a scaled-out app checks each component once. | `dotnet add package Healthie.NET.LeaderElection` |
+| **Healthie.NET.Uptime** | `Healthie.NET` — call `AddHealthieUptime()` | Yes. It ships type forwards, so an existing application keeps compiling and running untouched |
+| **Healthie.NET.LeaderElection** | `Healthie.NET` — call `AddHealthieLeaderElection()` | Yes, the same way |
+
+Neither carried a third-party dependency, so keeping them separate cost you two installs and saved
+you nothing. They will not gain features; remove the reference whenever it suits you.
 
 All packages target **.NET 8** and **.NET 10**.
 
@@ -77,11 +145,10 @@ All packages target **.NET 8** and **.NET 10**.
 
 ## Quick Start
 
-### 1. Install Packages
+### 1. Install
 
 ```shell
-dotnet add package Healthie.NET.Abstractions
-dotnet add package Healthie.NET.DependencyInjection
+dotnet add package Healthie.NET
 ```
 
 ### 2. Create a Pulse Checker
