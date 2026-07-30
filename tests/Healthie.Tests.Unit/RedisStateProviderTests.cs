@@ -5,7 +5,6 @@ using Healthie.DependencyInjection;
 using Healthie.StateProviding.Redis;
 using Microsoft.Extensions.DependencyInjection;
 using StackExchange.Redis;
-using Testcontainers.Redis;
 
 namespace Healthie.Tests.Unit;
 
@@ -18,24 +17,32 @@ namespace Healthie.Tests.Unit;
 /// Skipped rather than failed when there is no container runtime, so the suite still passes on a
 /// machine without Docker -- the same bargain the CosmosDB combinations strike in the E2E project.
 /// </remarks>
-public sealed class RedisStateProviderTests : IAsyncLifetime
+public sealed class RedisStateProviderTests(RedisFixture fixture)
+    : IAsyncLifetime, IClassFixture<RedisFixture>
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private RedisContainer? _redis;
     private IConnectionMultiplexer? _connection;
     private string? _unavailable;
 
-    private RedisStateProvider Provider(string prefix = "test:") =>
-        new(_connection!, prefix);
+    /// <summary>
+    /// A provider under a prefix unique to the running test, because the server is shared across
+    /// the class now.
+    /// </summary>
+    private RedisStateProvider Provider(string? prefix = null) =>
+        new(_connection!, prefix ?? $"{TestContext.Current.TestMethod?.MethodName}:");
 
     public async ValueTask InitializeAsync()
     {
+        if (fixture.Unavailable is not null)
+        {
+            _unavailable = fixture.Unavailable;
+            return;
+        }
+
         try
         {
-            _redis = new RedisBuilder("redis:7-alpine").Build();
-            await _redis.StartAsync(Ct);
-            _connection = await ConnectionMultiplexer.ConnectAsync(_redis.GetConnectionString());
+            _connection = await ConnectionMultiplexer.ConnectAsync(fixture.ConnectionString);
         }
         catch (Exception ex)
         {
@@ -49,11 +56,6 @@ public sealed class RedisStateProviderTests : IAsyncLifetime
         if (_connection is not null)
         {
             await _connection.DisposeAsync();
-        }
-
-        if (_redis is not null)
-        {
-            await _redis.DisposeAsync();
         }
     }
 
@@ -78,7 +80,7 @@ public sealed class RedisStateProviderTests : IAsyncLifetime
 
         var services = new ServiceCollection();
         services.AddHealthie(typeof(RedisStateProviderTests).Assembly);
-        services.AddHealthieRedis(_redis!.GetConnectionString());
+        services.AddHealthieRedis(fixture.ConnectionString);
 
         await using var host = services.BuildServiceProvider();
 
