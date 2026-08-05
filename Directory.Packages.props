@@ -32,8 +32,8 @@
     <!-- Provider-agnostic AI abstractions: the host brings its own IChatClient. -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.8.3" />
     <!-- 2.0 is in preview and tracks a release-candidate protocol revision; stay on stable. -->
-    <PackageVersion Include="ModelContextProtocol" Version="2.0.0" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.0.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.1.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="Coravel" Version="6.0.2" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
@@ -52,7 +52,7 @@
     <PackageVersion Include="Temporalio" Version="1.17.0" />
     <PackageVersion Include="Quartz.Extensions.DependencyInjection" Version="3.19.1" />
     <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.19.1" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.0.25" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.1.3" />
   </ItemGroup>
 
   <!-- Sample-only dependencies -->
@@ -68,7 +68,7 @@
     <PackageVersion Include="Microsoft.Playwright" Version="1.61.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="bunit" Version="2.8.6" />
+    <PackageVersion Include="bunit" Version="2.9.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.13.0" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <PackageVersion Include="Testcontainers.MsSql" Version="4.13.0" />
