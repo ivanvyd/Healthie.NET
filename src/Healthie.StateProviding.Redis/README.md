@@ -1,6 +1,10 @@
-[![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Redis.svg)](https://www.nuget.org/packages/Healthie.NET.Redis)
+![Healthie.NET - Trust your uptime](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/healthie.net.banner.png)
 
 # Healthie.NET.Redis
+
+[![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Redis.svg)](https://www.nuget.org/packages/Healthie.NET.Redis)
+
+**▶ [Live demo — board.healthie-dotnet.dev](https://board.healthie-dotnet.dev)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages. Full documentation at **[healthie-dotnet.dev](https://healthie-dotnet.dev)**.
 
 Redis state provider for [Healthie.NET](https://github.com/ivanvyd/Healthie.NET).
 

@@ -15,7 +15,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Uptime.svg)](https://www.nuget.org/packages/Healthie.NET.Uptime)
 
-**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+**▶ [Live demo — board.healthie-dotnet.dev](https://board.healthie-dotnet.dev)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages. Full documentation at **[healthie-dotnet.dev](https://healthie-dotnet.dev)**.
 
 Answers "what was our uptime last quarter" — which the rolling history cannot, because it holds the last hundred results and for a one-second checker that is the last hundred seconds.
 

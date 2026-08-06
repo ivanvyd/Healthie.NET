@@ -2,15 +2,17 @@
 
 ## Supported Versions
 
-Healthie.NET ships as a set of NuGet packages (`Healthie.NET.Abstractions`,
-`Healthie.NET.DependencyInjection`, `Healthie.NET.Api`, `Healthie.NET.Dashboard`,
-`Healthie.NET.Quartz`, `Healthie.NET.CosmosDb`, `Healthie.NET.Mcp`,
-`Healthie.NET.AI`) that all move in lockstep from the same tagged release.
+Healthie.NET ships as a set of NuGet packages — `Healthie.NET` and every
+`Healthie.NET.*` published from this repository — which all move in lockstep from
+the same tagged release. They are deliberately not listed one by one here: the set
+has grown from eight to twenty, and a list in a security policy that lags the
+packages is worse than no list, because a reader cannot tell whether their package
+is missing or unsupported.
 
 | Version | Supported |
 |---|---|
-| 3.1.x | :white_check_mark: Supported |
-| < 3.1 | :x: End of life |
+| 4.1.x | :white_check_mark: Supported |
+| < 4.1 | :x: End of life |
 
 Only the versions listed above receive security fixes. If you're on an
 end-of-life version, please upgrade before reporting an issue — we won't be

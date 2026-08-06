@@ -41,6 +41,8 @@ jobs:
       # Lets this job ask GitHub for the signed OIDC token that NuGet.org trades for a short-lived
       # publishing key. Without it the login step below cannot get a token at all.
       id-token: write
+      # Recording the build provenance attestation for the packages this job produced.
+      attestations: write
 
     steps:
       - name: Checkout
@@ -156,6 +158,21 @@ jobs:
           --no-build
           --output ${{ env.NUPKG_DIR }}
           -p:PackageVersion=${{ steps.version.outputs.VERSION }}
+
+      # Signs a statement of which workflow, at which commit, on which runner produced these exact
+      # packages, and records it in the public transparency log. Anyone can then check a downloaded
+      # package came from this repository rather than from someone who merely knew the package name:
+      #
+      #   gh attestation verify Healthie.NET.4.2.0.nupkg --repo ivanvyd/Healthie.NET
+      #
+      # The SBOM already says what went in; this says who built it, which is the half that a
+      # tampered build would otherwise be free to restate. Skipped on a dry run, because an
+      # attestation is a public claim that a release happened.
+      - name: Attest build provenance
+        if: ${{ !inputs.dry_run }}
+        uses: actions/attest-build-provenance@0f67c3f4856b2e3261c31976d6725780e5e4c373 # v4.1.1
+        with:
+          subject-path: ${{ env.NUPKG_DIR }}/*.nupkg
 
       # Scoped to the shipped projects rather than the solution: scanning everything drags in the
       # samples' Aspire dependencies, which describe this repository rather than anything a

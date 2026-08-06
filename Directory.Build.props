@@ -42,7 +42,13 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <Authors>Ivan Vydrin</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/ivanvyd/Healthie.NET</PackageProjectUrl>
+    <!--
+      The project URL is the landing site, not the repository: NuGet renders it as the package's
+      "Project website", and a reader who clicks it wants docs and the live board rather than a
+      source tree. RepositoryUrl still points at GitHub, which is what Source Link and NuGet's
+      own "Source repository" link use, so nothing loses its way to the code.
+    -->
+    <PackageProjectUrl>https://healthie-dotnet.dev</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ivanvyd/Healthie.NET</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageIcon>healthie.net.png</PackageIcon>

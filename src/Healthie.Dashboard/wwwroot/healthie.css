@@ -294,19 +294,22 @@
     --hpm-nav-w: 54px;
 }
 
+/*
+    The column header and the rows share one track definition, so they stay aligned. It lives here
+    as a custom property rather than on the rows themselves because two things override it -- a
+    read-only board drops the controls column, and a narrow viewport folds the row to three -- and
+    as separate rule sets they fought over specificity. `.hpm-list--readonly .hpm-row` outranks a
+    bare `.hpm-row` in a media query, so on a read-only board the fold silently never applied and
+    every row kept five tracks demanding 556px inside 342px: 214px of columns clipped off a phone,
+    with the name squeezed to its 160px minimum to make room for them. Declared once, on the one
+    element both variants already sit on, it cannot be won by the wrong rule.
+*/
 .hpm-list {
+    --hpm-row-tracks: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px 100px;
+
     display: flex;
     flex-direction: column;
     gap: 8px;
-}
-
-/* The column header and the rows share this track definition, so they stay aligned. */
-.hpm-row,
-.hpm-list-head {
-    display: grid;
-    grid-template-columns: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px 100px;
-    gap: 14px;
-    align-items: center;
 }
 
 /*
@@ -314,9 +317,16 @@
     would reserve 100px of nothing down the right of every row -- and, because the header shares
     this definition, it has to be dropped from both at once or the two stop lining up.
 */
-.hpm-list--readonly .hpm-row,
-.hpm-list--readonly .hpm-list-head {
-    grid-template-columns: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px;
+.hpm-list--readonly {
+    --hpm-row-tracks: 18px minmax(160px, 1.2fr) 92px minmax(140px, 1fr) 90px;
+}
+
+.hpm-row,
+.hpm-list-head {
+    display: grid;
+    grid-template-columns: var(--hpm-row-tracks);
+    gap: 14px;
+    align-items: center;
 }
 
 .hpm-list-head {
@@ -727,8 +737,22 @@
 
 /* ------------------------------------------------------------ responsive -- */
 
-@media (max-width: 1100px) {
-    /* The detail panel drops below the list; the rail keeps its column. */
+/*
+    The detail panel drops below the list; the rail keeps its column.
+
+    1400 and not 1100, because 1100 left a band where the three columns still fitted the viewport
+    but the middle one no longer fitted a row. A full row's tracks need 670px -- 600px of tracks
+    plus five 14px gaps -- and with its padding and borders that wants a 706px column; the list gets
+    the viewport less the rail (208), the panel (400), two 18px gaps and the body's 26px padding
+    either side, so it only reaches 706px at 1402px of viewport. Between 1100 and there, every row
+    was drawn wider than the column holding it and the right-hand columns were clipped off an
+    ordinary 1280 laptop.
+
+    Calibrated on the editable board on purpose. Read-only drops the controls column and needs
+    ~1288px, so a threshold picked from it would still have clipped every board that can be edited,
+    which is the default.
+*/
+@media (max-width: 1400px) {
     .hpm-body {
         grid-template-columns: var(--hpm-nav-w) minmax(0, 1fr);
     }
@@ -745,16 +769,33 @@
     }
 
     /* Below this the six-column grid cannot hold. The row folds to name and controls, and the
-       sparkline is dropped rather than squeezed into something unreadable. */
-    .hpm-row {
-        grid-template-columns: 18px minmax(0, 1fr) auto;
+       sparkline is dropped rather than squeezed into something unreadable. Setting the shared
+       property rather than the rows keeps the read-only variant folding too. */
+    .hpm-list {
+        --hpm-row-tracks: 18px minmax(0, 1fr) auto;
     }
 
-    .hpm-row .hpm-rate-cell,
-    .hpm-row .hpm-blips,
-    .hpm-row .hpm-blips-empty,
-    .hpm-row .hpm-time {
+    /*
+        Only the row layout is short of width. A card stacks these into their own areas down the
+        card, where there is room for them, so hiding them there would drop the rate, sparkline
+        and last-checked time from the one mobile view that could still show them.
+    */
+    .hpm-list:not(.hpm-list--cards) .hpm-rate-cell,
+    .hpm-list:not(.hpm-list--cards) .hpm-blips,
+    .hpm-list:not(.hpm-list--cards) .hpm-blips-empty,
+    .hpm-list:not(.hpm-list--cards) .hpm-time {
         display: none;
+    }
+
+    /*
+        The sub-line carries the group and tag chips, and `text-overflow: ellipsis` does not
+        ellipsize an inline-flex pill -- it slices it down the middle, which reads as a broken
+        render rather than as truncation. The folded row has the vertical room the wide one did
+        not, so the line wraps here instead, exactly as it already does on a card.
+    */
+    .hpm-list:not(.hpm-list--cards) .hpm-row-sub {
+        white-space: normal;
+        overflow: visible;
     }
 
     .hpm-header-inner,
@@ -1071,9 +1112,14 @@
  * Card view. The markup is the row's; only the shape changes.
  * ---------------------------------------------------------------------- */
 
+/*
+    The `min()` is what stops a card being wider than the screen it is on. A bare minmax(290px, 1fr)
+    floors the track at 290px even when the container is 288px, and the overflow is clipped rather
+    than scrolled -- so on the narrowest phones the right edge of every card was simply gone.
+*/
 .hpm-list--cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
     gap: 10px;
     align-content: start;
 }
@@ -1134,7 +1180,7 @@
 
 .hpm-group-body--cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(270px, 100%), 1fr));
     gap: 8px;
 }
 
