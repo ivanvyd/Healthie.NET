@@ -4,7 +4,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.SqlServer.svg)](https://www.nuget.org/packages/Healthie.NET.SqlServer)
 
-**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+**▶ [Live demo — board.healthie-dotnet.dev](https://board.healthie-dotnet.dev)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages. Full documentation at **[healthie-dotnet.dev](https://healthie-dotnet.dev)**.
 
 SQL Server `IStateProvider` implementation for Healthie.NET. Persists pulse checker state to SQL Server or Azure SQL for durable storage across application restarts and across the replicas of a scaled-out deployment.
 

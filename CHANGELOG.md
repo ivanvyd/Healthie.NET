@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **The dashboard cropped its own rows on anything narrower than a laptop.** The row and its column
+  header share one track definition, and two rules overrode it: a read-only board drops the controls
+  column, and a narrow viewport folds the row down to three. Written as separate rule sets they
+  fought on specificity, and `.hpm-list--readonly .hpm-row` outranks a `.hpm-row` inside a media
+  query -- so on a read-only board the fold never applied at any width. Every row was drawn with
+  five tracks demanding 556px inside a 342px phone: 214px of columns clipped off the right, the name
+  squeezed to its 160px minimum to make room for columns that were not visible anyway, and no
+  scrollbar to reach them, because the overflow was clipped rather than scrolled. The definition is
+  now a single custom property on the list, which is the one element both variants already sit on,
+  so the fold cannot be outranked.
+- **The last column was clipped on an ordinary 1280 laptop, read-only or not.** The detail panel
+  moved below the list at 1100px, but a full row needs a 706px column and the list only reaches that
+  at 1402px of viewport -- so between those two the three columns fitted the window while the middle
+  one no longer fitted a row. That threshold is now 1400px, calibrated on the editable board, which
+  is the wider of the two and the default.
+- **Group and tag chips were sliced down the middle on a phone.** They sit on the row's sub-line,
+  which truncates with `text-overflow: ellipsis` -- and that ellipsizes text, not an inline-flex
+  pill, so a chip was cut mid-shape instead. The folded row has vertical room the wide one does not,
+  so the line now wraps there, exactly as it already does on a card.
+- **Cards lost their rate, sparkline and last-checked time on a phone.** The three cells were hidden
+  for every layout below 820px, but only the row layout was short of width; a card stacks them into
+  areas down its own length, where they fit. They are now hidden for the row layout alone.
+
+### Changed
+
+- **The packages point at [healthie-dotnet.dev](https://healthie-dotnet.dev).** `PackageProjectUrl`
+  is the landing site rather than the repository, because NuGet renders it as the package's "Project
+  website" and a reader who clicks it wants documentation and the live board, not a source tree.
+  `RepositoryUrl` still points at GitHub, so Source Link and NuGet's own source link are unaffected.
+  Every package README now links the documentation site alongside the live demo, which moved to
+  [board.healthie-dotnet.dev](https://board.healthie-dotnet.dev).
+- **Releases carry build provenance.** The release workflow attests which workflow, at which commit,
+  produced each package, so `gh attestation verify <package>.nupkg --repo ivanvyd/Healthie.NET`
+  proves a download came from this repository. The SBOM already said what went into a package; this
+  says who built it, which is the half a tampered build would otherwise be free to restate.
+- The repository README leads with a screenshot rather than a 10MB animation, and `Healthie.NET.Redis`
+  gained the header every other package README already had.
+
 ## [4.1.0] - 2026-07-30
 
 Twenty packages was too many, and two of them had no business being separate. This release fixes

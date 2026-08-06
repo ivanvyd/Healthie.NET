@@ -2,10 +2,12 @@
 
 **Trust your uptime.** A lightweight, extensible health monitoring framework for .NET applications.
 
+[![Website](https://img.shields.io/badge/docs-healthie--dotnet.dev-0b7285.svg)](https://healthie-dotnet.dev)
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
 [![Downloads](https://img.shields.io/nuget/dt/Healthie.NET.Abstractions.svg)](https://www.nuget.org/packages/Healthie.NET.Abstractions)
 [![Build](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml/badge.svg)](https://github.com/ivanvyd/Healthie.NET/actions/workflows/ci.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ivanvyd/Healthie.NET/badge)](https://scorecard.dev/viewer/?uri=github.com/ivanvyd/Healthie.NET)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13898/badge)](https://www.bestpractices.dev/projects/13898)
 [![.NET](https://img.shields.io/badge/.NET-8.0%20%7C%2010.0-512BD4.svg)](https://dotnet.microsoft.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ivanvyd/Healthie.NET/blob/main/LICENSE)
 
@@ -15,13 +17,15 @@
 builder.Services.AddHealthie(typeof(Program).Assembly);
 ```
 
-![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/healthie-v3-film-1080-cut.gif)
+[![The Healthie.NET dashboard](https://raw.githubusercontent.com/ivanvyd/Healthie.NET/main/docs/assets/shot-dark.png)](https://board.healthie-dotnet.dev)
 
-> **▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only dashboard watching the real status pages of Anthropic, OpenAI, Cursor, GitHub, Cloudflare, npm, Datadog, and more. Built from these NuGet packages.
+> **▶ [Live demo — board.healthie-dotnet.dev](https://board.healthie-dotnet.dev)** — a read-only dashboard watching the real status pages of Anthropic, OpenAI, Cursor, GitHub, Cloudflare, npm, Datadog, and more. Built from these NuGet packages.
+>
+> **📖 [healthie-dotnet.dev](https://healthie-dotnet.dev)** — documentation, guides, and the package ecosystem in one place.
 
 **Contents**
 
-[Live Demo](https://healthie.compiletheory.com) · [Quick Start](#quick-start) · [Packages](#nuget-packages) · [Writing a Checker](#creating-a-pulse-checker) · [Configuration](#configuration) · [REST API](#api-endpoints) · [Dashboard](#ui-dashboard) · [Existing `IHealthCheck`s](#monitoring-existing-health-checks) · [Kubernetes](#kubernetes-probes) · [MCP](#ai-agents-mcp) · [AI Diagnostics](#ai-diagnostics) · [Extensibility](#extensibility) · [Samples](#sample-projects) · [Roadmap](#roadmap) · [Contributing](#contributing)
+[Website](https://healthie-dotnet.dev) · [Live Demo](https://board.healthie-dotnet.dev) · [Quick Start](#quick-start) · [Packages](#nuget-packages) · [Writing a Checker](#creating-a-pulse-checker) · [Configuration](#configuration) · [REST API](#api-endpoints) · [Dashboard](#ui-dashboard) · [Existing `IHealthCheck`s](#monitoring-existing-health-checks) · [Kubernetes](#kubernetes-probes) · [MCP](#ai-agents-mcp) · [AI Diagnostics](#ai-diagnostics) · [Extensibility](#extensibility) · [Samples](#sample-projects) · [Roadmap](#roadmap) · [Contributing](#contributing)
 
 ---
 

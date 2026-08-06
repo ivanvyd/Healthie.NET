@@ -1,0 +1,4 @@
+# Every change requests a review from the maintainer. One owner, because there is one maintainer --
+# the point is that no path is left without a reviewer as the package count grows, not to route
+# different directories to different people.
+* @ivanvyd

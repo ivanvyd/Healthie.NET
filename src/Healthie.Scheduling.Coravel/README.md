@@ -4,7 +4,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Healthie.NET.Coravel.svg)](https://www.nuget.org/packages/Healthie.NET.Coravel)
 
-**▶ [Live demo — healthie.compiletheory.com](https://healthie.compiletheory.com)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages.
+**▶ [Live demo — board.healthie-dotnet.dev](https://board.healthie-dotnet.dev)** — a read-only Healthie.NET dashboard watching real status pages (Anthropic, OpenAI, GitHub, Cloudflare, and more), built from these packages. Full documentation at **[healthie-dotnet.dev](https://healthie-dotnet.dev)**.
 
 Runs pulse checks on Coravel's scheduler, so an application already using Coravel keeps one scheduler rather than two.
 
