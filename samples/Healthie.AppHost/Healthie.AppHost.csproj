@@ -28,6 +28,7 @@
     <PackageReference Include="Aspire.Hosting.AppHost" />
     <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" VersionOverride="10.8.3" />
+    <PackageReference Include="ModelContextProtocol" VersionOverride="1.4.1" />
   </ItemGroup>
 
   <ItemGroup>
