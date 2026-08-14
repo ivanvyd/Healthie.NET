@@ -21,6 +21,7 @@
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.CosmosDb" />
+    <PackageReference Include="SSH.NET" />
     <PackageReference Include="xunit.runner.visualstudio" />
   </ItemGroup>
 

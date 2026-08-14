@@ -73,6 +73,18 @@
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
     <PackageVersion Include="Testcontainers.MsSql" Version="4.13.0" />
     <PackageVersion Include="Testcontainers.CosmosDb" Version="4.13.0" />
+    <!--
+      Referenced directly by Healthie.Tests.Unit purely to raise it. Testcontainers 4.13.0 resolves
+      SSH.NET 2025.1.0, which is GHSA-q939-rpr3-3284 (high): ScpClient's recursive download writes
+      wherever a malicious server's filenames point. Patched in 2026.0.0, and 4.13.0 is
+      Testcontainers' own latest, so there is nothing upstream to wait for.
+
+      A direct reference rather than CentralPackageTransitivePinningEnabled: that switch forces one
+      version of every transitive package across the whole solution, which collides head-on with the
+      per-target-framework Microsoft.Extensions.* versions above and fails restore with NU1109.
+      Drop this when Testcontainers resolves 2026.0.0 itself.
+    -->
+    <PackageVersion Include="SSH.NET" Version="2026.0.0" />
   </ItemGroup>
 
 </Project>
