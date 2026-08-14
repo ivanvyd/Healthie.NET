@@ -32,8 +32,8 @@
     <!-- Provider-agnostic AI abstractions: the host brings its own IChatClient. -->
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.9.0" />
     <!-- 2.0 is in preview and tracks a release-candidate protocol revision; stay on stable. -->
-    <PackageVersion Include="ModelContextProtocol" Version="2.1.0" />
-    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.1.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="Coravel" Version="6.0.2" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
@@ -48,8 +48,8 @@
       package references it directly to override it; repo-wide transitive pinning would
       break this repository's deliberate float of 8.0.x against 10.0.x.
     -->
-    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
-    <PackageVersion Include="Temporalio" Version="1.17.0" />
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
+    <PackageVersion Include="Temporalio" Version="1.18.0" />
     <PackageVersion Include="Quartz.Extensions.DependencyInjection" Version="3.19.1" />
     <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.19.1" />
     <PackageVersion Include="StackExchange.Redis" Version="3.1.13" />
