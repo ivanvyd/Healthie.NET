@@ -78,4 +78,15 @@ jobs:
           `--locked-mode` and a Release build. Dependabot cannot write these under
           central package management; see .github/workflows/refresh-lock-files.yml.'
           git push origin HEAD:'${{ inputs.branch }}'
-          echo "Pushed. Re-run the pull request's checks -- a GITHUB_TOKEN push does not."
+          cat <<'NOTE'
+          Pushed.
+
+          The checks will not start on their own. A push made with GITHUB_TOKEN creates no
+          workflow run at all -- there is nothing to "re-run", which is the part that is easy
+          to get wrong. Start them one of these ways:
+
+            git commit --allow-empty -m "Trigger CI" && git push   # from your own identity
+            gh pr close <n> && gh pr reopen <n>                    # same effect, no extra commit
+
+          Verified on Healthie.NET#62 and LakeWright.NET#75.
+          NOTE
