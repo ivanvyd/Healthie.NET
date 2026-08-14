@@ -51,7 +51,7 @@ jobs:
         with:
           dotnet-version: |
             8.0.x
-            10.0.x
+          global-json-file: global.json
 
       # --force-evaluate is the whole point: it re-resolves rather than asserting the lock is right.
       - run: dotnet restore --force-evaluate

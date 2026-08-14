@@ -27,7 +27,7 @@ jobs:
         with:
           dotnet-version: |
             8.0.x
-            10.0.x
+          global-json-file: global.json
 
       # Named, so the failure can say what to do about it. NU1004 on a Dependabot branch means
       # the lock files were not regenerated, which is a chore rather than a defect -- and the
@@ -63,7 +63,7 @@ jobs:
         with:
           dotnet-version: |
             8.0.x
-            10.0.x
+          global-json-file: global.json
 
       - name: Restore
         run: dotnet restore --locked-mode
