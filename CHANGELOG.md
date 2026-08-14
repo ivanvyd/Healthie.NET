@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-08-14
+
 ### Fixed
 
 - **The dashboard cropped its own rows on anything narrower than a laptop.** The row and its column
@@ -605,7 +607,8 @@ Blazor dashboard, and the CosmosDB and Quartz.NET providers.
 
 - Dashboard UI improvements and additional sample pulse checkers.
 
-[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v4.1.0...HEAD
+[Unreleased]: https://github.com/ivanvyd/Healthie.NET/compare/v4.1.1...HEAD
+[4.1.1]: https://github.com/ivanvyd/Healthie.NET/compare/v4.1.0...v4.1.1
 [4.1.0]: https://github.com/ivanvyd/Healthie.NET/compare/v4.0.0...v4.1.0
 [4.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v3.1.4...v4.0.0
 [3.0.0]: https://github.com/ivanvyd/Healthie.NET/compare/v2.3.0...v3.0.0
