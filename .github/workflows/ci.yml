@@ -29,8 +29,16 @@ jobs:
             8.0.x
             10.0.x
 
+      # Named, so the failure can say what to do about it. NU1004 on a Dependabot branch means
+      # the lock files were not regenerated, which is a chore rather than a defect -- and the
+      # error NuGet prints for it does not mention the fix.
       - name: Restore
-        run: dotnet restore --locked-mode
+        run: |
+          set -euo pipefail
+          if ! dotnet restore --locked-mode; then
+            echo "::error title=Lock files are out of step::dotnet restore --locked-mode failed. If this is a dependency bump, Dependabot cannot rewrite packages.lock.json under central package management. Run the 'Refresh lock files' workflow against ${{ github.head_ref || github.ref_name }}, then re-run these checks."
+            exit 1
+          fi
 
       - name: Build
         run: dotnet build --configuration Release --no-restore /p:ContinuousIntegrationBuild=true
