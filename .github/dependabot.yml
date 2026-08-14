@@ -3,6 +3,11 @@ updates:
   # Central package management means all NuGet versions live in
   # Directory.Packages.props — Dependabot updates that file automatically,
   # no per-project configuration needed.
+  # NOTE: Dependabot updates Directory.Packages.props but cannot rewrite packages.lock.json --
+  # the CentralTransitive entries have to be resolved by NuGet, not pattern-matched. Every bump
+  # here therefore arrives with stale lock files and fails `dotnet restore --locked-mode` (NU1004)
+  # until they are regenerated. Run the "Refresh lock files" workflow against the bump's branch;
+  # .github/workflows/refresh-lock-files.yml explains why that is a button and not automatic.
   - package-ecosystem: "nuget"
     directory: "/"
     schedule:

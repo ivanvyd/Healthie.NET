@@ -1,0 +1,81 @@
+name: Refresh lock files
+
+# Dependabot cannot do this itself.
+#
+# Under central package management it edits Directory.Packages.props, but it does not rewrite
+# packages.lock.json -- and it cannot, because the CentralTransitive entries have to be resolved by
+# NuGet, not pattern-matched. So every NuGet bump arrives with lock files that still name the old
+# versions, and `dotnet restore --locked-mode` fails before anything builds:
+#
+#   error NU1004: Mistmatch between the requestedVersion of a lock file dependency marked as
+#   CentralTransitive and the version specified in the central package management file.
+#
+# Run this against the bump's branch and it fixes itself.
+#
+# Deliberately `workflow_dispatch` and not an automatic push on every Dependabot PR. A push made
+# with GITHUB_TOKEN does not re-trigger workflows, so an automatic version would commit the fix and
+# leave the required checks pinned to the superseded commit -- one stall traded for another. Making
+# that work needs a PAT or a GitHub App key, and this repository stores no such credential on
+# purpose. A human runs this, then re-runs the checks.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: The branch to refresh, e.g. dependabot/nuget/microsoft-extensions-abc123
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-lock-files-${{ inputs.branch }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # The one job in this repository that writes. Scoped here rather than at the top of the file
+      # so nothing else in this workflow inherits it.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.branch }}
+          persist-credentials: true
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      # --force-evaluate is the whole point: it re-resolves rather than asserting the lock is right.
+      - run: dotnet restore --force-evaluate
+
+      # Prove the result before committing it. If locked-mode cannot restore what force-evaluate
+      # just wrote, something is wrong that a commit would only bury.
+      - run: dotnet restore --locked-mode
+      - run: dotnet build --no-restore -c Release
+
+      - name: Commit the refreshed lock files
+        run: |
+          set -euo pipefail
+          # Named paths, never `git add -A`: this job can write, so it says exactly what it writes.
+          if [ -z "$(git status --porcelain -- '*packages.lock.json')" ]; then
+            echo "Lock files already match the manifests. Nothing to commit."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- '*packages.lock.json'
+          git commit -m 'Refresh the lock files for this bump
+
+          Regenerated with `dotnet restore --force-evaluate`, then verified with
+          `--locked-mode` and a Release build. Dependabot cannot write these under
+          central package management; see .github/workflows/refresh-lock-files.yml.'
+          git push origin HEAD:'${{ inputs.branch }}'
+          echo "Pushed. Re-run the pull request's checks -- a GITHUB_TOKEN push does not."
