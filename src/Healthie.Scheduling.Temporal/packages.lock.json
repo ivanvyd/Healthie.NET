@@ -4,13 +4,13 @@
     "net10.0": {
       "Temporalio": {
         "type": "Direct",
-        "requested": "[1.17.0, )",
-        "resolved": "1.17.0",
-        "contentHash": "C/RVMPIvZHa7pnvPle6dvJTF6kL9QaIt4Rr0oLzZ3vYHLfBO+SpVMYOMs5HhlJWIW95zPvEMVmXyLNTQLkX+nQ==",
+        "requested": "[1.18.0, )",
+        "resolved": "1.18.0",
+        "contentHash": "GycxFuB7lvKh4tzJjrYHbiQ7eu8/MYc0UFy5ojTQuatoXXeJkSCIkpD3edCfccTyQ/feMeFEbemonk3BI+YTxQ==",
         "dependencies": {
           "Google.Protobuf": "3.26.1",
           "Microsoft.Extensions.Logging.Abstractions": "2.2.0",
-          "NexusRpc": "0.3.0"
+          "NexusRpc": "0.4.0"
         }
       },
       "Google.Protobuf": {
@@ -67,8 +67,8 @@
       },
       "NexusRpc": {
         "type": "Transitive",
-        "resolved": "0.3.0",
-        "contentHash": "Kr+NMSZ5428AvxpzShdJcQxc9w6HT8SM6FXQMekC4K9wGpmC1m/L2pQJydpvVTwRBu3qAIYKPI37KWexF4Gtcg=="
+        "resolved": "0.4.0",
+        "contentHash": "2cdRtmwT/vskWqJvojODvR7CpRhLWAnCeVT5Z8sPdRDX8P/Ywpw48T2lqgqhxM8JROfoflHzhSiXo4h1ln3/MQ=="
       },
       "Healthie.NET.Abstractions": {
         "type": "Project",
@@ -99,13 +99,13 @@
     "net8.0": {
       "Temporalio": {
         "type": "Direct",
-        "requested": "[1.17.0, )",
-        "resolved": "1.17.0",
-        "contentHash": "C/RVMPIvZHa7pnvPle6dvJTF6kL9QaIt4Rr0oLzZ3vYHLfBO+SpVMYOMs5HhlJWIW95zPvEMVmXyLNTQLkX+nQ==",
+        "requested": "[1.18.0, )",
+        "resolved": "1.18.0",
+        "contentHash": "GycxFuB7lvKh4tzJjrYHbiQ7eu8/MYc0UFy5ojTQuatoXXeJkSCIkpD3edCfccTyQ/feMeFEbemonk3BI+YTxQ==",
         "dependencies": {
           "Google.Protobuf": "3.26.1",
           "Microsoft.Extensions.Logging.Abstractions": "2.2.0",
-          "NexusRpc": "0.3.0"
+          "NexusRpc": "0.4.0"
         }
       },
       "Google.Protobuf": {
@@ -162,8 +162,8 @@
       },
       "NexusRpc": {
         "type": "Transitive",
-        "resolved": "0.3.0",
-        "contentHash": "Kr+NMSZ5428AvxpzShdJcQxc9w6HT8SM6FXQMekC4K9wGpmC1m/L2pQJydpvVTwRBu3qAIYKPI37KWexF4Gtcg=="
+        "resolved": "0.4.0",
+        "contentHash": "2cdRtmwT/vskWqJvojODvR7CpRhLWAnCeVT5Z8sPdRDX8P/Ywpw48T2lqgqhxM8JROfoflHzhSiXo4h1ln3/MQ=="
       },
       "Healthie.NET.Abstractions": {
         "type": "Project",
