@@ -4,12 +4,12 @@
     "net10.0": {
       "StackExchange.Redis": {
         "type": "Direct",
-        "requested": "[3.0.25, )",
-        "resolved": "3.0.25",
-        "contentHash": "ak+9jk7f5oE25gBaCT7Epr8jYD3EyTEuMr5oxlY8EZE7o01xcaGLWTg+xeE6PaRV1ko9/fMdlvSEjdrdgpBb0g==",
+        "requested": "[3.1.13, )",
+        "resolved": "3.1.13",
+        "contentHash": "OvhFdV2ucee2hnN2v2EOcOTMvIzGsq1PX4kAbIYC8cax+MyabSa7Eu3hWY6D//SbxzZQ/eYFvD8Tvg+pK+969g==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.5",
-          "RESPite": "3.0.25",
+          "RESPite": "3.1.13",
           "System.IO.Hashing": "10.0.5"
         }
       },
@@ -62,8 +62,8 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.0.25",
-        "contentHash": "v4vA1MttS78DQINFIY5BLOtWdA9OXoSSZk4VVdSzM7B2GezKsFHqTQpTHCZXuUuQ6+gPmvh8DkT60wEEtCojSg=="
+        "resolved": "3.1.13",
+        "contentHash": "wqViG+Dl4Ln/X33IyfmciyGirm1ET+M7kjwbb+oJAbDXLP2u2hX1eOnaEgyIAerJNSP98BytyddcW3ZQH55wgw=="
       },
       "System.IO.Hashing": {
         "type": "Transitive",
@@ -99,12 +99,12 @@
     "net8.0": {
       "StackExchange.Redis": {
         "type": "Direct",
-        "requested": "[3.0.25, )",
-        "resolved": "3.0.25",
-        "contentHash": "ak+9jk7f5oE25gBaCT7Epr8jYD3EyTEuMr5oxlY8EZE7o01xcaGLWTg+xeE6PaRV1ko9/fMdlvSEjdrdgpBb0g==",
+        "requested": "[3.1.13, )",
+        "resolved": "3.1.13",
+        "contentHash": "OvhFdV2ucee2hnN2v2EOcOTMvIzGsq1PX4kAbIYC8cax+MyabSa7Eu3hWY6D//SbxzZQ/eYFvD8Tvg+pK+969g==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "10.0.5",
-          "RESPite": "3.0.25",
+          "RESPite": "3.1.13",
           "System.IO.Hashing": "10.0.5",
           "System.IO.Pipelines": "10.0.5"
         }
@@ -159,8 +159,11 @@
       },
       "RESPite": {
         "type": "Transitive",
-        "resolved": "3.0.25",
-        "contentHash": "v4vA1MttS78DQINFIY5BLOtWdA9OXoSSZk4VVdSzM7B2GezKsFHqTQpTHCZXuUuQ6+gPmvh8DkT60wEEtCojSg=="
+        "resolved": "3.1.13",
+        "contentHash": "wqViG+Dl4Ln/X33IyfmciyGirm1ET+M7kjwbb+oJAbDXLP2u2hX1eOnaEgyIAerJNSP98BytyddcW3ZQH55wgw==",
+        "dependencies": {
+          "System.IO.Pipelines": "10.0.5"
+        }
       },
       "System.Diagnostics.DiagnosticSource": {
         "type": "Transitive",
