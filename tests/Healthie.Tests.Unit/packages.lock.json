@@ -360,16 +360,16 @@
       },
       "ModelContextProtocol.Core": {
         "type": "Transitive",
-        "resolved": "2.1.0",
-        "contentHash": "cU/urrhRxE4/iSyBIJI7QOaFqSP1FOEnwEHsct9n6t6/XluCAFD9iqnrPkBAsEYr+f/G4tVQ21U+6wN/6fQvOg==",
+        "resolved": "2.2.0",
+        "contentHash": "FeBfXU6T8k+jw4afg4sfxdEX2rL/e5oKOk9ROOGztu9k47+7Bz08sdaToYt2XvMY1opNbwxYQOFMj6wH9TInhA==",
         "dependencies": {
           "Microsoft.Extensions.AI.Abstractions": "10.8.3"
         }
       },
       "NexusRpc": {
         "type": "Transitive",
-        "resolved": "0.3.0",
-        "contentHash": "Kr+NMSZ5428AvxpzShdJcQxc9w6HT8SM6FXQMekC4K9wGpmC1m/L2pQJydpvVTwRBu3qAIYKPI37KWexF4Gtcg=="
+        "resolved": "0.4.0",
+        "contentHash": "2cdRtmwT/vskWqJvojODvR7CpRhLWAnCeVT5Z8sPdRDX8P/Ywpw48T2lqgqhxM8JROfoflHzhSiXo4h1ln3/MQ=="
       },
       "Quartz": {
         "type": "Transitive",
@@ -606,8 +606,8 @@
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Microsoft.Extensions.AI.Abstractions": "[10.8.3, )",
-          "ModelContextProtocol": "[2.1.0, )",
-          "ModelContextProtocol.AspNetCore": "[2.1.0, )"
+          "ModelContextProtocol": "[2.2.0, )",
+          "ModelContextProtocol.AspNetCore": "[2.2.0, )"
         }
       },
       "Healthie.NET.Postgres": {
@@ -643,7 +643,7 @@
         "dependencies": {
           "Healthie.NET.Relational": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[10.0.11, )",
-          "SQLitePCLRaw.lib.e_sqlite3": "[2.1.12, )"
+          "SQLitePCLRaw.lib.e_sqlite3": "[2.1.13, )"
         }
       },
       "Healthie.NET.SqlServer": {
@@ -657,7 +657,7 @@
         "type": "Project",
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
-          "Temporalio": "[1.17.0, )"
+          "Temporalio": "[1.18.0, )"
         }
       },
       "Healthie.NET.Uptime": {
@@ -735,20 +735,20 @@
       },
       "ModelContextProtocol": {
         "type": "CentralTransitive",
-        "requested": "[2.1.0, )",
-        "resolved": "2.1.0",
-        "contentHash": "Oa4rU7EL9C2qyFjQj1dx+ysGMzfWDRpM8RRaUMmLGs5vPvfJ9xyz4ZtyF4ychY+Nx1b/auGCqIQLqSz/IpPkKA==",
+        "requested": "[2.2.0, )",
+        "resolved": "2.2.0",
+        "contentHash": "4Pb9u02Nwsp0poueDsqNdyGRojFxOYpljB7zDBsq+aHL+Afou3OgxlBc3GWFVnsRMRJrUtWqDh3s6k2JgPzmrQ==",
         "dependencies": {
-          "ModelContextProtocol.Core": "[2.1.0]"
+          "ModelContextProtocol.Core": "[2.2.0]"
         }
       },
       "ModelContextProtocol.AspNetCore": {
         "type": "CentralTransitive",
-        "requested": "[2.1.0, )",
-        "resolved": "2.1.0",
-        "contentHash": "yhJ8bBXIgrX0mAgRYRgzcbH3bLdv3MDSkG52utRW9EAAtQrPw/g7Q/T6EurxKV+L+Zefv8VVUYcNbXEOd9GgfA==",
+        "requested": "[2.2.0, )",
+        "resolved": "2.2.0",
+        "contentHash": "3JelDMuFIwFzXybsh6K30G6wXu5gmqKnuRnieqgBMuR0FkqqXRv4B+NYZuPgthSyNq5UwRyvv2U2VJBE3RD3PQ==",
         "dependencies": {
-          "ModelContextProtocol": "[2.1.0]"
+          "ModelContextProtocol": "[2.2.0]"
         }
       },
       "Npgsql": {
@@ -777,9 +777,9 @@
       },
       "SQLitePCLRaw.lib.e_sqlite3": {
         "type": "CentralTransitive",
-        "requested": "[2.1.12, )",
-        "resolved": "2.1.12",
-        "contentHash": "fWi8Dbknuhgg72fWinIdjXVaqO1hHL4YBBwVLnr7e1c9TAZwJ0QE38j9syW1hwx6HaqEVTwI+O07WPdZn8Rp0w=="
+        "requested": "[2.1.13, )",
+        "resolved": "2.1.13",
+        "contentHash": "D2UAuiGxFYBqeRXjjjGgvJ5UQifzn6wefmSqeKU7XcNGKLbJRP6X7kcPZ6opOBJGdCIlgbSxTvDpBbLvsN594A=="
       },
       "StackExchange.Redis": {
         "type": "CentralTransitive",
@@ -793,12 +793,12 @@
       },
       "Temporalio": {
         "type": "CentralTransitive",
-        "requested": "[1.17.0, )",
-        "resolved": "1.17.0",
-        "contentHash": "C/RVMPIvZHa7pnvPle6dvJTF6kL9QaIt4Rr0oLzZ3vYHLfBO+SpVMYOMs5HhlJWIW95zPvEMVmXyLNTQLkX+nQ==",
+        "requested": "[1.18.0, )",
+        "resolved": "1.18.0",
+        "contentHash": "GycxFuB7lvKh4tzJjrYHbiQ7eu8/MYc0UFy5ojTQuatoXXeJkSCIkpD3edCfccTyQ/feMeFEbemonk3BI+YTxQ==",
         "dependencies": {
           "Google.Protobuf": "3.26.1",
-          "NexusRpc": "0.3.0"
+          "NexusRpc": "0.4.0"
         }
       }
     },
@@ -1268,8 +1268,8 @@
       },
       "ModelContextProtocol.Core": {
         "type": "Transitive",
-        "resolved": "2.1.0",
-        "contentHash": "cU/urrhRxE4/iSyBIJI7QOaFqSP1FOEnwEHsct9n6t6/XluCAFD9iqnrPkBAsEYr+f/G4tVQ21U+6wN/6fQvOg==",
+        "resolved": "2.2.0",
+        "contentHash": "FeBfXU6T8k+jw4afg4sfxdEX2rL/e5oKOk9ROOGztu9k47+7Bz08sdaToYt2XvMY1opNbwxYQOFMj6wH9TInhA==",
         "dependencies": {
           "Microsoft.Extensions.AI.Abstractions": "10.8.3",
           "Microsoft.Extensions.Logging.Abstractions": "10.0.10",
@@ -1279,8 +1279,8 @@
       },
       "NexusRpc": {
         "type": "Transitive",
-        "resolved": "0.3.0",
-        "contentHash": "Kr+NMSZ5428AvxpzShdJcQxc9w6HT8SM6FXQMekC4K9wGpmC1m/L2pQJydpvVTwRBu3qAIYKPI37KWexF4Gtcg=="
+        "resolved": "0.4.0",
+        "contentHash": "2cdRtmwT/vskWqJvojODvR7CpRhLWAnCeVT5Z8sPdRDX8P/Ywpw48T2lqgqhxM8JROfoflHzhSiXo4h1ln3/MQ=="
       },
       "Quartz": {
         "type": "Transitive",
@@ -1551,8 +1551,8 @@
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Microsoft.Extensions.AI.Abstractions": "[10.8.3, )",
-          "ModelContextProtocol": "[2.1.0, )",
-          "ModelContextProtocol.AspNetCore": "[2.1.0, )"
+          "ModelContextProtocol": "[2.2.0, )",
+          "ModelContextProtocol.AspNetCore": "[2.2.0, )"
         }
       },
       "Healthie.NET.Postgres": {
@@ -1588,7 +1588,7 @@
         "dependencies": {
           "Healthie.NET.Relational": "[1.0.0, )",
           "Microsoft.Data.Sqlite": "[10.0.11, )",
-          "SQLitePCLRaw.lib.e_sqlite3": "[2.1.12, )"
+          "SQLitePCLRaw.lib.e_sqlite3": "[2.1.13, )"
         }
       },
       "Healthie.NET.SqlServer": {
@@ -1602,7 +1602,7 @@
         "type": "Project",
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
-          "Temporalio": "[1.17.0, )"
+          "Temporalio": "[1.18.0, )"
         }
       },
       "Healthie.NET.Uptime": {
@@ -1725,22 +1725,22 @@
       },
       "ModelContextProtocol": {
         "type": "CentralTransitive",
-        "requested": "[2.1.0, )",
-        "resolved": "2.1.0",
-        "contentHash": "Oa4rU7EL9C2qyFjQj1dx+ysGMzfWDRpM8RRaUMmLGs5vPvfJ9xyz4ZtyF4ychY+Nx1b/auGCqIQLqSz/IpPkKA==",
+        "requested": "[2.2.0, )",
+        "resolved": "2.2.0",
+        "contentHash": "4Pb9u02Nwsp0poueDsqNdyGRojFxOYpljB7zDBsq+aHL+Afou3OgxlBc3GWFVnsRMRJrUtWqDh3s6k2JgPzmrQ==",
         "dependencies": {
           "Microsoft.Extensions.Caching.Abstractions": "10.0.10",
           "Microsoft.Extensions.Hosting.Abstractions": "10.0.10",
-          "ModelContextProtocol.Core": "[2.1.0]"
+          "ModelContextProtocol.Core": "[2.2.0]"
         }
       },
       "ModelContextProtocol.AspNetCore": {
         "type": "CentralTransitive",
-        "requested": "[2.1.0, )",
-        "resolved": "2.1.0",
-        "contentHash": "yhJ8bBXIgrX0mAgRYRgzcbH3bLdv3MDSkG52utRW9EAAtQrPw/g7Q/T6EurxKV+L+Zefv8VVUYcNbXEOd9GgfA==",
+        "requested": "[2.2.0, )",
+        "resolved": "2.2.0",
+        "contentHash": "3JelDMuFIwFzXybsh6K30G6wXu5gmqKnuRnieqgBMuR0FkqqXRv4B+NYZuPgthSyNq5UwRyvv2U2VJBE3RD3PQ==",
         "dependencies": {
-          "ModelContextProtocol": "[2.1.0]"
+          "ModelContextProtocol": "[2.2.0]"
         }
       },
       "Npgsql": {
@@ -1772,9 +1772,9 @@
       },
       "SQLitePCLRaw.lib.e_sqlite3": {
         "type": "CentralTransitive",
-        "requested": "[2.1.12, )",
-        "resolved": "2.1.12",
-        "contentHash": "fWi8Dbknuhgg72fWinIdjXVaqO1hHL4YBBwVLnr7e1c9TAZwJ0QE38j9syW1hwx6HaqEVTwI+O07WPdZn8Rp0w=="
+        "requested": "[2.1.13, )",
+        "resolved": "2.1.13",
+        "contentHash": "D2UAuiGxFYBqeRXjjjGgvJ5UQifzn6wefmSqeKU7XcNGKLbJRP6X7kcPZ6opOBJGdCIlgbSxTvDpBbLvsN594A=="
       },
       "StackExchange.Redis": {
         "type": "CentralTransitive",
@@ -1790,12 +1790,12 @@
       },
       "Temporalio": {
         "type": "CentralTransitive",
-        "requested": "[1.17.0, )",
-        "resolved": "1.17.0",
-        "contentHash": "C/RVMPIvZHa7pnvPle6dvJTF6kL9QaIt4Rr0oLzZ3vYHLfBO+SpVMYOMs5HhlJWIW95zPvEMVmXyLNTQLkX+nQ==",
+        "requested": "[1.18.0, )",
+        "resolved": "1.18.0",
+        "contentHash": "GycxFuB7lvKh4tzJjrYHbiQ7eu8/MYc0UFy5ojTQuatoXXeJkSCIkpD3edCfccTyQ/feMeFEbemonk3BI+YTxQ==",
         "dependencies": {
           "Google.Protobuf": "3.26.1",
-          "NexusRpc": "0.3.0"
+          "NexusRpc": "0.4.0"
         }
       }
     }
