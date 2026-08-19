@@ -57,22 +57,22 @@
 
   <!-- Sample-only dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.0" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
   <!-- Test dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="bunit" Version="2.9.0" />
-    <PackageVersion Include="Testcontainers.Redis" Version="4.13.0" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
-    <PackageVersion Include="Testcontainers.MsSql" Version="4.13.0" />
-    <PackageVersion Include="Testcontainers.CosmosDb" Version="4.13.0" />
+    <PackageVersion Include="Testcontainers.Redis" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.14.0" />
+    <PackageVersion Include="Testcontainers.CosmosDb" Version="4.14.0" />
     <!--
       Referenced directly by Healthie.Tests.Unit purely to raise it. Testcontainers 4.13.0 resolves
       SSH.NET 2025.1.0, which is GHSA-q939-rpr3-3284 (high): ScpClient's recursive download writes
