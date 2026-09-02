@@ -5,11 +5,6 @@
       "Healthie.NET.Abstractions": {
         "type": "Project"
       }
-    },
-    "net8.0": {
-      "Healthie.NET.Abstractions": {
-        "type": "Project"
-      }
     }
   }
 }
