@@ -28,19 +28,19 @@
 
   <!-- Library dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.62.1" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.63.0" />
     <!-- Provider-agnostic AI abstractions: the host brings its own IChatClient. -->
-    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.9.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="10.10.0" />
     <!-- 2.0 is in preview and tracks a release-candidate protocol revision; stay on stable. -->
     <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
     <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageVersion Include="Coravel" Version="6.0.2" />
     <PackageVersion Include="Cronos" Version="0.13.0" />
-    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.11" />
-    <PackageVersion Include="Hangfire.Core" Version="1.8.24" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
+    <PackageVersion Include="Hangfire.Core" Version="1.8.25" />
     <PackageVersion Include="Microsoft.Data.SqlClient" Version="7.0.2" />
-    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+    <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <!--
       Above what Microsoft.Data.Sqlite asks for: its 2.1.11 carries GHSA-2m69-gcr7-jv3q
@@ -50,29 +50,29 @@
     -->
     <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.13" />
     <PackageVersion Include="Temporalio" Version="1.18.0" />
-    <PackageVersion Include="Quartz.Extensions.DependencyInjection" Version="3.19.1" />
-    <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.19.1" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.1.13" />
+    <PackageVersion Include="Quartz.Extensions.DependencyInjection" Version="3.21.0" />
+    <PackageVersion Include="Quartz.Extensions.Hosting" Version="3.21.0" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.1.31" />
   </ItemGroup>
 
   <!-- Sample-only dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.4.6" />
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.4.6" />
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.5.3" />
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
 
   <!-- Test dependencies -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.0" />
     <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
-    <PackageVersion Include="bunit" Version="2.9.0" />
-    <PackageVersion Include="Testcontainers.Redis" Version="4.13.0" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
-    <PackageVersion Include="Testcontainers.MsSql" Version="4.13.0" />
-    <PackageVersion Include="Testcontainers.CosmosDb" Version="4.13.0" />
+    <PackageVersion Include="bunit" Version="2.10.3" />
+    <PackageVersion Include="Testcontainers.Redis" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.15.0" />
+    <PackageVersion Include="Testcontainers.CosmosDb" Version="4.15.0" />
     <!--
       Referenced directly by Healthie.Tests.Unit purely to raise it. Testcontainers 4.13.0 resolves
       SSH.NET 2025.1.0, which is GHSA-q939-rpr3-3284 (high): ScpClient's recursive download writes
