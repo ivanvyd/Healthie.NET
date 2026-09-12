@@ -87,15 +87,15 @@ public sealed class SampleApp : IAsyncDisposable
     {
         var port = FreePort();
         var url = $"http://127.0.0.1:{port}";
+        var sampleProjectDirectory = SampleProjectDirectory();
 
         var info = new ProcessStartInfo("dotnet")
         {
-            // --no-build: the project reference already built the sample, and rebuilding here would
-            // race the other setups in this collection over the same output files.
-            // --no-launch-profile: launchSettings.json pins an applicationUrl, and it takes
-            // precedence over ASPNETCORE_URLS -- so without this the app ignores the free port
-            // picked above, every setup fights over one port, and the wait below times out.
-            Arguments = $"run --project \"{SampleProjectPath()}\" --configuration {Configuration} --no-build --no-launch-profile",
+            // The project reference already built the sample. Launching that output directly avoids
+            // both concurrent rebuilds and SDK selection through a repository-level global.json.
+            // Launch profiles are not involved, so ASPNETCORE_URLS below selects the free port.
+            Arguments = $"\"{SampleAssemblyPath(sampleProjectDirectory)}\"",
+            WorkingDirectory = sampleProjectDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -165,7 +165,7 @@ public sealed class SampleApp : IAsyncDisposable
         "Release";
 #endif
 
-    private static string SampleProjectPath()
+    private static string SampleProjectDirectory()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Healthie.NET.sln")))
@@ -175,8 +175,16 @@ public sealed class SampleApp : IAsyncDisposable
 
         return dir is null
             ? throw new InvalidOperationException("Could not locate the repository root from " + AppContext.BaseDirectory)
-            : Path.Combine(dir.FullName, "samples", "Healthie.Sample.BlazorUI", "Healthie.Sample.BlazorUI.csproj");
+            : Path.Combine(dir.FullName, "samples", "Healthie.Sample.BlazorUI");
     }
+
+    private static string SampleAssemblyPath(string sampleProjectDirectory) =>
+        Path.Combine(
+            sampleProjectDirectory,
+            "bin",
+            Configuration,
+            "net8.0",
+            "Healthie.Sample.BlazorUI.dll");
 
     private static int FreePort()
     {

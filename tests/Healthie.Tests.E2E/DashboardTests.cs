@@ -82,6 +82,25 @@ public class DashboardTests(BrowserFixture browser) : IAsyncDisposable
     /// <summary>Closes the pages this test opened, keeping a trace behind if it failed.</summary>
     public async ValueTask DisposeAsync() => await browser.FinishCurrentTestAsync();
 
+    [Fact]
+    public async Task InitialDocument_PinsDashboardStylesBeforeInteractiveHeadConnects()
+    {
+        await using var app = await SampleApp.StartAsync(new ProviderSetup("Timer", UseCosmos: false), Ct);
+        using var client = new HttpClient();
+
+        var initialDocument = await client.GetStringAsync(app.DashboardUrl, Ct);
+
+        Assert.Contains(
+            "href=\"_content/Healthie.NET.Dashboard/healthie.css\" rel=\"stylesheet\" data-healthie-static-styles",
+            initialDocument);
+
+        using var stylesheet = await client.GetAsync(
+            $"{app.BaseUrl}/_content/Healthie.NET.Dashboard/healthie.css",
+            Ct);
+        stylesheet.EnsureSuccessStatusCode();
+        Assert.Equal("text/css", stylesheet.Content.Headers.ContentType?.MediaType);
+    }
+
     [Theory]
     [MemberData(nameof(Setups))]
     public async Task Dashboard_ListsEveryChecker_AndReportsNoBrowserErrors(ProviderSetup setup)
@@ -118,9 +137,17 @@ public class DashboardTests(BrowserFixture browser) : IAsyncDisposable
         await using var app = await SampleApp.StartAsync(setup, Ct);
         var page = await OpenDashboardAsync(app);
 
-        await RowFor(page, TargetChecker).ClickAsync();
+        // The row exposes one real selection button beside its independent action buttons. A div
+        // pretending to be a button would contain those buttons, which is invalid interactive
+        // nesting and gives keyboard and screen-reader users an ambiguous control tree.
+        await Assertions.Expect(page.Locator(".hpm-row[role='button']")).ToHaveCountAsync(0);
+        var select = RowFor(page, TargetChecker)
+            .GetByRole(AriaRole.Button, new() { Name = $"View {TargetChecker} details" });
+        await select.FocusAsync();
+        await select.PressAsync("Enter");
 
         await Assertions.Expect(page.Locator(".hpm-sel-name")).ToHaveTextAsync(TargetChecker);
+        await Assertions.Expect(select).ToHaveAttributeAsync("aria-pressed", "true");
 
         // A count would be a timing assertion, not a detail one: the sample installs the uptime
         // package, whose 24H cell appears once a segment has been recorded and whose WORST cell

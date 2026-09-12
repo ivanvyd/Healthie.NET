@@ -361,9 +361,23 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         await page.GetByRole(AriaRole.Button, new() { Name = "RUN NOW" }).ClickAsync();
         await page.Locator(".hpm-log-body .hpm-event").First.WaitForAsync();
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "Expand the event log" }).ClickAsync();
-        await Assertions.Expect(page.Locator(".hpm-modal")).ToBeVisibleAsync();
+        var expand = page.GetByRole(AriaRole.Button, new() { Name = "Expand the event log" });
+        await expand.ClickAsync();
+        var dialog = page.GetByRole(AriaRole.Dialog, new() { Name = "Event log" });
+        await Assertions.Expect(dialog).ToBeVisibleAsync();
         await Assertions.Expect(page.Locator(".hpm-log-table")).ToBeVisibleAsync();
+
+        var close = dialog.GetByRole(AriaRole.Button, new() { Name = "Close" });
+        await Assertions.Expect(close).ToBeFocusedAsync();
+        await close.PressAsync("Tab");
+        await Assertions.Expect(close).ToBeFocusedAsync();
+
+        await close.PressAsync("Escape");
+        await Assertions.Expect(dialog).Not.ToBeVisibleAsync();
+        await Assertions.Expect(expand).ToBeFocusedAsync();
+
+        await expand.ClickAsync();
+        await Assertions.Expect(dialog).ToBeVisibleAsync();
 
         // Dismissed from the dimmed edge, where a person clicks. A default click lands in the
         // middle of the backdrop, which is precisely where the modal is.
@@ -381,7 +395,8 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
 
         await Assertions.Expect(page.Locator(".hpm-popover")).Not.ToBeVisibleAsync();
 
-        await page.GetByRole(AriaRole.Button, new() { Name = "Legend and about" }).ClickAsync();
+        var trigger = page.GetByRole(AriaRole.Button, new() { Name = "Legend and about" }).First;
+        await trigger.ClickAsync();
 
         var about = page.GetByRole(AriaRole.Dialog, new() { Name = "Legend and about" });
         await Assertions.Expect(about).ToBeVisibleAsync();
@@ -392,6 +407,17 @@ public class DashboardGroupingTests(BrowserFixture browser) : IAsyncDisposable
         // assertion also passes when the element is simply missing; a version-shaped one cannot.
         await Assertions.Expect(about.Locator(".hpm-popover-head .hpm-tag"))
             .ToHaveTextAsync(new Regex(@"^v\d+\.\d+"));
+
+        var close = about.GetByRole(AriaRole.Button, new() { Name = "Close" });
+        await Assertions.Expect(close).ToBeFocusedAsync();
+        await close.PressAsync("Shift+Tab");
+        await Assertions.Expect(about.GetByRole(AriaRole.Link, new() { Name = "MIT" })).ToBeFocusedAsync();
+        await page.Keyboard.PressAsync("Tab");
+        await Assertions.Expect(close).ToBeFocusedAsync();
+
+        await close.PressAsync("Escape");
+        await Assertions.Expect(about).Not.ToBeVisibleAsync();
+        await Assertions.Expect(trigger).ToBeFocusedAsync();
         browser.AssertNoErrors(page);
     }
 

@@ -6,6 +6,7 @@ using Healthie.Dashboard.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 namespace Healthie.Tests.Unit;
 
@@ -51,6 +52,52 @@ public sealed class DashboardComponentLifecycleTests : IDisposable
         public override Task<Dictionary<string, string>> GetDisplayNamesAsync(
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new Dictionary<string, string>(StringComparer.Ordinal));
+    }
+
+    private sealed class FailsFirstLoadDashboardService : StubDashboardService
+    {
+        private int _loads;
+
+        public int Loads => Volatile.Read(ref _loads);
+
+        public override Task SubscribeToStateChangesAsync(
+            Func<string, PulseCheckerState, Task> onStateChanged,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public override Task UnsubscribeFromStateChangesAsync(
+            Func<string, PulseCheckerState, Task> onStateChanged,
+            CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public override Task<Dictionary<string, PulseCheckerState>> GetAllStatesAsync(
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _loads) == 1)
+            {
+                throw new InvalidOperationException("Simulated state-provider outage.");
+            }
+
+            return Task.FromResult(new Dictionary<string, PulseCheckerState>(StringComparer.Ordinal));
+        }
+
+        public override Task<Dictionary<string, string>> GetDisplayNamesAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new Dictionary<string, string>(StringComparer.Ordinal));
+    }
+
+    private sealed class RestoreOnlyStateStore(string key, string value) : IPersistentComponentStateStore
+    {
+        public Task<IDictionary<string, byte[]>> GetPersistedStateAsync() =>
+            Task.FromResult<IDictionary<string, byte[]>>(new Dictionary<string, byte[]>
+            {
+                [key] = JsonSerializer.SerializeToUtf8Bytes(value),
+            });
+
+        public Task PersistStateAsync(IReadOnlyDictionary<string, byte[]> state) =>
+            throw new NotSupportedException();
+
+        public bool SupportsRenderMode(IComponentRenderMode renderMode) => true;
     }
 
     private readonly BunitContext _context = new();
@@ -120,5 +167,50 @@ public sealed class DashboardComponentLifecycleTests : IDisposable
 
         await second.Instance.DisposeAsync();
         Assert.Equal(_service.Subscribed.Count, _service.Unsubscribed.Count);
+    }
+
+    [Fact]
+    public void FailedInitialLoad_ShowsARecoverableErrorInsteadOfAnEmptyBoard()
+    {
+        var service = new FailsFirstLoadDashboardService();
+        _context.Services.AddSingleton<IHealthieDashboardService>(service);
+
+        var rendered = _context.Render<HealthieDashboard>();
+
+        rendered.WaitForAssertion(() =>
+        {
+            Assert.Contains("STATUS UNAVAILABLE", rendered.Markup);
+            Assert.Contains("Could not load checker data", rendered.Markup);
+            Assert.DoesNotContain("No pulse checkers registered", rendered.Markup);
+        });
+
+        rendered.Find(".hpm-load-error button").Click();
+
+        rendered.WaitForAssertion(() =>
+        {
+            Assert.DoesNotContain("Could not load checker data", rendered.Markup);
+            Assert.Contains("No pulse checkers registered", rendered.Markup);
+            Assert.Equal(2, service.Loads);
+        });
+    }
+
+    [Fact]
+    public async Task FailedPrerenderSnapshot_RemainsAnErrorWhenTheInteractiveInstanceCollectsIt()
+    {
+        const string message = "Could not load checker data. Check the state provider and try again.";
+        var handoff = _context.Services.GetRequiredService<DashboardStateHandoff>();
+        var token = handoff.Stash(new DashboardSnapshot([], [], message));
+        var persistence = _context.Services.GetRequiredService<ComponentStatePersistenceManager>();
+        await persistence.RestoreStateAsync(
+            new RestoreOnlyStateStore("healthie.dashboard.handoff", token));
+
+        var rendered = _context.Render<HealthieDashboard>();
+
+        rendered.WaitForAssertion(() =>
+        {
+            Assert.Contains("STATUS UNAVAILABLE", rendered.Markup);
+            Assert.Contains(message, rendered.Markup);
+            Assert.DoesNotContain("No pulse checkers registered", rendered.Markup);
+        });
     }
 }
