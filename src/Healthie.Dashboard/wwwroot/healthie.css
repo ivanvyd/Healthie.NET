@@ -359,9 +359,21 @@
     background: var(--hpm-panel2);
 }
 
-.hpm-row:focus-visible {
+.hpm-row-select {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.hpm-row-select:focus-visible {
     outline: 2px solid var(--hpm-status);
     outline-offset: 2px;
+    border-radius: 4px;
 }
 
 .hpm-row--selected {
@@ -378,6 +390,7 @@
 
 .hpm-row-title,
 .hpm-row-sub {
+    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -489,6 +502,31 @@
     border: 1px dashed var(--hpm-line2);
     border-radius: 10px;
     font-size: 13px;
+}
+
+.hpm-load-error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 18px 20px;
+    border: 1px solid var(--hpm-warn);
+    border-radius: 10px;
+    background: var(--hpm-warn-bg);
+    color: var(--hpm-text);
+    font-size: 13px;
+}
+
+.hpm-load-error strong {
+    color: var(--hpm-warn);
+    font-family: var(--hpm-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+.hpm-load-error span {
+    flex: 1 1 280px;
+    min-width: 0;
 }
 
 .hpm-skeleton {
@@ -1127,6 +1165,7 @@
 /* The toolbar, the empty state and a group are bands, not cells. */
 .hpm-list--cards > .hpm-toolbar,
 .hpm-list--cards > .hpm-empty,
+.hpm-list--cards > .hpm-load-error,
 .hpm-list--cards > .hpm-group,
 .hpm-list--cards > .hpm-skeleton {
     grid-column: 1 / -1;

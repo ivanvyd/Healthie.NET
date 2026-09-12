@@ -30,7 +30,7 @@ internal sealed class HealthieDashboardService(
         catch (Exception ex)
         {
             logger?.LogError(ex, "Failed to retrieve pulse checker states.");
-            return new Dictionary<string, PulseCheckerState>();
+            throw;
         }
     }
 
@@ -275,7 +275,7 @@ internal sealed class HealthieDashboardService(
         catch (Exception ex)
         {
             logger?.LogError(ex, "Failed to retrieve display names.");
-            return new Dictionary<string, string>();
+            throw;
         }
     }
 

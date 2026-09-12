@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- The dashboard event-log and about dialogs now move focus inside, keep keyboard focus contained,
+  close with Escape, and restore focus to the control that opened them.
+- Dashboard checker rows now expose selection as a real button alongside their action buttons,
+  removing nested interactive controls while preserving whole-row pointer selection.
+- A dashboard state-provider failure now shows a recoverable unavailable state with a retry action
+  instead of looking like an empty installation with no registered checkers.
+- The Blazor sample now keeps the dashboard stylesheet in its static host head, preventing an
+  unstyled flash while the interactive head reconnects on a slow network.
 - HTTP checker display names and result messages now omit URI user information, query strings, and
   fragments, server-controlled reason phrases, and transport exception details, preventing embedded
   credentials and tokens from reaching stored history, alerts, logs, or the dashboard while requests

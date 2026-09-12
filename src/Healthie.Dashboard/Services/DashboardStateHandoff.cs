@@ -71,4 +71,5 @@ internal sealed class DashboardStateHandoff : IDisposable
 /// </remarks>
 internal sealed record DashboardSnapshot(
     Dictionary<string, PulseCheckerState> States,
-    Dictionary<string, string> DisplayNames);
+    Dictionary<string, string> DisplayNames,
+    string? LoadError);

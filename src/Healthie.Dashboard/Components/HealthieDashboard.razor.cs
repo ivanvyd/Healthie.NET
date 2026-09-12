@@ -5,6 +5,7 @@ using Healthie.Abstractions.Scheduling;
 using Healthie.Dashboard.Services;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using System.ComponentModel;
 using System.Reflection;
 
@@ -63,10 +64,16 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     private string? _tagFilter;
     private bool _isDarkMode = true;
     private bool _isLoading = true;
+    private string? _loadError;
     private bool _initialized;
     private bool _showAbout;
     private bool _showLog;
     private bool _asCards;
+    private ElementReference _logDialog;
+    private ElementReference _aboutDialog;
+    private IJSObjectReference? _dialogModule;
+    private bool _activateLogDialog;
+    private bool _activateAboutDialog;
 
     /// <summary>
     /// Sectioned by group on open, flat on request.
@@ -184,6 +191,11 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     {
         get
         {
+            if (_loadError is not null)
+            {
+                return "STATUS UNAVAILABLE";
+            }
+
             var unhealthy = _states.Values.Count(s => HealthOf(s) == PulseCheckerHealth.Unhealthy);
             if (unhealthy > 0)
             {
@@ -254,7 +266,14 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         {
             _states = snapshot.States;
             _displayNames = snapshot.DisplayNames;
-            MarkLoaded();
+            if (snapshot.LoadError is null)
+            {
+                MarkLoaded();
+            }
+            else
+            {
+                MarkLoadFailed(snapshot.LoadError);
+            }
         }
         else
         {
@@ -269,6 +288,31 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         _clockLoop = RunClockAsync();
     }
 
+    /// <inheritdoc />
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if ((!_activateLogDialog || !_showLog) && (!_activateAboutDialog || !_showAbout))
+        {
+            return;
+        }
+
+        _dialogModule ??= await JS.InvokeAsync<IJSObjectReference>(
+            "import",
+            "./_content/Healthie.NET.Dashboard/healthie.js");
+
+        if (_activateLogDialog && _showLog)
+        {
+            _activateLogDialog = false;
+            await _dialogModule.InvokeVoidAsync("activateDialog", _logDialog);
+        }
+
+        if (_activateAboutDialog && _showAbout)
+        {
+            _activateAboutDialog = false;
+            await _dialogModule.InvokeVoidAsync("activateDialog", _aboutDialog);
+        }
+    }
+
     private async Task LoadAsync()
     {
         if (!await _loadLock.WaitAsync(TimeSpan.Zero).ConfigureAwait(true))
@@ -278,9 +322,14 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
 
         try
         {
+            _loadError = null;
             _states = await DashboardService.GetAllStatesAsync();
             _displayNames = await DashboardService.GetDisplayNamesAsync();
             MarkLoaded();
+        }
+        catch (Exception) when (!_disposing.IsCancellationRequested)
+        {
+            MarkLoadFailed("Could not load checker data. Check the state provider and try again.");
         }
         finally
         {
@@ -292,8 +341,33 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     private void MarkLoaded()
     {
         _selected ??= _states.Keys.OrderBy(name => name).FirstOrDefault();
+        _loadError = null;
         _isLoading = false;
         Refresh();
+    }
+
+    private void MarkLoadFailed(string message)
+    {
+        _states = [];
+        _displayNames = [];
+        _filtered = [];
+        _selected = null;
+        _isLoading = false;
+        _loadError = message;
+        _overall = Status.Warning;
+    }
+
+    private async Task RetryLoadAsync()
+    {
+        _loadError = null;
+        _isLoading = true;
+
+        await LoadAsync();
+
+        if (_loadError is null)
+        {
+            await SelectAsync(_selected);
+        }
     }
 
     /// <summary>
@@ -316,7 +390,7 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
     /// </remarks>
     private Task PersistHandoffToken()
     {
-        var token = Handoff.Stash(new DashboardSnapshot(_states, _displayNames));
+        var token = Handoff.Stash(new DashboardSnapshot(_states, _displayNames, _loadError));
         PersistedState.PersistAsJson(HandoffTokenKey, token);
 
         return Task.CompletedTask;
@@ -573,14 +647,6 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         Refresh();
     }
 
-    private async Task OnRowKeyDown(KeyboardEventArgs args, string name)
-    {
-        if (args.Key is "Enter" or " ")
-        {
-            await SelectAsync(name);
-        }
-    }
-
     /// <summary>
     /// Selects a checker and reads anything the feature packages can add about it.
     /// </summary>
@@ -601,9 +667,71 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         await LoadUptimeAsync(name);
     }
 
-    private void ToggleAbout() => _showAbout = !_showAbout;
+    private Task ToggleAboutAsync() => _showAbout ? CloseAboutAsync() : OpenAboutAsync();
 
-    private void ToggleLog() => _showLog = !_showLog;
+    private Task OpenAboutAsync()
+    {
+        _showAbout = true;
+        _activateAboutDialog = true;
+
+        return Task.CompletedTask;
+    }
+
+    private async Task CloseAboutAsync()
+    {
+        if (!_showAbout)
+        {
+            return;
+        }
+
+        if (_dialogModule is not null)
+        {
+            await _dialogModule.InvokeVoidAsync("deactivateDialog", _aboutDialog);
+        }
+
+        _showAbout = false;
+    }
+
+    private Task ToggleLogAsync() => _showLog ? CloseLogAsync() : OpenLogAsync();
+
+    private Task OpenLogAsync()
+    {
+        _showLog = true;
+        _activateLogDialog = true;
+
+        return Task.CompletedTask;
+    }
+
+    private async Task CloseLogAsync()
+    {
+        if (!_showLog)
+        {
+            return;
+        }
+
+        if (_dialogModule is not null)
+        {
+            await _dialogModule.InvokeVoidAsync("deactivateDialog", _logDialog);
+        }
+
+        _showLog = false;
+    }
+
+    private async Task OnAboutDialogKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await CloseAboutAsync();
+        }
+    }
+
+    private async Task OnLogDialogKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await CloseLogAsync();
+        }
+    }
 
     private async Task TogglePinAsync(string name, bool isPinned)
     {
@@ -983,6 +1111,18 @@ public sealed partial class HealthieDashboard : IAsyncDisposable
         _disposing.Dispose();
         _loadLock.Dispose();
         _persistSubscription.Dispose();
+
+        if (_dialogModule is not null)
+        {
+            try
+            {
+                await _dialogModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit ended before its module could be released.
+            }
+        }
     }
 
     /// <summary>What a colour in this dashboard means.</summary>

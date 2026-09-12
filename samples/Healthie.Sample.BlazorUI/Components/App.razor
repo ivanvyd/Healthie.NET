@@ -9,6 +9,9 @@
        reset that stops a pale frame being drawn around the dashboard -- did nothing. *@
     <link href="app.css" rel="stylesheet" />
     <link href="Healthie.Sample.BlazorUI.styles.css" rel="stylesheet" />
+    @* Keep the dashboard styled while the interactive HeadOutlet reconnects on a slow network. *@
+    <link href="_content/Healthie.NET.Dashboard/healthie.css" rel="stylesheet"
+          data-healthie-static-styles />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>

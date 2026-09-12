@@ -7,6 +7,7 @@
 @inject HealthieThemeState ThemeState
 @inject PersistentComponentState PersistedState
 @inject DashboardStateHandoff Handoff
+@inject IJSRuntime JS
 
 <PageTitle>@Options.DashboardTitle</PageTitle>
 <HeadContent>
@@ -96,7 +97,7 @@
                 <button type="button" class="hpm-btn hpm-btn--icon @(_showAbout ? "hpm-btn--on" : "")"
                         title="What the colours and controls mean" aria-label="Legend and about"
                         aria-expanded="@(_showAbout ? "true" : "false")"
-                        @onclick="ToggleAbout">?</button>
+                        @onclick="ToggleAboutAsync">?</button>
             </div>
         </div>
 
@@ -143,16 +144,17 @@
     *@
     @if (_showLog)
     {
-        <div class="hpm-backdrop" @onclick="ToggleLog" aria-hidden="true"></div>
+        <div class="hpm-backdrop" @onclick="CloseLogAsync" aria-hidden="true"></div>
 
-        <div class="hpm-modal" role="dialog" aria-modal="true" aria-label="Event log">
+        <div class="hpm-modal" role="dialog" aria-modal="true" aria-labelledby="hpm-event-log-title"
+             tabindex="-1" @ref="_logDialog" @onkeydown="OnLogDialogKeyDown">
             <div class="hpm-popover-head">
-                <span class="hpm-sel-name">Event log</span>
+                <span id="hpm-event-log-title" class="hpm-sel-name">Event log</span>
                 <span class="hpm-tag">@_events.Count</span>
                 <span class="hpm-modal-note">newest first · UTC</span>
                 <div class="hpm-spacer"></div>
                 <button type="button" class="hpm-icon-btn" title="Close" aria-label="Close"
-                        @onclick="ToggleLog">@HealthieIcons.X</button>
+                        @onclick="CloseLogAsync">@HealthieIcons.X</button>
             </div>
 
             <div class="hpm-modal-body">
@@ -194,15 +196,16 @@
     *@
     @if (_showAbout)
     {
-        <div class="hpm-backdrop" @onclick="ToggleAbout" aria-hidden="true"></div>
+        <div class="hpm-backdrop" @onclick="CloseAboutAsync" aria-hidden="true"></div>
 
-        <div class="hpm-popover" role="dialog" aria-modal="true" aria-label="Legend and about">
+        <div class="hpm-popover" role="dialog" aria-modal="true" aria-label="Legend and about"
+             tabindex="-1" @ref="_aboutDialog" @onkeydown="OnAboutDialogKeyDown">
             <div class="hpm-popover-head">
-                <span class="hpm-sel-name">Healthie<span class="hpm-dot">·</span>NET</span>
+                <span id="hpm-about-title" class="hpm-sel-name">Healthie<span class="hpm-dot">·</span>NET</span>
                 <span class="hpm-tag">v@(PackageVersion)</span>
                 <div class="hpm-spacer"></div>
                 <button type="button" class="hpm-icon-btn" title="Close" aria-label="Close"
-                        @onclick="ToggleAbout">@HealthieIcons.X</button>
+                        @onclick="CloseAboutAsync">@HealthieIcons.X</button>
             </div>
 
             <div class="hpm-popover-body">
@@ -265,23 +268,23 @@
             var history = HistoryOf(name);
         }
         <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
-             role="button" tabindex="0"
-             aria-pressed="@(isSelected ? "true" : "false")"
-             @onclick="@(() => SelectAsync(name))"
-             @onkeydown="@(e => OnRowKeyDown(e, name))">
+             @onclick="@(() => SelectAsync(name))">
 
                         <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
                               aria-hidden="true"></span>
 
-                        <div class="hpm-row-name">
-                            <div class="hpm-row-title">
+                        <button type="button" class="hpm-row-name hpm-row-select"
+                                aria-label="View @DisplayNameOf(name) details"
+                                aria-pressed="@(isSelected ? "true" : "false")"
+                                @onclick="@(() => SelectAsync(name))" @onclick:stopPropagation="true">
+                            <span class="hpm-row-title">
                                 @if (state.IsPinned)
                                 {
                                     <span class="hpm-pin-mark" title="Pinned to the top" aria-label="Pinned">@HealthieIcons.Pin</span>
                                 }
                                 @DisplayNameOf(name)
-                            </div>
-                            <div class="hpm-row-sub">
+                            </span>
+                            <span class="hpm-row-sub">
                                 @StatusWord(state) · @ShortTypeName(name)
                                 @if (!string.IsNullOrWhiteSpace(state.Group))
                                 {
@@ -291,8 +294,8 @@
                                 {
                                     <span class="hpm-chip" title="Tagged @tag">@tag</span>
                                 }
-                            </div>
-                        </div>
+                            </span>
+                        </button>
 
                         <div class="hpm-rate-cell">
                             <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused") @(state.EffectiveSchedule.IsCron ? "hpm-rate--cron" : "")"
@@ -422,7 +425,7 @@
                 <button type="button" class="hpm-nav-item @(_showLog ? "hpm-nav-item--current" : "")"
                         aria-expanded="@(_showLog ? "true" : "false")"
                         title="Every state change this dashboard has watched happen"
-                        @onclick="ToggleLog">
+                        @onclick="ToggleLogAsync">
                     <span class="hpm-nav-dot hpm-nav-dot--log" aria-hidden="true"></span>
                     <span class="hpm-nav-text">EVENT LOG</span>
                     <span class="hpm-nav-count">@_events.Count</span>
@@ -431,7 +434,7 @@
                 <button type="button" class="hpm-nav-item @(_showAbout ? "hpm-nav-item--current" : "")"
                         aria-expanded="@(_showAbout ? "true" : "false")"
                         title="What the colours and controls mean"
-                        @onclick="ToggleAbout">
+                        @onclick="ToggleAboutAsync">
                     <span class="hpm-nav-dot hpm-nav-dot--about" aria-hidden="true"></span>
                     <span class="hpm-nav-text">ABOUT</span>
                 </button>
@@ -737,6 +740,14 @@
                     <div class="hpm-skeleton"></div>
                 }
             }
+            else if (_loadError is not null)
+            {
+                <div class="hpm-load-error" role="alert">
+                    <strong>CHECKER DATA UNAVAILABLE</strong>
+                    <span>@_loadError</span>
+                    <button type="button" class="hpm-btn hpm-btn--sm" @onclick="RetryLoadAsync">TRY AGAIN</button>
+                </div>
+            }
             else if (_filtered.Count == 0)
             {
                 <div class="hpm-empty">
@@ -990,7 +1001,7 @@
                     <span class="hpm-log-led" aria-hidden="true"></span>
                     <button type="button" class="hpm-icon-btn hpm-log-expand"
                             title="Open the full event log" aria-label="Expand the event log"
-                            @onclick="ToggleLog">@HealthieIcons.Expand</button>
+                            @onclick="ToggleLogAsync">@HealthieIcons.Expand</button>
                 </div>
                 <div class="hpm-log-body">
                     @if (_events.Count == 0)
