@@ -29,6 +29,7 @@ public sealed class HttpPulseChecker : PulseChecker
 
     private readonly IHttpClientFactory _clients;
     private readonly Uri _url;
+    private readonly string _displayUrl;
     private readonly HttpMethod _method;
     private readonly Func<HttpStatusCode, bool> _isAcceptable;
     private readonly string _name;
@@ -62,6 +63,7 @@ public sealed class HttpPulseChecker : PulseChecker
         _clients = clients ?? throw new ArgumentNullException(nameof(clients));
         _name = name;
         _url = url;
+        _displayUrl = ToSafeDisplayUrl(url);
         _method = method ?? HttpMethod.Get;
         _isAcceptable = isAcceptable ?? (status => (int)status is >= 200 and < 300);
     }
@@ -70,24 +72,73 @@ public sealed class HttpPulseChecker : PulseChecker
     public override string Name => _name;
 
     /// <inheritdoc />
-    public override string DisplayName => _url.ToString();
+    public override string DisplayName => _displayUrl;
 
     /// <inheritdoc />
     public override async Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
     {
-        var client = _clients.CreateClient(HttpClientName);
+        try
+        {
+            var client = _clients.CreateClient(HttpClientName);
 
-        using var request = new HttpRequestMessage(_method, _url);
-        using var response = await client
-            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-            .ConfigureAwait(false);
+            using var request = new HttpRequestMessage(_method, _url);
+            using var response = await client
+                .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
 
-        return _isAcceptable(response.StatusCode)
-            ? new PulseCheckerResult(
-                PulseCheckerHealth.Healthy,
-                $"{_method} {_url} returned {(int)response.StatusCode}.")
-            : new PulseCheckerResult(
+            return _isAcceptable(response.StatusCode)
+                ? new PulseCheckerResult(
+                    PulseCheckerHealth.Healthy,
+                    $"{_method} {_displayUrl} returned {(int)response.StatusCode}.")
+                : new PulseCheckerResult(
+                    PulseCheckerHealth.Unhealthy,
+                    $"{_method} {_displayUrl} returned {(int)response.StatusCode}.");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return new PulseCheckerResult(
                 PulseCheckerHealth.Unhealthy,
-                $"{_method} {_url} returned {(int)response.StatusCode} {response.ReasonPhrase}.");
+                $"{_method} {_displayUrl} timed out.");
+        }
+        catch (Exception)
+        {
+            // Exception messages from handlers and transports can echo the complete request URI.
+            // Keep the health signal while ensuring credentials never reach history, logs or alerts.
+            return new PulseCheckerResult(
+                PulseCheckerHealth.Unhealthy,
+                $"{_method} {_displayUrl} request failed.");
+        }
+    }
+
+    private static string ToSafeDisplayUrl(Uri url)
+    {
+        if (!url.IsAbsoluteUri)
+        {
+            var original = url.OriginalString;
+            var query = original.IndexOf('?');
+            var fragment = original.IndexOf('#');
+            var firstSensitivePart = query switch
+            {
+                < 0 => fragment,
+                _ when fragment < 0 => query,
+                _ => Math.Min(query, fragment),
+            };
+
+            return firstSensitivePart < 0 ? original : original[..firstSensitivePart];
+        }
+
+        var safe = new UriBuilder(url)
+        {
+            UserName = string.Empty,
+            Password = string.Empty,
+            Query = string.Empty,
+            Fragment = string.Empty,
+        };
+
+        return safe.Uri.AbsoluteUri;
     }
 }

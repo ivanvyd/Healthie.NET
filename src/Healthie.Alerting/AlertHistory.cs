@@ -21,10 +21,10 @@ namespace Healthie.Alerting;
 /// had to learn about alerts.
 /// </para>
 /// <para>
-/// Bounded, and written whole on each alert. Both are affordable because alerts are transitions
-/// rather than checks -- a checker running every second raises nothing until its health changes -- and
-/// both are deliberate: an unbounded log in a state document would grow without limit, and the record
-/// of record is wherever the sinks deliver to.
+/// Bounded, and persisted as whole-log snapshots. This is affordable because alerts are transitions
+/// rather than checks -- a checker running every second raises nothing until its health changes --
+/// and changes during a write are coalesced into one latest-state follow-up. An unbounded log in a
+/// state document would grow without limit, and the record of record is wherever the sinks deliver to.
 /// </para>
 /// </remarks>
 /// <param name="capacity">How many alerts to keep before the oldest is discarded.</param>
@@ -46,10 +46,11 @@ public sealed class AlertHistory(
     // A plain object, not System.Threading.Lock: this package targets net8.0 as well.
     private readonly object _gate = new();
 
-    /// <summary>Lets one write reach the state provider at a time. See <see cref="PersistAsync"/>.</summary>
-    private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private bool _persistenceRequested;
 
-    private bool _loaded;
+    private bool _persistenceRunning;
+
+    private Task<bool>? _loadTask;
 
     private readonly Dictionary<string, SinkTally> _sinks = [];
 
@@ -137,6 +138,8 @@ public sealed class AlertHistory(
             alert.OccurredAt,
             delivered);
 
+        var startPersistence = false;
+
         lock (_gate)
         {
             // Trims after enqueuing rather than before. Dropping the oldest first has to special-case
@@ -147,11 +150,24 @@ public sealed class AlertHistory(
             {
                 _recent.Dequeue();
             }
+
+            if (stateProvider is not null)
+            {
+                _persistenceRequested = true;
+                if (!_persistenceRunning)
+                {
+                    _persistenceRunning = true;
+                    startPersistence = true;
+                }
+            }
         }
 
         // Outside the lock: a round trip to the state store held under it would stall every reader of
         // the board for the duration of a database write.
-        _ = PersistAsync();
+        if (startPersistence)
+        {
+            _ = PersistLoopAsync();
+        }
     }
 
     /// <summary>Records that an alert never reached the queue.</summary>
@@ -180,33 +196,56 @@ public sealed class AlertHistory(
     private string StoreName => stateProvider?.GetType().Name ?? "memory";
 
     /// <summary>
-    /// Reads the stored log once, the first time anything asks for a page.
+    /// Loads the stored log before the first page read or persistence snapshot.
     /// </summary>
     /// <remarks>
     /// Lazily rather than at startup: the dispatcher subscribes while the host is still starting, and
-    /// a state provider may not have finished initializing its container or table by then. Nothing
-    /// needs the history until somebody opens the board.
+    /// a state provider may not have finished initializing its container or table by then. Page reads
+    /// and persistence share the same load so a first alert after restart cannot replace older data.
     /// </remarks>
-    private async Task EnsureLoadedAsync(CancellationToken cancellationToken)
+    private async Task<bool> EnsureLoadedAsync(CancellationToken cancellationToken)
     {
-        if (_loaded || stateProvider is null)
+        if (stateProvider is null)
         {
-            return;
+            return true;
         }
 
-        // Set before the read, not after: a failed read must not leave every later page request
-        // retrying a store that is not answering.
-        _loaded = true;
+        Task<bool> loadTask;
 
+        lock (_gate)
+        {
+            // Page reads and the first persistence pass share one load. A first alert after restart
+            // must not write its live-only snapshot over the durable history before that load ends.
+            loadTask = _loadTask ??= LoadStoredAsync();
+        }
+
+        var loaded = await loadTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+        if (!loaded)
+        {
+            lock (_gate)
+            {
+                if (ReferenceEquals(_loadTask, loadTask))
+                {
+                    _loadTask = null;
+                }
+            }
+        }
+
+        return loaded;
+    }
+
+    private async Task<bool> LoadStoredAsync()
+    {
         try
         {
-            var stored = await stateProvider
-                .GetStateAsync<List<AlertInsight>>(StorageKey, cancellationToken)
+            var stored = await stateProvider!
+                .GetStateAsync<List<AlertInsight>>(StorageKey)
                 .ConfigureAwait(false);
 
             if (stored is null or { Count: 0 })
             {
-                return;
+                return true;
             }
 
             lock (_gate)
@@ -221,54 +260,68 @@ public sealed class AlertHistory(
                     _recent.Enqueue(insight);
                 }
             }
+
+            return true;
         }
         catch (Exception ex)
         {
             // A history that cannot be read is not a reason to fail the board: it shows what this
             // process has seen, and says where the rest was meant to be.
             logger?.LogWarning(ex, "Could not read the stored alert history from the state provider.");
+            return false;
         }
     }
 
     /// <summary>
-    /// Writes the whole log, one writer at a time.
+    /// Writes the whole log and coalesces changes raised while a write is in progress.
     /// </summary>
     /// <remarks>
-    /// The snapshot is taken <em>inside</em> the gate, not passed in. Two alerts raised back to back
-    /// start two writes, and nothing orders them: with the snapshot captured at call time the older
-    /// one could land last and silently drop the newer alert. Taking it here means whichever write
-    /// goes last writes the newest state, so the store converges on what is actually held. A real
-    /// PostgreSQL under CI timing found this; two writes in a row on a fast local disk did not.
+    /// At most one loop runs. Alerts raised during a state-provider round trip set one pending flag,
+    /// so the loop follows the current write with one snapshot of the latest history instead of
+    /// allocating a waiting task and another full-log write for every alert in a burst.
     /// </remarks>
-    private async Task PersistAsync()
+    private async Task PersistLoopAsync()
     {
-        if (stateProvider is null)
+        while (true)
         {
-            return;
-        }
+            lock (_gate)
+            {
+                if (!_persistenceRequested)
+                {
+                    _persistenceRunning = false;
+                    return;
+                }
 
-        await _writeGate.WaitAsync().ConfigureAwait(false);
+                _persistenceRequested = false;
+            }
 
-        try
-        {
+            // A failed read must not be followed by a write that replaces unknown durable history.
+            // A later alert requests another attempt; callers can still read this process's log.
+            if (!await EnsureLoadedAsync(CancellationToken.None).ConfigureAwait(false))
+            {
+                continue;
+            }
+
             List<AlertInsight> log;
 
             lock (_gate)
             {
+                // The snapshot includes alerts recorded during the initial load, so their pending
+                // flag is already satisfied by this write.
+                _persistenceRequested = false;
                 log = [.. _recent];
             }
 
-            await stateProvider.SetStateAsync(StorageKey, log).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            // Never propagated. This runs on the alert-delivery path, and a state store that is down
-            // must not take alerting down with it -- the alert has already reached its sinks.
-            logger?.LogWarning(ex, "Could not persist the alert history to the state provider.");
-        }
-        finally
-        {
-            _writeGate.Release();
+            try
+            {
+                await stateProvider!.SetStateAsync(StorageKey, log).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Never propagated. This runs on the alert-delivery path, and a state store that is
+                // down must not take alerting down with it -- the alert has already reached its sinks.
+                logger?.LogWarning(ex, "Could not persist the alert history to the state provider.");
+            }
         }
     }
 }

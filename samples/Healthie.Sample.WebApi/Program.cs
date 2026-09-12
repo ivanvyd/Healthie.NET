@@ -23,12 +23,14 @@ if (!string.IsNullOrWhiteSpace(cosmosConnectionString))
     builder.Services.AddHealthieCosmosDb(container.Container);
 }
 
+// The sample's mutable API is deliberately unauthenticated so it is easy to explore locally. The
+// endpoints are mapped only in Development below, preventing the same demo configuration from
+// becoming a public management surface when this project is hosted in another environment.
 builder.Services.AddHealthieController(requireAuthorization: false);
 
 // Expose the checkers to AI agents over the Model Context Protocol. Mutating tools are turned on
-// here so the sample can demonstrate them; require authorization on the endpoint outside of a local
-// development setup.
-builder.Services.AddHealthieMcp(options => options.AllowMutations = true);
+// here so the sample can demonstrate them. The endpoint is likewise mapped only in Development.
+builder.Services.AddHealthieMcp(options => options.AllowMutations = builder.Environment.IsDevelopment());
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -46,6 +48,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    app.MapControllers();
+    app.MapHealthieMcp();
 }
 
 app.UseHttpsRedirection();
@@ -53,14 +58,9 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-
 // Probe endpoints for an orchestrator: /healthie/live reports that the process is up, and
 // /healthie/ready reports 503 while any active checker is unhealthy.
 app.MapHealthieLiveness();
 app.MapHealthieReadiness();
-
-// MCP endpoint at /healthie/mcp.
-app.MapHealthieMcp();
 
 app.Run();
