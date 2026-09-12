@@ -213,6 +213,45 @@ public class InsightsTests
         Assert.False(after.Alerts[0].Delivered);
     }
 
+    [Fact]
+    public async Task AlertHistory_FirstAlertAfterRestart_PreservesStoredHistoryWithoutDuplication()
+    {
+        var store = new InMemoryStateProvider();
+        var before = new AlertHistory(capacity: 10, store);
+        before.Record(Alert("before-restart"), delivered: true);
+
+        var after = new AlertHistory(capacity: 10, store);
+        after.Record(Alert("after-restart"), delivered: true);
+
+        var page = await after.GetAlertsAsync(0, 10, Ct);
+        var reloaded = await new AlertHistory(capacity: 10, store).GetAlertsAsync(0, 10, Ct);
+
+        Assert.Equal(["after-restart", "before-restart"], page.Alerts.Select(alert => alert.CheckerName));
+        Assert.Equal(["after-restart", "before-restart"], reloaded.Alerts.Select(alert => alert.CheckerName));
+    }
+
+    [Fact]
+    public async Task AlertHistory_FailedRestartRead_DoesNotOverwriteUnknownStoredHistory()
+    {
+        var store = new FailNextReadProvider();
+        var before = new AlertHistory(capacity: 10, store);
+        before.Record(Alert("before-restart"), delivered: true);
+        var writesBeforeRestart = store.Writes;
+
+        store.FailNextRead();
+        var after = new AlertHistory(capacity: 10, store);
+        after.Record(Alert("during-failed-read"), delivered: true);
+
+        Assert.Equal(writesBeforeRestart, store.Writes);
+
+        after.Record(Alert("after-retry"), delivered: true);
+        var reloaded = await new AlertHistory(capacity: 10, store).GetAlertsAsync(0, 10, Ct);
+
+        Assert.Equal(
+            ["after-retry", "during-failed-read", "before-restart"],
+            reloaded.Alerts.Select(alert => alert.CheckerName));
+    }
+
     /// <summary>
     /// A store slow enough to make the ordering of concurrent writes visible.
     /// </summary>
@@ -243,6 +282,80 @@ public class InsightsTests
             _inner.GetStateAsync<T>(name, cancellationToken);
     }
 
+    private sealed class BlockingFirstWriteProvider : IStateProvider
+    {
+        private readonly InMemoryStateProvider _inner = new();
+        private readonly TaskCompletionSource _firstEntered =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _releaseFirst =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _secondCompleted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _thirdStarted =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _writes;
+
+        public Task FirstEntered => _firstEntered.Task;
+
+        public Task SecondCompleted => _secondCompleted.Task;
+
+        public Task ThirdStarted => _thirdStarted.Task;
+
+        public int Writes => Volatile.Read(ref _writes);
+
+        public void ReleaseFirst() => _releaseFirst.TrySetResult();
+
+        public async Task SetStateAsync<T>(string name, T state, CancellationToken cancellationToken = default)
+        {
+            var write = Interlocked.Increment(ref _writes);
+            if (write == 1)
+            {
+                _firstEntered.TrySetResult();
+                await _releaseFirst.Task.WaitAsync(cancellationToken);
+            }
+            else if (write == 3)
+            {
+                _thirdStarted.TrySetResult();
+            }
+
+            await _inner.SetStateAsync(name, state, cancellationToken);
+            if (write == 2)
+            {
+                _secondCompleted.TrySetResult();
+            }
+        }
+
+        public Task<T?> GetStateAsync<T>(string name, CancellationToken cancellationToken = default) =>
+            _inner.GetStateAsync<T>(name, cancellationToken);
+    }
+
+    private sealed class FailNextReadProvider : IStateProvider
+    {
+        private readonly InMemoryStateProvider _inner = new();
+        private int _failNextRead;
+        private int _writes;
+
+        public int Writes => Volatile.Read(ref _writes);
+
+        public void FailNextRead() => Interlocked.Exchange(ref _failNextRead, 1);
+
+        public async Task SetStateAsync<T>(string name, T state, CancellationToken cancellationToken = default)
+        {
+            Interlocked.Increment(ref _writes);
+            await _inner.SetStateAsync(name, state, cancellationToken);
+        }
+
+        public Task<T?> GetStateAsync<T>(string name, CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Exchange(ref _failNextRead, 0) == 1)
+            {
+                throw new InvalidOperationException("Simulated state-provider read failure.");
+            }
+
+            return _inner.GetStateAsync<T>(name, cancellationToken);
+        }
+    }
+
     /// <summary>
     /// Two alerts raised back to back must both survive. Nothing orders the writes they trigger, so
     /// a snapshot captured at call time could be written after a newer one and undo it.
@@ -265,6 +378,29 @@ public class InsightsTests
 
         Assert.Equal(2, reloaded.Total);
         Assert.Equal(["second", "first"], reloaded.Alerts.Select(alert => alert.CheckerName));
+    }
+
+    [Fact]
+    public async Task AlertHistory_CoalescesWritesWhileTheStateProviderIsSlow()
+    {
+        var store = new BlockingFirstWriteProvider();
+        var history = new AlertHistory(capacity: 100, store);
+        history.Record(Alert("first"), delivered: true);
+        await store.FirstEntered.WaitAsync(Ct);
+
+        foreach (var index in Enumerable.Range(1, 64))
+        {
+            history.Record(Alert($"queued-{index}"), delivered: true);
+        }
+
+        store.ReleaseFirst();
+        await store.SecondCompleted.WaitAsync(Ct);
+        var thirdOrTimeout = await Task.WhenAny(store.ThirdStarted, Task.Delay(TimeSpan.FromSeconds(1), Ct));
+
+        Assert.NotSame(store.ThirdStarted, thirdOrTimeout);
+        Assert.Equal(2, store.Writes);
+        var reloaded = await new AlertHistory(capacity: 100, store).GetAlertsAsync(0, 100, Ct);
+        Assert.Equal(65, reloaded.Total);
     }
 
     /// <summary>

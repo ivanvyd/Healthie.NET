@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- HTTP checker display names and result messages now omit URI user information, query strings, and
+  fragments, server-controlled reason phrases, and transport exception details, preventing embedded
+  credentials and tokens from reaching stored history, alerts, logs, or the dashboard while requests
+  still use the complete configured URI.
+- Alert-history persistence now loads durable history before its first post-restart write and
+  coalesces changes raised during a slow state-provider write into one latest-state follow-up. This
+  preserves earlier alerts without duplicating the new one and avoids an unbounded queue of tasks
+  and redundant full-history writes during alert bursts.
+- The Web API sample maps its unauthenticated management API and mutation-enabled MCP endpoint only
+  in Development, so deploying the sample with a production environment no longer exposes those
+  local demonstration surfaces. Liveness and readiness probes remain available.
 - History clearing and startup trimming now use optimistic concurrency, so they no longer overwrite
   a check result or setting changed by another replica between the read and write.
 - Leader election now serializes schedule changes with leadership transitions and reconciles every
