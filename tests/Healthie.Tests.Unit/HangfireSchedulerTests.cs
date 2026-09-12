@@ -141,6 +141,30 @@ public class HangfirePulseSchedulerTests
         Assert.Empty(jobs.Removed);
     }
 
+    [Theory]
+    [InlineData("0 3 * * 1-5", true)]
+    [InlineData("*/10 * * * * *", true)]
+    [InlineData("H * * * *", false)]
+    [InlineData("not a cron", false)]
+    [InlineData("99 99 * * *", false)]
+    public void ValidationMatchesHangfiresCronParser(string expression, bool expected)
+    {
+        IPulseScheduler scheduler = new HangfirePulseScheduler(new RecordingRecurringJobManager());
+
+        Assert.Equal(expected, scheduler.TryValidateSchedule(PulseSchedule.Cron(expression), out var error));
+        Assert.Equal(expected, string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    public void ValidationRefusesAPeriodHangfireCannotRepresent()
+    {
+        IPulseScheduler scheduler = new HangfirePulseScheduler(new RecordingRecurringJobManager());
+
+        Assert.False(
+            scheduler.TryValidateSchedule(PulseSchedule.Every(TimeSpan.FromSeconds(7)), out var error));
+        Assert.False(string.IsNullOrWhiteSpace(error));
+    }
+
     [Fact]
     public async Task UnscheduleAsync_RemovesTheRecurringJob()
     {

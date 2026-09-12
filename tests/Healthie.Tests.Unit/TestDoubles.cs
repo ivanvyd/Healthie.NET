@@ -55,11 +55,12 @@ internal sealed class FakePulseChecker(string name) : IPulseChecker
     public string DisplayName => name;
 
     /// <summary>Raises <see cref="StateChanged"/> as a real checker would after a state change.</summary>
-    public void RaiseStateChanged(PulseCheckerHealth health)
+    public void RaiseStateChanged(PulseCheckerHealth health, DateTime? executedAt = null)
     {
         var oldState = _state;
         _state = new PulseCheckerState(PulseInterval.EveryMinute, 0)
         {
+            LastExecutionDateTime = executedAt ?? DateTime.UtcNow,
             LastResult = new PulseCheckerResult(health, health.ToString()),
         };
         StateChanged?.Invoke(this, new PulseCheckerStateChangedEventArgs(oldState, _state));

@@ -46,13 +46,14 @@ builder.Services
 | Type | Description |
 |---|---|
 | `StartupExtensions.AddHealthieCosmosDb()` | Registers `CosmosDbStateProvider` as the singleton `IStateProvider` and `CosmosDbStateProviderInitializer` as an `IStateProviderInitializer`. |
-| `CosmosDbStateProvider` | Implements `IStateProvider` using CosmosDB `ReadItemAsync` / `UpsertItemAsync`. |
+| `CosmosDbStateProvider` | Implements `IStateProvider` using CosmosDB point reads, bulk reads, and upserts. |
 | `CosmosDbStateProviderInitializer` | Creates the container on startup if it is missing and validates its partition key path. |
 
 ## How It Works
 
 - Each pulse checker's state is stored as a document with the checker's fully-qualified name as both the `id` and partition key.
 - `GetStateAsync` reads the document by id; returns `default` on `404 NotFound`.
+- `GetStatesAsync` sends all requested id and partition-key pairs through CosmosDB's `ReadManyItemsAsync`, so a dashboard load or leader renewal does not wait for one sequential network call per checker.
 - Each document records the assembly-qualified type of the state it holds, and reading it as a different type throws rather than returning a mismatched state. Documents written before the type was recorded carry no type and are read as-is.
 - `SetStateAsync` upserts the document, creating or replacing it atomically.
 

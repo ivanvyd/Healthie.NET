@@ -44,6 +44,29 @@ public class CosmosDbConcurrencyTests
         public override CosmosDiagnostics Diagnostics => null!;
     }
 
+    private sealed class FakeFeedResponse<T>(IReadOnlyList<T> items) : FeedResponse<T>
+    {
+        public override string ContinuationToken => string.Empty;
+
+        public override double RequestCharge => 0;
+
+        public override string ActivityId => string.Empty;
+
+        public override Headers Headers => new();
+
+        public override CosmosDiagnostics Diagnostics => null!;
+
+        public override int Count => items.Count;
+
+        public override string IndexMetrics => string.Empty;
+
+        public override HttpStatusCode StatusCode => HttpStatusCode.OK;
+
+        public override IEnumerable<T> Resource => items;
+
+        public override IEnumerator<T> GetEnumerator() => items.GetEnumerator();
+    }
+
     /// <summary>
     /// The parts of a container this provider uses, with CosmosDB's concurrency rules and nothing
     /// else.
@@ -55,6 +78,12 @@ public class CosmosDbConcurrencyTests
 
         /// <summary>How many writes were sent without a condition attached.</summary>
         public int UnconditionalWrites { get; private set; }
+
+        public int IndividualReads { get; private set; }
+
+        public int BulkReads { get; private set; }
+
+        public IReadOnlyList<string> LastBulkIds { get; private set; } = [];
 
         private string NextETag() => $"\"etag-{++_etags}\"";
 
@@ -77,12 +106,28 @@ public class CosmosDbConcurrencyTests
             ItemRequestOptions? requestOptions = null,
             CancellationToken cancellationToken = default)
         {
+            IndividualReads++;
+
             if (!_items.TryGetValue(id, out var stored))
             {
                 throw new CosmosException("Not found", HttpStatusCode.NotFound, 0, string.Empty, 0);
             }
 
             return Task.FromResult<ItemResponse<T>>(new FakeResponse<T>((T)stored.Document, stored.ETag));
+        }
+
+        public override Task<FeedResponse<T>> ReadManyItemsAsync<T>(
+            IReadOnlyList<(string id, PartitionKey partitionKey)> items,
+            ReadManyRequestOptions? readManyRequestOptions = null,
+            CancellationToken cancellationToken = default)
+        {
+            BulkReads++;
+            LastBulkIds = items.Select(item => item.id).ToList();
+            IReadOnlyList<T> found = items
+                .Where(item => _items.ContainsKey(item.id))
+                .Select(item => (T)_items[item.id].Document)
+                .ToList();
+            return Task.FromResult<FeedResponse<T>>(new FakeFeedResponse<T>(found));
         }
 
         public override Task<ItemResponse<T>> UpsertItemAsync<T>(
@@ -233,5 +278,34 @@ public class CosmosDbConcurrencyTests
         await provider.TrySetStateAsync("x", new PulseCheckerState(), expectedVersion: null, Ct);
 
         Assert.Equal(1, container.UnconditionalWrites);
+    }
+
+    [Fact]
+    public async Task BulkRead_UsesOneReadManyCallAndOmitsMissingItems()
+    {
+        var provider = Provider(out var container);
+        await provider.SetStateAsync("a", new PulseCheckerState(PulseInterval.EverySecond), Ct);
+        await provider.SetStateAsync("b", new PulseCheckerState(PulseInterval.EveryMinute), Ct);
+        var individualReadsBefore = container.IndividualReads;
+
+        var states = await provider.GetStatesAsync<PulseCheckerState>(["a", "missing", "b", "a"], Ct);
+
+        Assert.Equal(1, container.BulkReads);
+        Assert.Equal(["a", "missing", "b"], container.LastBulkIds);
+        Assert.Equal(individualReadsBefore, container.IndividualReads);
+        Assert.Equal(PulseInterval.EverySecond, states["a"].Interval);
+        Assert.Equal(PulseInterval.EveryMinute, states["b"].Interval);
+        Assert.False(states.ContainsKey("missing"));
+    }
+
+    [Fact]
+    public async Task EmptyBulkRead_DoesNotCallCosmosDb()
+    {
+        var provider = Provider(out var container);
+
+        var states = await provider.GetStatesAsync<PulseCheckerState>([], Ct);
+
+        Assert.Empty(states);
+        Assert.Equal(0, container.BulkReads);
     }
 }

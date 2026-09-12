@@ -57,6 +57,50 @@ public class CosmosDbStateProvider(Container container) : IStateProvider
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Uses CosmosDB's point-read batch API. The partition key is the checker name, so every item
+    /// already has the exact id and partition-key pair the API needs, and listing or reconciling N
+    /// checkers does not make N sequential network round trips.
+    /// </remarks>
+    public async Task<IReadOnlyDictionary<string, TState>> GetStatesAsync<TState>(
+        IEnumerable<string> names,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+
+        var wanted = names.Distinct(StringComparer.Ordinal).ToList();
+        var states = new Dictionary<string, TState>(StringComparer.Ordinal);
+
+        if (wanted.Count == 0)
+        {
+            return states;
+        }
+
+        foreach (var name in wanted)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        }
+
+        var items = wanted
+            .Select(name => (id: name, partitionKey: new PartitionKey(name)))
+            .ToList();
+        var response = await _container
+            .ReadManyItemsAsync<StateDocument<TState>>(items, cancellationToken: cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var document in response)
+        {
+            EnsureStoredTypeMatches<TState>(document.id, document.StateType);
+            if (document.Value is { } state)
+            {
+                states[document.id] = state;
+            }
+        }
+
+        return states;
+    }
+
+    /// <inheritdoc />
     public async Task SetStateAsync<TState>(
         string name,
         TState state,

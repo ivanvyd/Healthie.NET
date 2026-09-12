@@ -23,20 +23,60 @@ public sealed class LeaderElectionService(
 {
     private readonly ILeaseProvider _leases = leases ?? throw new ArgumentNullException(nameof(leases));
     private readonly LeaderElectedPulseScheduler _scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
-    private readonly LeaderElectionOptions _options = options ?? throw new ArgumentNullException(nameof(options));
+    private readonly LeaderElectionOptions _options = Validate(options);
+    private CancellationTokenSource? _leadershipCancellation;
+    private Task? _reconciliation;
+
+    private static LeaderElectionOptions Validate(LeaderElectionOptions? options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.LeaseName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.HolderId);
+
+        var renewMilliseconds = options.RenewInterval.TotalMilliseconds;
+        if (renewMilliseconds < 1 || renewMilliseconds >= uint.MaxValue)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.RenewInterval,
+                $"{nameof(LeaderElectionOptions.RenewInterval)} must be from one millisecond through " +
+                $"{uint.MaxValue - 1:N0} milliseconds.");
+        }
+
+        if (options.LeaseDuration <= options.RenewInterval)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options),
+                options.LeaseDuration,
+                $"{nameof(LeaderElectionOptions.LeaseDuration)} must be longer than " +
+                $"{nameof(LeaderElectionOptions.RenewInterval)} so the lease is renewed before it expires.");
+        }
+
+        return options;
+    }
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(_options.RenewInterval);
 
-        do
+        try
         {
-            await ContendAsync(stoppingToken).ConfigureAwait(false);
+            do
+            {
+                await ContendAsync(stoppingToken).ConfigureAwait(false);
+            }
+            while (await SafeWaitAsync(timer, stoppingToken).ConfigureAwait(false));
         }
-        while (await SafeWaitAsync(timer, stoppingToken).ConfigureAwait(false));
-
-        await StandDownOnShutdownAsync().ConfigureAwait(false);
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // Shutdown may interrupt lease acquisition or reconciliation, not only the timer wait.
+        }
+        finally
+        {
+            _leadershipCancellation?.Cancel();
+            await StandDownOnShutdownAsync().ConfigureAwait(false);
+        }
     }
 
     private async Task ContendAsync(CancellationToken stoppingToken)
@@ -49,11 +89,11 @@ public sealed class LeaderElectionService(
 
             if (won)
             {
-                await _scheduler.BecomeLeaderAsync(stoppingToken).ConfigureAwait(false);
+                StartReconciliation(stoppingToken);
             }
             else
             {
-                await _scheduler.StandDownAsync(stoppingToken).ConfigureAwait(false);
+                await StopLeadershipAsync(stoppingToken).ConfigureAwait(false);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -64,7 +104,7 @@ public sealed class LeaderElectionService(
 
             try
             {
-                await _scheduler.StandDownAsync(stoppingToken).ConfigureAwait(false);
+                await StopLeadershipAsync(stoppingToken).ConfigureAwait(false);
             }
             catch (Exception standDownFailure) when (standDownFailure is not OperationCanceledException)
             {
@@ -94,21 +134,86 @@ public sealed class LeaderElectionService(
     /// </remarks>
     private async Task StandDownOnShutdownAsync()
     {
-        if (!_scheduler.IsLeader)
+        var stoodDown = false;
+        try
+        {
+            using var standDown = new CancellationTokenSource(_options.RenewInterval);
+            await _scheduler.StandDownAsync(standDown.Token).ConfigureAwait(false);
+            stoodDown = true;
+        }
+        catch (Exception ex)
+        {
+            logger?.LogWarning(ex, "Could not stop every pulse checker on shutdown.");
+        }
+
+        // Releasing after partial cleanup would let another replica start while a failed schedule
+        // still runs here. Keep the lease until it expires instead.
+        if (!stoodDown)
         {
             return;
         }
 
-        using var shutdown = new CancellationTokenSource(_options.RenewInterval);
-
         try
         {
-            await _scheduler.StandDownAsync(shutdown.Token).ConfigureAwait(false);
-            await _leases.ReleaseAsync(_options.LeaseName, _options.HolderId, shutdown.Token).ConfigureAwait(false);
+            // Safe for followers: providers only release a lease held by this replica's HolderId.
+            using var release = new CancellationTokenSource(_options.RenewInterval);
+            await _leases
+                .ReleaseAsync(_options.LeaseName, _options.HolderId, release.Token)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            logger?.LogWarning(ex, "Could not release the '{LeaseName}' lease on shutdown; it will expire.", _options.LeaseName);
+            logger?.LogWarning(
+                ex,
+                "Could not release the '{LeaseName}' lease on shutdown; it will expire.",
+                _options.LeaseName);
         }
+    }
+
+    /// <summary>
+    /// Starts one reconciliation without putting lease renewal behind remote state or scheduler
+    /// calls. A later lease tick starts the next reconciliation after this one finishes.
+    /// </summary>
+    private void StartReconciliation(CancellationToken stoppingToken)
+    {
+        if (_reconciliation is { IsCompleted: false })
+        {
+            return;
+        }
+
+        _leadershipCancellation?.Dispose();
+        _leadershipCancellation = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+        _reconciliation = ReconcileAsLeaderAsync(_leadershipCancellation.Token);
+    }
+
+    private async Task ReconcileAsLeaderAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _scheduler.BecomeLeaderAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Losing the lease or shutting down interrupts unfinished reconciliation.
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "Could not reconcile pulse schedules while leading; standing down.");
+
+            try
+            {
+                await _scheduler.StandDownAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception standDownFailure) when (standDownFailure is not OperationCanceledException)
+            {
+                logger?.LogError(standDownFailure, "Could not stand down after reconciliation failed.");
+            }
+        }
+    }
+
+    private async Task StopLeadershipAsync(CancellationToken cancellationToken)
+    {
+        _leadershipCancellation?.Cancel();
+        await _scheduler.StandDownAsync(cancellationToken).ConfigureAwait(false);
     }
 }

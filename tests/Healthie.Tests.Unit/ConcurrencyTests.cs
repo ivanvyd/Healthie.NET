@@ -369,6 +369,60 @@ public class PulseCheckerConcurrencyTests
         Assert.Equal("set-while-the-check-ran", state.Group);
     }
 
+    /// <summary>
+    /// Clearing history changes one field of a shared state document. It must use the same
+    /// conditional-write loop as every setting mutation, or a result or setting written between
+    /// its read and write is silently put back to the stale value.
+    /// </summary>
+    [Fact]
+    public async Task ClearingHistory_DoesNotRevertAConcurrentSettingChange()
+    {
+        var store = new InMemoryStateProvider();
+        using var writer = new NamedTestChecker(store) { CheckerName = "racy-clear" };
+        await writer.TriggerAsync(Ct);
+
+        var provider = new InterferingProvider(
+            store,
+            _ => writer.SetPinnedAsync(true, CancellationToken.None).GetAwaiter().GetResult());
+        using var clearer = new NamedTestChecker(provider) { CheckerName = "racy-clear" };
+
+        await clearer.ClearHistoryAsync(Ct);
+
+        var state = await store.GetStateAsync<PulseCheckerState>("racy-clear", Ct);
+        Assert.True(state!.IsPinned);
+        Assert.Empty(state.History);
+    }
+
+    /// <summary>
+    /// Startup trimming runs on every replica. A check completed by another replica while trimming
+    /// must remain the newest result, while the older oversized history is still reduced.
+    /// </summary>
+    [Fact]
+    public async Task TrimmingHistory_DoesNotRevertAConcurrentSettingChange()
+    {
+        var store = new InMemoryStateProvider();
+        using var writer = new NamedTestChecker(store) { CheckerName = "racy-trim" };
+        await writer.TriggerAsync(Ct);
+        await writer.TriggerAsync(Ct);
+
+        var provider = new InterferingProvider(
+            store,
+            _ => writer.SetPinnedAsync(true, CancellationToken.None).GetAwaiter().GetResult());
+        using var trimmer = new NamedTestChecker(provider) { CheckerName = "racy-trim" };
+        using var scheduler = new Healthie.Abstractions.Scheduling.PulsesScheduler(
+            [trimmer],
+            new CustomPulseScheduler(),
+            new Healthie.Abstractions.HealthieOptions { MaxHistoryLength = 1 });
+
+        await scheduler.StartAsync(Ct);
+        await scheduler.ExecuteTask!;
+        await scheduler.StopAsync(Ct);
+
+        var state = await store.GetStateAsync<PulseCheckerState>("racy-trim", Ct);
+        Assert.True(state!.IsPinned);
+        Assert.Single(state.History);
+    }
+
     [Fact]
     public async Task SettingSomethingToWhatItAlreadyIs_WritesNothing()
     {

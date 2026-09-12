@@ -447,10 +447,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     /// <inheritdoc />
     public async Task ClearHistoryAsync(CancellationToken cancellationToken = default)
     {
-        var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false)
-            ?? CreateInitialState();
-        state.History = [];
-        await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
+        await UpdateStateAsync(state => state.History = [], cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
@@ -701,13 +698,14 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     /// </summary>
     internal async Task TrimHistoryAsync(CancellationToken cancellationToken = default)
     {
-        var state = await _stateProvider.GetStateAsync<PulseCheckerState>(Name, cancellationToken).ConfigureAwait(false);
-        if (state is null) return;
-
-        if (state.History.Count > ConfiguredMaxHistoryLength)
-        {
-            state.History.RemoveRange(0, state.History.Count - ConfiguredMaxHistoryLength);
-            await _stateProvider.SetStateAsync(Name, state, cancellationToken).ConfigureAwait(false);
-        }
+        await UpdateStateAsync(
+            state =>
+            {
+                if (state.History.Count > ConfiguredMaxHistoryLength)
+                {
+                    state.History.RemoveRange(0, state.History.Count - ConfiguredMaxHistoryLength);
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 }

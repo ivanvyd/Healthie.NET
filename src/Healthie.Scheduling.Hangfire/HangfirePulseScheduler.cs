@@ -81,6 +81,24 @@ public sealed class HangfirePulseScheduler(
         return Task.CompletedTask;
     }
 
+    /// <inheritdoc />
+    public bool TryValidateSchedule(PulseSchedule schedule, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+
+        try
+        {
+            _ = PeriodCron.From(schedule, "schedule");
+            error = null;
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
     /// <summary>
     /// The recurring job identifier for a checker.
     /// </summary>

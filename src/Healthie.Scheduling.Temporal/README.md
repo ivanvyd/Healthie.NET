@@ -49,7 +49,12 @@ Schedules are named `healthie-<checker name>`, so they are recognisable in the T
 
 Overlap policy is `Skip`. A checker already refuses to run on top of itself, so buffering would queue occurrences that each return immediately — and a check that is late is worth less than the next one, which is current.
 
-Cron expressions pass through untranslated: Temporal parses standard Unix cron, the same syntax Healthie.NET uses. Fixed periods become interval specs, which Temporal counts from an epoch rather than from creation time, so replicas agree on when a schedule fires.
+Cron expressions use Healthie.NET's standard Unix form: five fields, or six with leading seconds.
+Temporal uses seven fields when seconds are present because its sixth field is a year, so the
+adapter appends a wildcard year to Healthie.NET's six-field form. Fixed periods become interval
+specs, which Temporal counts from an epoch rather than from creation time, so replicas agree on when
+a schedule fires. Temporal's one-second minimum is validated before an existing schedule is
+replaced.
 
 The workflow does nothing but call an activity — workflow code must be deterministic, and a pulse check is not — and the activity is given the checker's *name*, because a schedule outlives the process that created it and a checker does not survive being serialized.
 

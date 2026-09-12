@@ -61,11 +61,19 @@ public sealed class CoravelPulseScheduler(
         ArgumentNullException.ThrowIfNull(checker);
         ArgumentNullException.ThrowIfNull(schedule);
 
+        var now = _time.GetUtcNow().UtcDateTime;
+        if (schedule.Period is { } period && !TryValidatePeriod(period, now, out var periodError))
+        {
+            throw new ArgumentException(
+                $"Period '{period}' for pulse checker '{checker.Name}' cannot be scheduled. {periodError}",
+                nameof(schedule));
+        }
+
         // Parsed before anything is replaced, so a malformed expression cannot stop a checker that
         // is already running on a good one.
         var cron = schedule.IsCron ? ParseCron(schedule.CronExpression!, checker.Name) : null;
 
-        var due = NextDueAt(schedule, cron, _time.GetUtcNow().UtcDateTime);
+        var due = NextDueAt(schedule, cron, now);
 
         if (due is null)
         {
@@ -90,6 +98,31 @@ public sealed class CoravelPulseScheduler(
         _scheduled.TryRemove(checker.Name, out _);
 
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public bool TryValidateSchedule(PulseSchedule schedule, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(schedule);
+
+        if (schedule.Period is { } period)
+        {
+            return TryValidatePeriod(period, _time.GetUtcNow().UtcDateTime, out error);
+        }
+
+        var expression = schedule.CronExpression!;
+
+        try
+        {
+            _ = ParseCron(expression, "schedule");
+            error = null;
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            error = ex.InnerException?.Message ?? ex.Message;
+            return false;
+        }
     }
 
     /// <summary>
@@ -140,6 +173,18 @@ public sealed class CoravelPulseScheduler(
     private static DateTime? NextDueAt(PulseSchedule schedule, CronExpression? cron, DateTime after) =>
         cron is not null ? cron.GetNextOccurrence(after) : after + schedule.Period!.Value;
 
+    private static bool TryValidatePeriod(TimeSpan period, DateTime now, out string? error)
+    {
+        if (period <= DateTime.MaxValue - now)
+        {
+            error = null;
+            return true;
+        }
+
+        error = "The next occurrence would be later than DateTime.MaxValue.";
+        return false;
+    }
+
     /// <summary>Parses a standard Unix cron expression, in five fields or six with leading seconds.</summary>
     private static CronExpression ParseCron(string expression, string checkerName)
     {
@@ -151,7 +196,7 @@ public sealed class CoravelPulseScheduler(
         {
             return CronExpression.Parse(expression, format);
         }
-        catch (CronFormatException ex)
+        catch (Exception ex) when (ex is CronFormatException or MissingSeedException)
         {
             throw new ArgumentException(
                 $"Cron expression '{expression}' for pulse checker '{checkerName}' could not be parsed. " +

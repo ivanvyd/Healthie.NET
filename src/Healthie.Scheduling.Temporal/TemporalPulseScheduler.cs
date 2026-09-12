@@ -2,8 +2,8 @@ using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Scheduling;
 using Microsoft.Extensions.Logging;
-using Temporalio.Client;
 using Temporalio.Api.Enums.V1;
+using Temporalio.Client;
 using Temporalio.Client.Schedules;
 using Temporalio.Exceptions;
 
@@ -53,6 +53,7 @@ public sealed class TemporalPulseScheduler(
         ArgumentNullException.ThrowIfNull(schedule);
 
         var scheduleId = ScheduleId(checker);
+        var spec = TemporalScheduleSpec.From(schedule);
 
         // Temporal has no create-or-replace, so an existing schedule is removed first. Deleting
         // something that is not there is not an error, which is what makes this safe to repeat.
@@ -64,7 +65,7 @@ public sealed class TemporalPulseScheduler(
                 Action: ScheduleActionStartWorkflow.Create(
                     (PulseCheckerWorkflow workflow) => workflow.RunAsync(checker.Name),
                     new(id: $"{scheduleId}-run", taskQueue: _options.TaskQueue)),
-                Spec: TemporalScheduleSpec.From(schedule))
+                Spec: spec)
             {
                 Policy = new()
                 {
@@ -102,6 +103,10 @@ public sealed class TemporalPulseScheduler(
             // everywhere else in this library, and callers rely on it before rescheduling.
         }
     }
+
+    /// <inheritdoc />
+    public bool TryValidateSchedule(PulseSchedule schedule, out string? error) =>
+        TemporalScheduleSpec.TryValidate(schedule, out error);
 
     /// <summary>The Temporal schedule identifier for a checker.</summary>
     /// <remarks>

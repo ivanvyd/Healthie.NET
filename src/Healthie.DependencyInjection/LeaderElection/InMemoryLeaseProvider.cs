@@ -24,30 +24,49 @@ public sealed class InMemoryLeaseProvider : ILeaseProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(leaseName);
         ArgumentException.ThrowIfNullOrWhiteSpace(holderId);
+        if (duration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration), duration, "A lease duration must be positive.");
+        }
 
-        var now = DateTime.UtcNow;
-        var taken = false;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
 
-        _leases.AddOrUpdate(
-            leaseName,
-            _ =>
+            var now = DateTime.UtcNow;
+            if (duration > DateTime.MaxValue - now)
             {
-                taken = true;
-                return (holderId, now + duration);
-            },
-            (_, current) =>
+                throw new ArgumentOutOfRangeException(
+                    nameof(duration),
+                    duration,
+                    "The lease expiry would be later than DateTime.MaxValue.");
+            }
+
+            var replacement = (holderId, ExpiresAt: now + duration);
+
+            if (!_leases.TryGetValue(leaseName, out var current))
             {
-                // Free if it has expired, and always renewable by whoever already holds it.
-                if (current.ExpiresAt <= now || current.HolderId == holderId)
+                if (_leases.TryAdd(leaseName, replacement))
                 {
-                    taken = true;
-                    return (holderId, now + duration);
+                    return Task.FromResult(true);
                 }
 
-                return current;
-            });
+                continue;
+            }
 
-        return Task.FromResult(taken);
+            // Free if it has expired, and always renewable by whoever already holds it. The
+            // compare-and-swap makes the returned answer describe the write that actually landed,
+            // rather than a ConcurrentDictionary factory that may have been retried.
+            if (current.ExpiresAt > now && current.HolderId != holderId)
+            {
+                return Task.FromResult(false);
+            }
+
+            if (_leases.TryUpdate(leaseName, replacement, current))
+            {
+                return Task.FromResult(true);
+            }
+        }
     }
 
     /// <inheritdoc />

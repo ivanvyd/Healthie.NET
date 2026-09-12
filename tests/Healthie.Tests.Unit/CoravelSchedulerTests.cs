@@ -151,6 +151,33 @@ public class CoravelSchedulerTests
         Assert.Contains("bad-cron", ex.Message, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("0 3 * * 1-5", true)]
+    [InlineData("*/10 * * * * *", true)]
+    [InlineData("H * * * *", false)]
+    [InlineData("not a cron", false)]
+    [InlineData("99 99 * * *", false)]
+    public void ValidationMatchesTheCronParser(string expression, bool expected)
+    {
+        IPulseScheduler scheduler = new CoravelPulseScheduler();
+
+        Assert.Equal(expected, scheduler.TryValidateSchedule(PulseSchedule.Cron(expression), out var error));
+        Assert.Equal(expected, string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    public async Task APeriodBeyondDateTimesRange_IsRejectedBeforeItCanReplaceAWorkingSchedule()
+    {
+        IPulseScheduler scheduler = new CoravelPulseScheduler();
+        var checker = new FakePulseChecker("period-overflow");
+        await scheduler.ScheduleAsync(checker, PulseSchedule.Every(TimeSpan.FromSeconds(1)), Ct);
+        var impossible = PulseSchedule.Every(TimeSpan.MaxValue);
+
+        Assert.False(scheduler.TryValidateSchedule(impossible, out var error));
+        await Assert.ThrowsAsync<ArgumentException>(() => scheduler.ScheduleAsync(checker, impossible, Ct));
+        Assert.False(string.IsNullOrWhiteSpace(error));
+    }
+
     /// <summary>A rejected schedule must leave a working one alone.</summary>
     [Fact]
     public async Task WhenANewScheduleIsInvalid_TheRunningOneSurvives()

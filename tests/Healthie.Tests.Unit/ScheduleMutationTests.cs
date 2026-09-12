@@ -4,6 +4,7 @@ using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.Abstractions.StateProviding;
 using Healthie.DependencyInjection;
+using Healthie.Scheduling.Coravel;
 
 namespace Healthie.Tests.Unit;
 
@@ -149,6 +150,7 @@ public class ScheduleMutationTests
     [InlineData("99 99 * * *")]
     [InlineData("not a cron expression")]
     [InlineData("* * *")]
+    [InlineData("H * * * *")]
     public void TimerScheduler_RefusesABadCronExpression_WithAReason(string expression)
     {
         using var scheduler = new TimerPulseScheduler();
@@ -181,6 +183,25 @@ public class ScheduleMutationTests
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             pulses.SetScheduleAsync("schedule-target", PulseSchedule.Cron("99 99 * * *"), Ct));
+
+        Assert.Equal(CronScheduledChecker.InitialCron, (await StateOf(provider)).Schedule?.CronExpression);
+    }
+
+    /// <summary>
+    /// Validation belongs to the configured adapter. If it inherits the compatibility default,
+    /// the invalid value is stored before the adapter itself throws while trying to schedule it.
+    /// </summary>
+    [Fact]
+    public async Task PulsesScheduler_WithCoravel_RefusesInvalidCronBeforePersistingIt()
+    {
+        var provider = new InMemoryStateProvider();
+        using var checker = new CronScheduledChecker(provider);
+        await checker.TriggerAsync(Ct);
+
+        var pulses = new PulsesScheduler([checker], new CoravelPulseScheduler(), new HealthieOptions());
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            pulses.SetScheduleAsync("schedule-target", PulseSchedule.Cron("not a cron"), Ct));
 
         Assert.Equal(CronScheduledChecker.InitialCron, (await StateOf(provider)).Schedule?.CronExpression);
     }
