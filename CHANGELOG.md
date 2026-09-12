@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- History clearing and startup trimming now use optimistic concurrency, so they no longer overwrite
+  a check result or setting changed by another replica between the read and write.
+- Leader election now serializes schedule changes with leadership transitions and reconciles every
+  registered checker's persisted active state and schedule through a bulk read on lease renewal. A
+  pause or cadence change made through another replica now reaches the leader, a fresh leader
+  removes inactive durable jobs left by the previous process, and reconciliation runs with bounded
+  concurrency while an independent lease heartbeat prevents slow scheduler calls from expiring an
+  otherwise healthy leader. Partial and cancelled transitions remain tracked until cleanup succeeds,
+  and shutdown does not release the lease over work it could not stop.
+- CosmosDB multi-state reads now use `ReadManyItemsAsync`, avoiding one sequential network round
+  trip per checker during dashboard loads and leader renewal.
+- The in-memory lease provider now returns exactly one winner when replicas contend concurrently.
+- Coravel, Hangfire, Temporal, and the leader-election decorator now validate schedules before they
+  are persisted. Cronos expressions requiring an absent jitter seed are reported as validation
+  failures instead of escaping as server errors. The built-in timer also rejects periods outside
+  `PeriodicTimer`'s supported range before replacing a working schedule.
+- Temporal now preserves Healthie.NET's six-field, leading-seconds cron meaning by translating it
+  to Temporal's seven-field seconds form. It rejects Cronos-only relative-day and descending-range
+  expressions whose Temporal meaning differs, and fixed periods outside Temporal's supported range,
+  before an existing schedule is removed.
+- Uptime recording now starts a new observation segment on the first fresh result after a process
+  restart, even when its health matches persisted state. Time while no process was observing the
+  checker remains unknown, and a transition that finds the bounded queue full is retried by the next
+  fresh result.
+
 ## [4.1.1] - 2026-08-14
 
 ### Fixed

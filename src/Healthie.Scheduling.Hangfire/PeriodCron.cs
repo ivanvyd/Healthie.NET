@@ -1,3 +1,4 @@
+using Cronos;
 using Healthie.Abstractions.Scheduling;
 using System.Globalization;
 
@@ -32,6 +33,19 @@ internal static class PeriodCron
     {
         if (schedule.CronExpression is { } cron)
         {
+            try
+            {
+                CronExpression.Parse(cron, CronFormatFor(cron));
+            }
+            catch (Exception ex) when (ex is CronFormatException or MissingSeedException)
+            {
+                throw new ArgumentException(
+                    $"Cron expression '{cron}' for pulse checker '{checkerName}' could not be parsed. " +
+                    "Expected standard Unix cron: five fields, or six with a leading seconds field.",
+                    nameof(schedule),
+                    ex);
+            }
+
             return cron;
         }
 
@@ -92,4 +106,9 @@ internal static class PeriodCron
 
     private static string Format(string format, long value) =>
         string.Format(CultureInfo.InvariantCulture, format, value);
+
+    private static CronFormat CronFormatFor(string expression) =>
+        expression.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length >= 6
+            ? CronFormat.IncludeSeconds
+            : CronFormat.Standard;
 }

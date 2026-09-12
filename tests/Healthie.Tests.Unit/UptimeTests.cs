@@ -1,6 +1,8 @@
 using Healthie.Abstractions.Enums;
+using Healthie.DependencyInjection;
 using Healthie.Uptime;
 using Microsoft.Extensions.Hosting;
+using System.Collections.Concurrent;
 
 namespace Healthie.Tests.Unit;
 
@@ -245,6 +247,41 @@ public class UptimeStoreTests
 /// </summary>
 public class UptimeRecorderTests
 {
+    private sealed class BlockingFirstStore : IUptimeStore
+    {
+        private readonly TaskCompletionSource _entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _calls;
+
+        public ConcurrentQueue<UptimeSegment> Recorded { get; } = new();
+
+        public Task Entered => _entered.Task;
+
+        public void Release() => _release.TrySetResult();
+
+        public async Task RecordAsync(
+            string checkerName,
+            PulseCheckerHealth health,
+            DateTime at,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) == 1)
+            {
+                _entered.TrySetResult();
+                await _release.Task.WaitAsync(cancellationToken);
+            }
+
+            Recorded.Enqueue(new UptimeSegment(checkerName, health, at));
+        }
+
+        public Task<IReadOnlyList<UptimeSegment>> GetSegmentsAsync(
+            string checkerName,
+            DateTime from,
+            DateTime to,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<UptimeSegment>>([]);
+    }
+
     private sealed class HangingStore : IUptimeStore
     {
         public Task RecordAsync(string checkerName, PulseCheckerHealth health, DateTime at, CancellationToken cancellationToken = default)
@@ -309,6 +346,108 @@ public class UptimeRecorderTests
     }
 
     /// <summary>
+    /// A process restart begins a new observation window. A persisted result is stale until a fresh
+    /// check observes it, but that first observation must be recorded even when its health equals
+    /// the persisted result. Otherwise uptime remains unknown until the component changes health.
+    /// </summary>
+    [Fact]
+    public async Task FirstFreshResultMatchingPersistedHealth_StartsANewObservedSegment()
+    {
+        var store = new InMemoryUptimeStore();
+        var checker = new FakePulseChecker("restarted");
+        checker.RaiseStateChanged(PulseCheckerHealth.Healthy);
+        var recorder = new UptimeRecorder([checker], store);
+
+        await ((IHostedService)recorder).StartAsync(CancellationToken.None);
+
+        try
+        {
+            Assert.Empty(await store.GetSegmentsAsync(
+                "restarted", DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1),
+                TestContext.Current.CancellationToken));
+
+            checker.RaiseStateChanged(PulseCheckerHealth.Healthy);
+
+            Assert.True(await WaitUntilAsync(
+                () => store.GetSegmentsAsync("restarted", DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1))
+                    .GetAwaiter().GetResult().Count == 1,
+                TimeSpan.FromSeconds(5)));
+
+            checker.RaiseStateChanged(PulseCheckerHealth.Healthy);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+
+            Assert.Single(await store.GetSegmentsAsync(
+                "restarted", DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1),
+                TestContext.Current.CancellationToken));
+        }
+        finally
+        {
+            await ((IHostedService)recorder).StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task SameHealthResetAfterRestart_DoesNotPretendACheckWasObserved()
+    {
+        var states = new InMemoryStateProvider();
+        using var checker = new AlwaysHealthyPulseChecker(states);
+        await checker.TriggerAsync(TestContext.Current.CancellationToken);
+        var store = new InMemoryUptimeStore();
+        var recorder = new UptimeRecorder([checker], store);
+        await ((IHostedService)recorder).StartAsync(CancellationToken.None);
+
+        try
+        {
+            await checker.ResetAsync(TestContext.Current.CancellationToken);
+            await Task.Delay(100, TestContext.Current.CancellationToken);
+            Assert.Empty(await store.GetSegmentsAsync(
+                checker.Name, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1),
+                TestContext.Current.CancellationToken));
+
+            await checker.TriggerAsync(TestContext.Current.CancellationToken);
+
+            Assert.True(await WaitUntilAsync(
+                () => store.GetSegmentsAsync(
+                        checker.Name, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1))
+                    .GetAwaiter().GetResult().Count == 1,
+                TimeSpan.FromSeconds(5)));
+        }
+        finally
+        {
+            await ((IHostedService)recorder).StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task FreshResultSegmentStartsAtExecutionTime()
+    {
+        var store = new InMemoryUptimeStore();
+        var checker = new FakePulseChecker("execution-boundary");
+        var recorder = new UptimeRecorder([checker], store);
+        var executedAt = DateTime.UtcNow.AddMinutes(-2);
+        await ((IHostedService)recorder).StartAsync(CancellationToken.None);
+
+        try
+        {
+            checker.RaiseStateChanged(PulseCheckerHealth.Unhealthy, executedAt);
+            Assert.True(await WaitUntilAsync(
+                () => store.GetSegmentsAsync(
+                        checker.Name, executedAt.AddMinutes(-1), DateTime.UtcNow.AddMinutes(1))
+                    .GetAwaiter().GetResult().Count == 1,
+                TimeSpan.FromSeconds(5)));
+
+            var segment = Assert.Single(await store.GetSegmentsAsync(
+                checker.Name, executedAt.AddMinutes(-1), DateTime.UtcNow.AddMinutes(1),
+                TestContext.Current.CancellationToken));
+            Assert.Equal(executedAt, segment.StartedAt);
+        }
+        finally
+        {
+            await ((IHostedService)recorder).StopAsync(CancellationToken.None);
+        }
+    }
+
+    /// <summary>
     /// StateChanged fires on every check, not on every change, so a one-second checker raises 86,400
     /// events a day of which perhaps four are transitions. The store would ignore the repeats
     /// anyway, but the queue would not: without filtering at the source it fills with no-ops and
@@ -337,6 +476,49 @@ public class UptimeRecorderTests
         }
         finally
         {
+            await ((IHostedService)recorder).StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task ADroppedTransition_IsRetriedByTheNextFreshResult()
+    {
+        var store = new BlockingFirstStore();
+        var checker = new FakePulseChecker("recovers-a-drop");
+        var recorder = new UptimeRecorder([checker], store);
+
+        await ((IHostedService)recorder).StartAsync(CancellationToken.None);
+
+        try
+        {
+            checker.RaiseStateChanged(PulseCheckerHealth.Unhealthy);
+            await store.Entered.WaitAsync(TestContext.Current.CancellationToken);
+
+            // The reader is blocked on the first write. Fill all 1,024 queue slots, then make the
+            // final Healthy transition the one that cannot fit.
+            var droppedAt = DateTime.UtcNow.AddMinutes(-1);
+            for (var i = 0; i < 1025; i++)
+            {
+                checker.RaiseStateChanged(
+                    i % 2 == 0 ? PulseCheckerHealth.Healthy : PulseCheckerHealth.Unhealthy,
+                    i == 1024 ? droppedAt : null);
+            }
+
+            Assert.Equal(1, recorder.DroppedCount);
+            store.Release();
+            Assert.True(await WaitUntilAsync(() => store.Recorded.Count == 1025, TimeSpan.FromSeconds(5)));
+
+            // The checker is still Healthy, so this is a fresh observation rather than another
+            // transition. It must retry the dropped state instead of leaving uptime stale.
+            checker.RaiseStateChanged(PulseCheckerHealth.Healthy);
+
+            Assert.True(await WaitUntilAsync(() => store.Recorded.Count == 1026, TimeSpan.FromSeconds(5)));
+            Assert.Equal(PulseCheckerHealth.Healthy, store.Recorded.Last().Health);
+            Assert.Equal(droppedAt, store.Recorded.Last().StartedAt);
+        }
+        finally
+        {
+            store.Release();
             await ((IHostedService)recorder).StopAsync(CancellationToken.None);
         }
     }

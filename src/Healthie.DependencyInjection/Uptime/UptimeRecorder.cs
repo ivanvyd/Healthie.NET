@@ -1,4 +1,5 @@
 using Healthie.Abstractions;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -7,7 +8,8 @@ using System.Threading.Channels;
 namespace Healthie.Uptime;
 
 /// <summary>
-/// Watches every registered checker and records each health change as a segment.
+/// Watches every registered checker and records its first fresh result and each health change as a
+/// segment.
 /// </summary>
 /// <remarks>
 /// Subscribes rather than sitting inside the check, for the same reason alerting does: a store that
@@ -23,6 +25,9 @@ public sealed class UptimeRecorder : BackgroundService
 
     private readonly Channel<UptimeSegment> _queue;
     private readonly List<(IPulseChecker Checker, EventHandler<PulseCheckerStateChangedEventArgs> Handler)> _subscriptions = [];
+    private readonly Dictionary<string, PulseCheckerHealth> _recordedHealth = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, UptimeSegment> _pending = new(StringComparer.Ordinal);
+    private readonly object _observationLock = new();
 
     private long _dropped;
 
@@ -44,12 +49,12 @@ public sealed class UptimeRecorder : BackgroundService
         _queue = Channel.CreateBounded<UptimeSegment>(
             new BoundedChannelOptions(1024)
             {
-                FullMode = BoundedChannelFullMode.DropWrite,
+                // The event handler still uses TryWrite and never waits. Wait mode makes TryWrite
+                // report a full queue instead of claiming a DropWrite was accepted, so the same
+                // health can be retried by the next fresh check.
+                FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
-            },
-            // TryWrite returns true whether the item was queued or discarded under DropWrite, so
-            // the count has to come from the channel rather than from its result.
-            _ => Interlocked.Increment(ref _dropped));
+            });
     }
 
     /// <summary>Transitions discarded because the queue was full since the process started.</summary>
@@ -121,15 +126,60 @@ public sealed class UptimeRecorder : BackgroundService
     /// </summary>
     private void OnStateChanged(IPulseChecker checker, PulseCheckerStateChangedEventArgs args)
     {
-        // Only a change of health starts a new segment. StateChanged fires on every check, because
-        // a stored result always moves the execution time, so recording every one of them would
-        // turn a day into 86,400 segments that all say the same thing.
-        if (args.CurrentHealth is not { } health || args.PreviousHealth == health)
+        if (args.CurrentHealth is not { } health)
         {
             return;
         }
 
-        _queue.Writer.TryWrite(new UptimeSegment(checker.Name, health, DateTime.UtcNow));
+        // The first fresh result observed by this process starts its own segment even when it has
+        // the same health as persisted state. This leaves the time while the process was stopped
+        // unknown without waiting for a future health transition to resume uptime recording.
+        var newExecution = args.NewState.LastExecutionDateTime;
+        var isFreshResult = newExecution.HasValue
+            && newExecution != args.OldState.LastExecutionDateTime;
+        lock (_observationLock)
+        {
+            if (_recordedHealth.TryGetValue(checker.Name, out var recorded))
+            {
+                if (recorded == health)
+                {
+                    // A transition that overflowed the queue was superseded before it could be
+                    // retried. Keeping it would later stretch that transient state across the gap.
+                    _pending.Remove(checker.Name);
+                    return;
+                }
+            }
+            else if (!args.HealthChanged && !isFreshResult)
+            {
+                return;
+            }
+
+            // A check began at LastExecutionDateTime; a slow state write must not shift the outage
+            // boundary forward. Administrative health changes such as Reset have no new execution
+            // time, so they begin when this process observes the change.
+            var startedAt = isFreshResult
+                ? newExecution.GetValueOrDefault()
+                : DateTime.UtcNow;
+            var segment = new UptimeSegment(checker.Name, health, startedAt);
+
+            if (_pending.TryGetValue(checker.Name, out var pending) && pending.Health == health)
+            {
+                // The queue rejected the transition itself. A later observation can retry it, but
+                // must keep the original boundary rather than moving the outage forward in time.
+                segment = pending;
+            }
+
+            if (_queue.Writer.TryWrite(segment))
+            {
+                _recordedHealth[checker.Name] = health;
+                _pending.Remove(checker.Name);
+            }
+            else
+            {
+                _pending[checker.Name] = segment;
+                Interlocked.Increment(ref _dropped);
+            }
+        }
     }
 
     /// <inheritdoc />

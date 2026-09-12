@@ -182,6 +182,41 @@ public class TimerPulseSchedulerScheduleTests
     }
 
     [Fact]
+    public void PeriodValidationMatchesPeriodicTimersSupportedRange()
+    {
+        using var scheduler = new TimerPulseScheduler();
+
+        Assert.False(scheduler.TryValidateSchedule(PulseSchedule.Every(TimeSpan.FromTicks(1)), out _));
+        Assert.True(scheduler.TryValidateSchedule(PulseSchedule.Every(TimeSpan.FromMilliseconds(1)), out _));
+        Assert.True(scheduler.TryValidateSchedule(
+            PulseSchedule.Every(TimeSpan.FromMilliseconds(uint.MaxValue - 1d)), out _));
+        Assert.False(scheduler.TryValidateSchedule(
+            PulseSchedule.Every(TimeSpan.FromMilliseconds(uint.MaxValue)), out _));
+    }
+
+    /// <summary>
+    /// PeriodicTimer is constructed on the detached worker. Validation must happen before the old
+    /// timer is removed, or an invalid replacement appears to succeed and silently stops checks.
+    /// </summary>
+    [Fact]
+    public async Task ScheduleAsync_WhenThePeriodIsOutsideTimerBounds_LeavesTheRunningOneAlone()
+    {
+        await using var scheduler = new TimerPulseScheduler();
+        var checker = new FakePulseChecker("survives-an-impossible-period");
+
+        await scheduler.ScheduleAsync(checker, PulseSchedule.Every(TimeSpan.FromMilliseconds(50)), Ct);
+        Assert.True(await WaitUntilAsync(() => checker.TriggerCount > 0, TimeSpan.FromSeconds(5)));
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => scheduler.ScheduleAsync(checker, PulseSchedule.Every(TimeSpan.FromTicks(1)), Ct));
+
+        var countAfterTheBadRequest = checker.TriggerCount;
+        Assert.True(
+            await WaitUntilAsync(() => checker.TriggerCount > countAfterTheBadRequest, TimeSpan.FromSeconds(5)),
+            "the original schedule stopped after an unsupported period was rejected");
+    }
+
+    [Fact]
     public async Task ScheduleAsync_WithAnUnparseableCronExpression_Throws()
     {
         await using var scheduler = new TimerPulseScheduler();

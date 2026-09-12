@@ -49,6 +49,57 @@ public class TemporalScheduleSpecTests
         Assert.Empty(spec.Intervals ?? []);
     }
 
+    /// <summary>
+    /// Healthie's six-field contract puts seconds first. Temporal interprets six fields as the
+    /// five ordinary fields plus a year, and uses seven fields when seconds are present.
+    /// </summary>
+    [Fact]
+    public void ASecondsCron_GainsTheWildcardYearTemporalRequires()
+    {
+        var spec = TemporalScheduleSpec.From(PulseSchedule.Cron("*/10 * * * * *"));
+
+        Assert.Equal("*/10 * * * * * *", Assert.Single(spec.CronExpressions!));
+    }
+
+    [Theory]
+    [InlineData("0 3 * * 1-5", true)]
+    [InlineData("*/10 * * * * *", true)]
+    [InlineData("H * * * *", false)]
+    [InlineData("0 0 L * *", false)]
+    [InlineData("0 0 15W * *", false)]
+    [InlineData("0 0 * * 6#3", false)]
+    [InlineData("0 23-1 * * *", false)]
+    [InlineData("0 0 * DEC-FEB *", false)]
+    [InlineData("0 0 * * FRI-MON", false)]
+    [InlineData("not a cron", false)]
+    [InlineData("99 99 * * *", false)]
+    public void CronValidationMatchesHealthiesPublicSyntax(string expression, bool expected)
+    {
+        Assert.Equal(
+            expected,
+            TemporalScheduleSpec.TryValidate(PulseSchedule.Cron(expression), out var error));
+        Assert.Equal(expected, string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    public void ValidationRejectsAnIntervalTemporalCannotRun()
+    {
+        Assert.False(
+            TemporalScheduleSpec.TryValidate(
+                PulseSchedule.Every(TimeSpan.FromMilliseconds(999)), out var error));
+        Assert.False(string.IsNullOrWhiteSpace(error));
+    }
+
+    [Fact]
+    public void ValidationRejectsAnIntervalBeyondProtobufDurationsRange()
+    {
+        var impossible = PulseSchedule.Every(TimeSpan.MaxValue);
+
+        Assert.False(TemporalScheduleSpec.TryValidate(impossible, out var error));
+        Assert.Throws<ArgumentException>(() => TemporalScheduleSpec.From(impossible));
+        Assert.False(string.IsNullOrWhiteSpace(error));
+    }
+
     [Fact]
     public void ACronScheduleIsNotAlsoAnInterval_AndViceVersa()
     {

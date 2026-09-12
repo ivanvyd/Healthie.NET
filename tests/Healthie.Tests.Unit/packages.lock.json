@@ -590,6 +590,7 @@
       "Healthie.NET.Hangfire": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "Hangfire.Core": "[1.8.24, )",
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Newtonsoft.Json": "[13.0.4, )"
@@ -656,6 +657,7 @@
       "Healthie.NET.Temporal": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Temporalio": "[1.18.0, )"
         }
@@ -1535,6 +1537,7 @@
       "Healthie.NET.Hangfire": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "Hangfire.Core": "[1.8.24, )",
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Newtonsoft.Json": "[13.0.4, )"
@@ -1601,6 +1604,7 @@
       "Healthie.NET.Temporal": {
         "type": "Project",
         "dependencies": {
+          "Cronos": "[0.13.0, )",
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Temporalio": "[1.18.0, )"
         }

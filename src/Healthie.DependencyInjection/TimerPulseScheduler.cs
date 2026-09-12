@@ -22,6 +22,7 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     /// through to the far side of it.
     /// </remarks>
     private static readonly TimeSpan MaxDelay = TimeSpan.FromHours(1);
+    private const double MaxTimerMilliseconds = uint.MaxValue;
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _timers = new();
 
@@ -70,6 +71,13 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     {
         ArgumentNullException.ThrowIfNull(checker);
         ArgumentNullException.ThrowIfNull(schedule);
+
+        if (schedule.Period is { } period && !TryValidatePeriod(period, out var periodError))
+        {
+            throw new ArgumentException(
+                $"Period '{period}' for pulse checker '{checker.Name}' cannot be scheduled. {periodError}",
+                nameof(schedule));
+        }
 
         // Parsed before the existing schedule is cancelled: a checker already running on a good
         // schedule should not be stopped by a request carrying a bad one.
@@ -262,6 +270,11 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
 
         error = null;
 
+        if (schedule.Period is { } period)
+        {
+            return TryValidatePeriod(period, out error);
+        }
+
         if (schedule.CronExpression is not { } expression)
         {
             return true;
@@ -273,7 +286,7 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
 
             return true;
         }
-        catch (CronFormatException ex)
+        catch (Exception ex) when (ex is CronFormatException or MissingSeedException)
         {
             // Cronos names the field and the range it wanted, which is more use than restating the
             // format -- the field this is shown beside already gives an example of one.
@@ -281,6 +294,24 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
 
             return false;
         }
+    }
+
+    /// <summary>
+    /// Applies the bounds enforced by <see cref="PeriodicTimer.Period"/> before its detached worker
+    /// is created, so an unsupported period cannot silently fault after replacing a working timer.
+    /// </summary>
+    private static bool TryValidatePeriod(TimeSpan period, out string? error)
+    {
+        var milliseconds = period.TotalMilliseconds;
+        if (milliseconds >= 1 && milliseconds < MaxTimerMilliseconds)
+        {
+            error = null;
+            return true;
+        }
+
+        error = $"The built-in timer requires a period from 1 millisecond through " +
+            $"{uint.MaxValue - 1:N0} milliseconds.";
+        return false;
     }
 
     /// <summary>Six fields or more means the leading one is seconds.</summary>
@@ -298,7 +329,7 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
         {
             return CronExpression.Parse(expression, CronFormatFor(expression));
         }
-        catch (CronFormatException ex)
+        catch (Exception ex) when (ex is CronFormatException or MissingSeedException)
         {
             throw new ArgumentException(
                 $"Cron expression '{expression}' for pulse checker '{checkerName}' could not be parsed. " +

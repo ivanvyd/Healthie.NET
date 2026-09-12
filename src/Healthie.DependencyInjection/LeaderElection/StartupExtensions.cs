@@ -1,5 +1,7 @@
-using Healthie.Abstractions.Scheduling;
+using Healthie.Abstractions;
 using Healthie.Abstractions.Insights;
+using Healthie.Abstractions.Scheduling;
+using Healthie.Abstractions.StateProviding;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -48,6 +50,8 @@ public static class StartupExtensions
 
         services.AddSingleton(provider => new LeaderElectedPulseScheduler(
             Resolve(provider, inner),
+            provider.GetServices<IPulseChecker>(),
+            provider.GetRequiredService<IStateProvider>(),
             provider.GetService<Microsoft.Extensions.Logging.ILogger<LeaderElectedPulseScheduler>>()));
 
         services.AddSingleton<IPulseScheduler>(provider => provider.GetRequiredService<LeaderElectedPulseScheduler>());
