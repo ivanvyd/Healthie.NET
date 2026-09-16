@@ -287,7 +287,7 @@
         "type": "Project",
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
-          "Microsoft.Azure.Cosmos": "[3.62.1, )"
+          "Microsoft.Azure.Cosmos": "[3.63.0, )"
         }
       },
       "Healthie.NET.DependencyInjection": {
@@ -315,9 +315,9 @@
       },
       "Microsoft.Azure.Cosmos": {
         "type": "CentralTransitive",
-        "requested": "[3.62.1, )",
-        "resolved": "3.62.1",
-        "contentHash": "1jNOGwdtwHjk40zfxPv3dhwpqX7Ilex1PUuCPYDEMBAa3Y7HZS5GxoXbzGR+uxVJc4XKwFH9ZWkSLgswCgXlYQ==",
+        "requested": "[3.63.0, )",
+        "resolved": "3.63.0",
+        "contentHash": "FyEhmsAohHiKRMM+66dQriRWgJjkL/99NTFRXW4np6GlIa15pXY1F1lp5z35KNhyWV5oTIInjwdZVyzHD/eKeQ==",
         "dependencies": {
           "Azure.Core": "1.44.1",
           "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
