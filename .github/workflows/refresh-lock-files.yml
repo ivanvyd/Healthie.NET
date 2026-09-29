@@ -62,6 +62,8 @@ jobs:
       - run: dotnet build --no-restore -c Release
 
       - name: Commit the refreshed lock files
+        env:
+          BRANCH: ${{ inputs.branch }}
         run: |
           set -euo pipefail
           # Named paths, never `git add -A`: this job can write, so it says exactly what it writes.
@@ -77,7 +79,7 @@ jobs:
           Regenerated with `dotnet restore --force-evaluate`, then verified with
           `--locked-mode` and a Release build. Dependabot cannot write these under
           central package management; see .github/workflows/refresh-lock-files.yml.'
-          git push origin HEAD:'${{ inputs.branch }}'
+          git push origin "HEAD:$BRANCH"
           cat <<'NOTE'
           Pushed.
 
