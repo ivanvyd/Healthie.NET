@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [4.1.3] - 2026-09-29
+
+### Fixed
+
+- Compatible runtime and test dependencies now track their current releases, including the latest
+  Quartz 3 line for the existing `net8.0` and `net10.0` provider. Dependabot now leaves the
+  incompatible Quartz 4 migration for a future Healthie.NET major release.
+- The test projects now run on xUnit 4 through Microsoft Testing Platform, so .NET 10 executes the
+  unit and browser suites instead of rejecting their legacy VSTest target.
+- The Aspire sample now uses the matching 13.5.4 AppHost SDK and its recommended CLI bundle, and the
+  redundant direct SSH.NET test pin was removed after Testcontainers adopted the patched release.
+- The Scorecard upload action is pinned to the current immutable CodeQL Action 4.38.2 commit.
+
 ## [4.1.2] - 2026-09-12
 
 ### Fixed
