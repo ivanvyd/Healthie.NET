@@ -1,4 +1,5 @@
 using Bunit;
+using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Dashboard;
 using Healthie.Dashboard.Components;
@@ -29,6 +30,10 @@ public sealed class DashboardComponentLifecycleTests : IDisposable
 
         public List<Func<string, PulseCheckerState, Task>> Unsubscribed { get; } = [];
 
+        public Dictionary<string, PulseCheckerState> States { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, string> DisplayNames { get; } = new(StringComparer.Ordinal);
+
         public override Task SubscribeToStateChangesAsync(
             Func<string, PulseCheckerState, Task> onStateChanged,
             CancellationToken cancellationToken = default)
@@ -47,11 +52,11 @@ public sealed class DashboardComponentLifecycleTests : IDisposable
 
         public override Task<Dictionary<string, PulseCheckerState>> GetAllStatesAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new Dictionary<string, PulseCheckerState>(StringComparer.Ordinal));
+            Task.FromResult(new Dictionary<string, PulseCheckerState>(States, StringComparer.Ordinal));
 
         public override Task<Dictionary<string, string>> GetDisplayNamesAsync(
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(new Dictionary<string, string>(StringComparer.Ordinal));
+            Task.FromResult(new Dictionary<string, string>(DisplayNames, StringComparer.Ordinal));
     }
 
     private sealed class FailsFirstLoadDashboardService : StubDashboardService
@@ -127,6 +132,28 @@ public sealed class DashboardComponentLifecycleTests : IDisposable
 
         Assert.Single(_service.Subscribed);
         Assert.Empty(_service.Unsubscribed);
+    }
+
+    [Fact]
+    public void CheckerRows_NameTheirDetailsRatePulseAndLastRun()
+    {
+        _service.States["database"] = new PulseCheckerState
+        {
+            LastResult = new PulseCheckerResult(PulseCheckerHealth.Unhealthy, "down"),
+            LastExecutionDateTime = DateTime.UtcNow,
+            History = [new(PulseCheckerHealth.Unhealthy, "down", DateTime.UtcNow)],
+        };
+        _service.DisplayNames["database"] = "Orders database";
+
+        var rendered = _context.Render<HealthieDashboard>();
+
+        rendered.WaitForAssertion(() =>
+        {
+            Assert.Equal("View Orders database details, status UNHEALTHY", rendered.Find(".hpm-row-select").GetAttribute("aria-label"));
+            Assert.Equal("Rate:", rendered.Find(".hpm-rate-cell .hpm-sr-only").TextContent.Trim());
+            Assert.Equal("Pulse: 1 recent run, oldest first: Unhealthy.", rendered.Find(".hpm-blips .hpm-sr-only").TextContent);
+            Assert.Equal("Last run:", rendered.Find(".hpm-time .hpm-sr-only").TextContent.Trim());
+        });
     }
 
     /// <summary>

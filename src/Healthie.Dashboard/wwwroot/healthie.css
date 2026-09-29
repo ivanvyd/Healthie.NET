@@ -16,14 +16,14 @@
     --hpm-line2: #263340;
     --hpm-text: #DFE9EE;
     --hpm-muted: #7C8C97;
-    --hpm-faint: #4A5862;
+    --hpm-faint: #71838D;
     --hpm-ok: #38E08F;
     --hpm-ok-bg: rgba(56, 224, 143, 0.09);
     --hpm-warn: #FFC24B;
     --hpm-warn-bg: rgba(255, 194, 75, 0.10);
     --hpm-crit: #FF5A64;
     --hpm-crit-bg: rgba(255, 90, 100, 0.11);
-    --hpm-paused: #4A5862;
+    --hpm-paused: #7C8C97;
     --hpm-paused-bg: rgba(74, 88, 98, 0.18);
     --hpm-grid: rgba(56, 224, 143, 0.05);
 
@@ -65,6 +65,19 @@
     display: block;
 }
 
+/* Labels that keep the compact dashboard grid readable to assistive technology. */
+.healthie-dashboard .hpm-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .healthie-dashboard[data-hpm="light"] {
     --hpm-bg: #EFF3F2;
     --hpm-panel: #FFFFFF;
@@ -73,14 +86,14 @@
     --hpm-line2: #C2CDCA;
     --hpm-text: #12181B;
     --hpm-muted: #5A6A70;
-    --hpm-faint: #93A2A8;
+    --hpm-faint: #5C6C72;
     --hpm-ok: #0B9E5E;
     --hpm-ok-bg: rgba(11, 158, 94, 0.10);
     --hpm-warn: #B57A0D;
     --hpm-warn-bg: rgba(181, 122, 13, 0.12);
     --hpm-crit: #D23440;
     --hpm-crit-bg: rgba(210, 52, 64, 0.10);
-    --hpm-paused: #93A2A8;
+    --hpm-paused: #5A6A70;
     --hpm-paused-bg: rgba(147, 162, 168, 0.16);
     --hpm-grid: rgba(11, 158, 94, 0.06);
 }
@@ -378,10 +391,6 @@
 
 .hpm-row--selected {
     border-color: var(--hpm-line2);
-}
-
-.hpm-row--paused {
-    opacity: 0.55;
 }
 
 .hpm-row-name {

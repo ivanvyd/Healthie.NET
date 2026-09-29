@@ -267,14 +267,14 @@
             var status = StatusOf(state);
             var history = HistoryOf(name);
         }
-        <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "") @(state.IsActive ? "" : "hpm-row--paused")"
+        <div class="hpm-row @StatusClass(status) @(isSelected ? "hpm-row--selected" : "")"
              @onclick="@(() => SelectAsync(name))">
 
                         <span class="hpm-led @(state.IsActive ? "" : "hpm-led--steady") @(status == Status.Critical ? "hpm-led--urgent" : "")"
                               aria-hidden="true"></span>
 
                         <button type="button" class="hpm-row-name hpm-row-select"
-                                aria-label="View @DisplayNameOf(name) details"
+                                aria-label="View @DisplayNameOf(name) details, status @StatusWord(state)"
                                 aria-pressed="@(isSelected ? "true" : "false")"
                                 @onclick="@(() => SelectAsync(name))" @onclick:stopPropagation="true">
                             <span class="hpm-row-title">
@@ -298,6 +298,7 @@
                         </button>
 
                         <div class="hpm-rate-cell">
+                            <span class="hpm-sr-only">Rate: </span>
                             <span class="hpm-rate @(state.IsActive ? "" : "hpm-rate--paused") @(state.EffectiveSchedule.IsCron ? "hpm-rate--cron" : "")"
                                   title="@(state.EffectiveSchedule.IsCron ? $"Runs on the cron expression {state.EffectiveSchedule.CronExpression}, evaluated in UTC" : null)">@RateLabel(state)</span>
                             <span class="hpm-rate-unit">@RateUnit(state)</span>
@@ -305,20 +306,21 @@
 
                         @if (history.Count == 0)
                         {
-                            <span class="hpm-blips-empty">no runs yet</span>
+                            <span class="hpm-blips-empty"><span class="hpm-sr-only">Pulse: </span>no runs yet</span>
                         }
                         else
                         {
                             <div class="hpm-blips" title="The last @history.Count runs, oldest on the left. Green healthy, amber suspicious, red failing.">
+                                <span class="hpm-sr-only">Pulse: @history.Count recent @(history.Count == 1 ? "run" : "runs"), oldest first: @string.Join(", ", history.Select(entry => entry.Health)).</span>
                                 @foreach (var entry in history)
                                 {
                                     <span class="hpm-blip @BlipClass(entry.Health) @StatusClass(StatusOf(entry.Health))"
-                                          title="@entry.Health at @entry.ExecutedAt.ToString("HH:mm:ss") UTC"></span>
+                                          title="@entry.Health at @entry.ExecutedAt.ToString("HH:mm:ss") UTC" aria-hidden="true"></span>
                                 }
                             </div>
                         }
 
-                        <span class="hpm-time">@Relative(state.LastExecutionDateTime)</span>
+                        <span class="hpm-time"><span class="hpm-sr-only">Last run: </span>@Relative(state.LastExecutionDateTime)</span>
 
                         @if (Options.AllowMutations)
                         {
