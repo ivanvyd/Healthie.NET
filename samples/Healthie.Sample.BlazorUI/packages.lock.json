@@ -139,8 +139,8 @@
       },
       "Quartz": {
         "type": "Transitive",
-        "resolved": "3.19.1",
-        "contentHash": "u+kAlmReZLLpKRG9TcPt8gP0H5e8Nff11fh9tz52e4B+GtXm9cLBOe/bfGcDs4IQftmEcxakpfTzOlsZdv9ekg==",
+        "resolved": "3.22.0",
+        "contentHash": "Bq7XJNnFC1l54jpELSPi5xZ8QbA9wFpJOeMJ1MsS1LSS+yUFa/5dvAm5YGIaiq41szwCmRisZL+iwrhBUvIBPA==",
         "dependencies": {
           "Microsoft.Extensions.Logging.Abstractions": "2.1.1"
         }
@@ -308,8 +308,8 @@
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
           "Microsoft.Extensions.DependencyInjection.Abstractions": "[8.0.2, )",
-          "Quartz.Extensions.DependencyInjection": "[3.19.1, )",
-          "Quartz.Extensions.Hosting": "[3.19.1, )"
+          "Quartz.Extensions.DependencyInjection": "[3.22.0, )",
+          "Quartz.Extensions.Hosting": "[3.22.0, )"
         }
       },
       "Healthie.NET.Uptime": {
@@ -406,23 +406,23 @@
       },
       "Quartz.Extensions.DependencyInjection": {
         "type": "CentralTransitive",
-        "requested": "[3.19.1, )",
-        "resolved": "3.19.1",
-        "contentHash": "6UKrPvWQBgOslVnhD6OgFBjBA3kO7kUc4bM2EXG8b+vSgB/EHqVP8cLOb9RePZQJb5OJeNunN9dNEmGLpg5wuw==",
+        "requested": "[3.22.0, )",
+        "resolved": "3.22.0",
+        "contentHash": "xfr8PRBtQDFwiUdbmIi56QX1vpMdBVKTsu0dHakUqRwc5lpe6IgzOIseQzq1tPlnlTCZleplJfH6InSj5E3lQw==",
         "dependencies": {
           "Microsoft.Extensions.Configuration.Abstractions": "8.0.0",
           "Microsoft.Extensions.Options": "8.0.0",
-          "Quartz": "3.19.1"
+          "Quartz": "3.22.0"
         }
       },
       "Quartz.Extensions.Hosting": {
         "type": "CentralTransitive",
-        "requested": "[3.19.1, )",
-        "resolved": "3.19.1",
-        "contentHash": "gp6EUrreKcU/Az6b2bZNeebxJWMrmlLItXRmR9nX9zUSmMzQTIDWR7NTm3SsdmsoDBbrIU9vhkLD3uv1y5mMzA==",
+        "requested": "[3.22.0, )",
+        "resolved": "3.22.0",
+        "contentHash": "zVDs4nHELhjabZ8WEfP7j/wcG6DKKtYvULoQL8Oix4vyisvBD9kCMiQVFSQ5PnmWW0O8PH/JuahBLp0e6JxIYQ==",
         "dependencies": {
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.0",
-          "Quartz.Extensions.DependencyInjection": "3.19.1"
+          "Quartz.Extensions.DependencyInjection": "3.22.0"
         }
       }
     }
