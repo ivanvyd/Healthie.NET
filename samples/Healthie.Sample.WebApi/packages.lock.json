@@ -287,7 +287,7 @@
         "type": "Project",
         "dependencies": {
           "Healthie.NET.Abstractions": "[1.0.0, )",
-          "Microsoft.Azure.Cosmos": "[3.63.0, )"
+          "Microsoft.Azure.Cosmos": "[3.63.1, )"
         }
       },
       "Healthie.NET.DependencyInjection": {
@@ -295,7 +295,7 @@
         "dependencies": {
           "Cronos": "[0.13.0, )",
           "Healthie.NET.Abstractions": "[1.0.0, )",
-          "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.29, )"
+          "Microsoft.Extensions.Diagnostics.HealthChecks": "[8.0.31, )"
         }
       },
       "Healthie.NET.Mcp": {
@@ -315,9 +315,9 @@
       },
       "Microsoft.Azure.Cosmos": {
         "type": "CentralTransitive",
-        "requested": "[3.63.0, )",
-        "resolved": "3.63.0",
-        "contentHash": "FyEhmsAohHiKRMM+66dQriRWgJjkL/99NTFRXW4np6GlIa15pXY1F1lp5z35KNhyWV5oTIInjwdZVyzHD/eKeQ==",
+        "requested": "[3.63.1, )",
+        "resolved": "3.63.1",
+        "contentHash": "ocxXpxJkhyQv0OH6pTBoKKuz+VzR1zb2x6E7r3D6Kdmjb6zmFyrDTyaxQ3i/BD+V3sztCfNjXUQFREAo9mdyLg==",
         "dependencies": {
           "Azure.Core": "1.44.1",
           "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
@@ -335,7 +335,7 @@
       },
       "Microsoft.Extensions.AI.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[10.10.0, )",
+        "requested": "[10.10.1, )",
         "resolved": "10.8.3",
         "contentHash": "K0B05oApxmviWalNHPMBBcRC7erKiDATz3ENNR/jqTR9JwIwLRefgDhj2jCRwL1aca99pXUe0qyQC73/xIuZig==",
         "dependencies": {
@@ -350,11 +350,11 @@
       },
       "Microsoft.Extensions.Diagnostics.HealthChecks": {
         "type": "CentralTransitive",
-        "requested": "[8.0.29, )",
-        "resolved": "8.0.29",
-        "contentHash": "CKaXBomiwjwo+HQv8WhCPVW8LwNP8pVu6nKzRxh23qgOMVNJeerPgxfHaBniFJsFnBzsq9ntu6nXk77CbYvkHA==",
+        "requested": "[8.0.31, )",
+        "resolved": "8.0.31",
+        "contentHash": "9zVhlLRTka8pNcyrlm0B1al+AlT0gPXuELs1FL9fIry5eWoTOtlyIjVOVqmk/+LYMjIuIuLfOxToZE1acxVxUA==",
         "dependencies": {
-          "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": "8.0.29",
+          "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": "8.0.31",
           "Microsoft.Extensions.Hosting.Abstractions": "8.0.1",
           "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
           "Microsoft.Extensions.Options": "8.0.2"
@@ -362,9 +362,9 @@
       },
       "Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions": {
         "type": "CentralTransitive",
-        "requested": "[8.0.29, )",
-        "resolved": "8.0.29",
-        "contentHash": "HSabrcvae+5j1CYW4MJa8CC9Wd4ZX1l9ImldPjiDeTmcdgfi6XvEuWFLncj/xB2FiVuOVlMAssMWiICPxZnEJA=="
+        "requested": "[8.0.31, )",
+        "resolved": "8.0.31",
+        "contentHash": "MYsLt506vFROmfST9D6SQx8wXsXcdiKEMhpNNL4E2e8fie5jJ+nTCBVXwtoTnB6uqIboRbJ4VtSvMcIDunyp4Q=="
       },
       "Microsoft.Extensions.Hosting.Abstractions": {
         "type": "CentralTransitive",

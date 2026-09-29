@@ -18,6 +18,16 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # Quartz 4 no longer provides net8.0 assets and changes the Quartz types exposed by
+    # Healthie.NET.Quartz. Keep Healthie 4.x on the supported Quartz 3 line; migrating the public
+    # surface belongs in a future Healthie major release.
+    ignore:
+      - dependency-name: "Quartz.Extensions.DependencyInjection"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "Quartz.Extensions.Hosting"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"

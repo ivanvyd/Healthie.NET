@@ -1,12 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.4.6" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.5.4" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <!-- The Aspire host targets the current LTS; the samples it orchestrates target net8.0. -->
     <TargetFramework>net10.0</TargetFramework>
     <IsAspireHost>true</IsAspireHost>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
     <UserSecretsId>healthie-apphost</UserSecretsId>
     <!--
       RunAsPreviewEmulator and WithDataExplorer are still marked experimental. They select the Linux
