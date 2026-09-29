@@ -10,9 +10,9 @@
       },
       "Temporalio": {
         "type": "Direct",
-        "requested": "[1.18.0, )",
-        "resolved": "1.18.0",
-        "contentHash": "GycxFuB7lvKh4tzJjrYHbiQ7eu8/MYc0UFy5ojTQuatoXXeJkSCIkpD3edCfccTyQ/feMeFEbemonk3BI+YTxQ==",
+        "requested": "[1.19.0, )",
+        "resolved": "1.19.0",
+        "contentHash": "CFgsWowors/CMedl3fb5ld5Hna3pB4KsXhURH8USgW6gCS2/48U0XGiuk0L7j0/f0/WvdZrOP8/+TqeVJ7DwLw==",
         "dependencies": {
           "Google.Protobuf": "3.26.1",
           "Microsoft.Extensions.Logging.Abstractions": "2.2.0",
@@ -111,9 +111,9 @@
       },
       "Temporalio": {
         "type": "Direct",
-        "requested": "[1.18.0, )",
-        "resolved": "1.18.0",
-        "contentHash": "GycxFuB7lvKh4tzJjrYHbiQ7eu8/MYc0UFy5ojTQuatoXXeJkSCIkpD3edCfccTyQ/feMeFEbemonk3BI+YTxQ==",
+        "requested": "[1.19.0, )",
+        "resolved": "1.19.0",
+        "contentHash": "CFgsWowors/CMedl3fb5ld5Hna3pB4KsXhURH8USgW6gCS2/48U0XGiuk0L7j0/f0/WvdZrOP8/+TqeVJ7DwLw==",
         "dependencies": {
           "Google.Protobuf": "3.26.1",
           "Microsoft.Extensions.Logging.Abstractions": "2.2.0",
