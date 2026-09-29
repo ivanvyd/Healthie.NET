@@ -1,6 +1,8 @@
+using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
+using Healthie.Abstractions.StateProviding;
 using Healthie.AI;
 using Healthie.DependencyInjection;
 using Microsoft.Extensions.AI;
@@ -17,6 +19,24 @@ public class AiDiagnosticsTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     private const string UnhealthyChecker = "Healthie.Tests.Unit.AlwaysUnhealthyPulseChecker";
+
+    private sealed class CountingStateProvider : IStateProvider
+    {
+        private readonly InMemoryStateProvider _inner = new();
+
+        public int StateReads { get; private set; }
+
+        public async Task<TState?> GetStateAsync<TState>(string name, CancellationToken cancellationToken = default)
+        {
+            StateReads++;
+            return await _inner.GetStateAsync<TState>(name, cancellationToken).ConfigureAwait(false);
+        }
+
+        public Task SetStateAsync<TState>(string name, TState state, CancellationToken cancellationToken = default)
+            => _inner.SetStateAsync(name, state, cancellationToken);
+
+        public void ResetReads() => StateReads = 0;
+    }
 
     private static async Task<IPulsesScheduler> CreateSchedulerAsync(int runs)
     {
@@ -96,6 +116,61 @@ public class AiDiagnosticsTests
     }
 
     [Fact]
+    public async Task DiagnoseAsync_ReadsOnlyTheNamedChecker()
+    {
+        await using var checker = new FakePulseChecker("named");
+        var state = new PulseCheckerState(PulseInterval.EveryMinute)
+        {
+            History = [new PulseCheckerHistoryEntry(PulseCheckerHealth.Unhealthy, "down", DateTime.UtcNow)],
+        };
+        await checker.SetStateAsync(state, Ct);
+        var scheduler = new LookupOnlyPulsesScheduler(checker, state);
+        var diagnostician = new PulseDiagnostician(new FakeChatClient("summary"), scheduler);
+
+        await diagnostician.DiagnoseAsync("named", Ct);
+
+        Assert.Equal(1, scheduler.CheckerLookups);
+        Assert.Equal(0, scheduler.AllStateReads);
+        Assert.Equal(0, scheduler.HistoryReads);
+        Assert.Equal(1, checker.StateReadCount);
+        Assert.Equal(1, checker.HistoryReadCount);
+    }
+
+    [Fact]
+    public async Task DiagnoseAsync_UsesTheHistorySuppliedByACustomChecker()
+    {
+        await using var checker = new FakePulseChecker("custom");
+        var state = new PulseCheckerState(PulseInterval.EveryMinute);
+        await checker.SetStateAsync(state, Ct);
+        checker.SetHistory([new PulseCheckerHistoryEntry(PulseCheckerHealth.Unhealthy, "custom history", DateTime.UtcNow)]);
+        var chatClient = new FakeChatClient("summary");
+        var diagnostician = new PulseDiagnostician(
+            chatClient,
+            new LookupOnlyPulsesScheduler(checker, state));
+
+        await diagnostician.DiagnoseAsync("custom", Ct);
+
+        Assert.Equal(1, chatClient.CallCount);
+        Assert.Contains("custom history", chatClient.LastUserMessage);
+    }
+
+    [Fact]
+    public async Task DiagnoseAsync_UsesTheStateHistoryForABuiltInChecker()
+    {
+        var provider = new CountingStateProvider();
+        await using var checker = new AlwaysUnhealthyPulseChecker(provider);
+        await checker.TriggerAsync(Ct);
+        provider.ResetReads();
+        var diagnostician = new PulseDiagnostician(
+            new FakeChatClient("summary"),
+            new LookupOnlyPulsesScheduler(checker, new PulseCheckerState()));
+
+        await diagnostician.DiagnoseAsync(checker.Name, Ct);
+
+        Assert.Equal(1, provider.StateReads);
+    }
+
+    [Fact]
     public void AddHealthieAI_RegistersTheDiagnostician()
     {
         var services = new ServiceCollection();
@@ -107,6 +182,70 @@ public class AiDiagnosticsTests
         using var provider = services.BuildServiceProvider();
         Assert.IsType<PulseDiagnostician>(provider.GetRequiredService<IPulseDiagnostician>());
     }
+}
+
+internal sealed class LookupOnlyPulsesScheduler(IPulseChecker checker, PulseCheckerState state) : IPulsesScheduler
+{
+    public int CheckerLookups { get; private set; }
+
+    public int AllStateReads { get; private set; }
+
+    public int HistoryReads { get; private set; }
+
+    public Task<Dictionary<string, IPulseChecker>> GetPulseCheckersAsync(CancellationToken cancellationToken = default)
+    {
+        CheckerLookups++;
+        return Task.FromResult(new Dictionary<string, IPulseChecker> { [checker.Name] = checker });
+    }
+
+    public Task<Dictionary<string, PulseCheckerState>> GetPulsesStatesAsync(CancellationToken cancellationToken = default)
+    {
+        AllStateReads++;
+        return Task.FromResult(new Dictionary<string, PulseCheckerState> { [checker.Name] = state });
+    }
+
+    public Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(string name, CancellationToken cancellationToken = default)
+    {
+        HistoryReads++;
+        return Task.FromResult(state.History.ToList());
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task SetIntervalAsync(string name, PulseInterval interval, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetScheduleAsync(string name, PulseSchedule? schedule, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetUnhealthyThresholdAsync(string name, uint threshold, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetTagsAsync(string name, IReadOnlyList<string> tags, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetPinnedAsync(string name, bool pinned, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetGroupAsync(string name, string? group, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task ResetAsync(string name, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task ActivateAsync(string name, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task DeactivateAsync(string name, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task ClearHistoryAsync(string name, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
+    public Task SetHistoryEnabledAsync(string name, bool enabled, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
 }
 
 public class FailureRateAnomalyDetectorTests

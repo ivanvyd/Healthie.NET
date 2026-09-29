@@ -2,6 +2,7 @@ using Cronos;
 using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Scheduling;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 
@@ -25,6 +26,8 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     private const double MaxTimerMilliseconds = uint.MaxValue;
 
     private readonly ConcurrentDictionary<string, CancellationTokenSource> _timers = new();
+    private readonly CancellationTokenSource _shutdown = new();
+    private readonly CancellationTokenRegistration _applicationStoppingRegistration;
 
     /// <summary>
     /// Serialises scheduling, so a checker is never left running under a timer nobody holds.
@@ -48,6 +51,21 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     public TimerPulseScheduler(ILogger<TimerPulseScheduler>? logger = null)
     {
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TimerPulseScheduler"/> class that stops its
+    /// timers when the host stops.
+    /// </summary>
+    /// <param name="logger">An optional logger for diagnostic output.</param>
+    /// <param name="applicationLifetime">The host lifetime that stops locally managed timers.</param>
+    public TimerPulseScheduler(
+        ILogger<TimerPulseScheduler>? logger,
+        IHostApplicationLifetime applicationLifetime)
+        : this(logger)
+    {
+        ArgumentNullException.ThrowIfNull(applicationLifetime);
+        _applicationStoppingRegistration = applicationLifetime.ApplicationStopping.Register(_shutdown.Cancel);
     }
 
     /// <inheritdoc />
@@ -86,25 +104,29 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
         // Stopping the old schedule and installing the new one is two steps, and two callers
         // scheduling one checker at once -- an interval changed from the dashboard while the
         // scheduler starts it, say -- could each install a timer. Only the last would be in the
-        // dictionary; the other kept running with nothing able to reach it, and its linked
-        // CancellationTokenSource was never disposed, so its registration on the parent token
-        // outlived it too.
+        // dictionary; the other kept running with nothing able to reach it, and its cancellation
+        // source was never disposed.
         await _scheduling.WaitAsync(cancellationToken).ConfigureAwait(false);
 
         try
         {
+            // The caller can cancel while this request waits for another scheduling operation.
+            // Once a schedule is installed, its lifetime belongs to this scheduler instead: the
+            // host's ApplicationStopping token, unscheduling, and replacement stop it.
+            cancellationToken.ThrowIfCancellationRequested();
+
             // A request can outlive the decision to shut down -- an interval changed from the API
-            // while the host stops. Installing a timer now would leave one running that Dispose has
-            // already been past, so there would be nothing left to stop it. Quietly rather than by
-            // throwing: the host is going away, and that is not the caller's mistake.
-            if (_disposed)
+            // while the host stops. Installing a timer now would leave one running that nothing
+            // would own, so quietly refuse it: the host is going away, and that is not the caller's
+            // mistake.
+            if (_disposed || _shutdown.IsCancellationRequested)
             {
                 return;
             }
 
             StopExisting(checker.Name);
 
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(_shutdown.Token);
             _timers[checker.Name] = cts;
 
             _ = Task.Run(
@@ -349,6 +371,9 @@ public sealed class TimerPulseScheduler : IPulseScheduler, IAsyncDisposable, IDi
     /// </remarks>
     public void Dispose()
     {
+        _applicationStoppingRegistration.Unregister();
+        _shutdown.Cancel();
+
         // Shutdown races the last requests: an interval can be changed from the API while the host
         // is stopping. Without the lock this is a third writer of _timers, and clearing the
         // dictionary between an in-flight schedule's stop and its install drops a live timer without

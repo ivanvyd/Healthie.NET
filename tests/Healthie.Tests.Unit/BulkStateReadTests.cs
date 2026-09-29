@@ -1,5 +1,7 @@
+using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
 using Healthie.Abstractions.Models;
+using Healthie.Abstractions.Scheduling;
 using Healthie.Abstractions.StateProviding;
 using Healthie.DependencyInjection;
 using Healthie.StateProviding.Relational;
@@ -38,6 +40,42 @@ public class BulkStateReadTests
             _states[name] = state!;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class BulkOnlyEmptyProvider : IStateProvider
+    {
+        public int BulkReads { get; private set; }
+
+        public int SingleReads { get; private set; }
+
+        public Task<TState?> GetStateAsync<TState>(string name, CancellationToken cancellationToken = default)
+        {
+            SingleReads++;
+            return Task.FromResult<TState?>(default);
+        }
+
+        public Task SetStateAsync<TState>(string name, TState state, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<IReadOnlyDictionary<string, TState>> GetStatesAsync<TState>(
+            IEnumerable<string> names,
+            CancellationToken cancellationToken = default)
+        {
+            BulkReads++;
+            return Task.FromResult<IReadOnlyDictionary<string, TState>>(
+                new Dictionary<string, TState>(StringComparer.Ordinal));
+        }
+    }
+
+    private sealed class DefaultedPulseChecker(IStateProvider stateProvider)
+        : PulseChecker(stateProvider, PulseInterval.EveryMinute)
+    {
+        public override string? DefaultGroup => " Platform ";
+
+        public override IReadOnlyList<string> DefaultTags => [" cache ", "Critical", "cache"];
+
+        public override Task<PulseCheckerResult> CheckAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new PulseCheckerResult(PulseCheckerHealth.Healthy));
     }
 
     [Fact]
@@ -101,6 +139,36 @@ public class BulkStateReadTests
 
         Assert.Equal(PulseInterval.Every20Seconds, states["a"].Interval);
         Assert.Equal(PulseInterval.Every3Minutes, states["b"].Interval);
+    }
+
+    [Fact]
+    public async Task ABlankBulkResult_SeedsBuiltInCheckersWithoutIndividualStoreReads()
+    {
+        var provider = new BulkOnlyEmptyProvider();
+        await using var checker = new DefaultedPulseChecker(provider);
+        var scheduler = new PulsesScheduler([checker], new CustomPulseScheduler(), new HealthieOptions(), provider);
+
+        var states = await scheduler.GetPulsesStatesAsync(Ct);
+
+        Assert.Equal(1, provider.BulkReads);
+        Assert.Equal(0, provider.SingleReads);
+        Assert.Equal("Platform", states[checker.Name].Group);
+        Assert.Equal(["cache", "Critical"], states[checker.Name].Tags);
+    }
+
+    [Fact]
+    public async Task ACustomCheckerWithNoStoredState_StillSuppliesItsOwnState()
+    {
+        var provider = new BulkOnlyEmptyProvider();
+        await using var checker = new FakePulseChecker("custom");
+        var expected = new PulseCheckerState(PulseInterval.Every5Minutes) { Group = "custom" };
+        await checker.SetStateAsync(expected, Ct);
+        var scheduler = new PulsesScheduler([checker], new CustomPulseScheduler(), new HealthieOptions(), provider);
+
+        var states = await scheduler.GetPulsesStatesAsync(Ct);
+
+        Assert.Same(expected, states["custom"]);
+        Assert.Equal(1, checker.StateReadCount);
     }
 
     /// <summary>

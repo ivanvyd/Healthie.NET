@@ -63,9 +63,9 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
     /// <inheritdoc />
     /// <remarks>
     /// Reads the whole set in one call where the store can, which is what every dashboard load and
-    /// every list request does. A checker with nothing stored yet is still asked individually --
-    /// only it can build its own initial state, seeded from the tags and group it declares -- but
-    /// that is once per checker in its life, not once per page.
+    /// every list request does. A built-in checker with nothing stored yet creates its initial
+    /// state locally, preserving its declared tags and group without asking the store again. A
+    /// custom checker still supplies its own state.
     /// </remarks>
     public async Task<Dictionary<string, PulseCheckerState>> GetPulsesStatesAsync(CancellationToken cancellationToken = default)
     {
@@ -82,9 +82,18 @@ public class PulsesScheduler : BackgroundService, IPulsesScheduler
 
         foreach (var checker in checkers)
         {
-            states[checker.Name] = stored.TryGetValue(checker.Name, out var state)
-                ? state
-                : await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
+            if (stored.TryGetValue(checker.Name, out var state))
+            {
+                states[checker.Name] = state;
+            }
+            else if (_stateProvider is not null && checker is PulseChecker builtInChecker)
+            {
+                states[checker.Name] = builtInChecker.CreateInitialState();
+            }
+            else
+            {
+                states[checker.Name] = await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
 
         return states;

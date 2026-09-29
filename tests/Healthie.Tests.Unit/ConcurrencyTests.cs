@@ -370,6 +370,47 @@ public class PulseCheckerConcurrencyTests
     }
 
     /// <summary>
+    /// Two replicas can legitimately use one storage identity. When the earlier execution finishes
+    /// after the later one, its stale result must not become the current state or move the recorded
+    /// execution time backwards.
+    /// </summary>
+    [Fact]
+    public async Task AnEarlierExecutionFinishingLate_DoesNotReplaceANewerResult()
+    {
+        var store = new InMemoryStateProvider();
+        using var earlier = new ControllablePulseChecker(store, name: "shared-checker")
+        {
+            NextResult = new PulseCheckerResult(PulseCheckerHealth.Healthy, "earlier"),
+        };
+        using var later = new ControllablePulseChecker(store, name: "shared-checker")
+        {
+            NextResult = new PulseCheckerResult(PulseCheckerHealth.Unhealthy, "later"),
+        };
+        var releaseEarlier = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var staleEvents = 0;
+        earlier.OnCheck = () => releaseEarlier.Task;
+        earlier.StateChanged += (_, _) => staleEvents++;
+
+        var first = earlier.TriggerAsync(Ct);
+        await earlier.WaitUntilCheckStartedAsync();
+        await Task.Delay(20, Ct);
+
+        await later.TriggerAsync(Ct);
+        var afterLater = await store.GetStateAsync<PulseCheckerState>("shared-checker", Ct);
+
+        releaseEarlier.SetResult();
+        await first;
+
+        var final = await store.GetStateAsync<PulseCheckerState>("shared-checker", Ct);
+
+        Assert.Equal(PulseCheckerHealth.Unhealthy, final!.LastResult!.Health);
+        Assert.Equal(afterLater!.LastExecutionDateTime, final.LastExecutionDateTime);
+        Assert.Equal(1, final.ConsecutiveFailureCount);
+        Assert.Equal(PulseCheckerHealth.Unhealthy, Assert.Single(final.History).Health);
+        Assert.Equal(0, staleEvents);
+    }
+
+    /// <summary>
     /// Clearing history changes one field of a shared state document. It must use the same
     /// conditional-write loop as every setting mutation, or a result or setting written between
     /// its read and write is silently put back to the stale value.
