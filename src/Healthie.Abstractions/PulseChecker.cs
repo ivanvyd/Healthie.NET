@@ -156,7 +156,7 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
     /// <summary>
     /// Builds the state a checker starts from when the store holds nothing for it yet.
     /// </summary>
-    private PulseCheckerState CreateInitialState() =>
+    internal PulseCheckerState CreateInitialState() =>
         new(_initialInterval, _initialUnhealthyThreshold)
         {
             Schedule = _initialSchedule,
@@ -505,9 +505,31 @@ public abstract class PulseChecker : IPulseChecker, IDisposable
             var result = await RunCheckAsync(cancellationToken).ConfigureAwait(false);
             var elapsed = Stopwatch.GetElapsedTime(startedAt);
 
+            var staleResult = false;
             var (oldState, state, changed) = await ApplyAsync(
-                current => RecordResult(current, result, executedAt),
+                current =>
+                {
+                    // Another replica can finish a check that started later while this one is
+                    // still running. Its result is newer by definition, so never replace it with
+                    // this older execution or move the last-executed time backwards.
+                    staleResult = current.LastExecutionDateTime is { } lastExecuted && lastExecuted > executedAt;
+                    if (staleResult)
+                    {
+                        return;
+                    }
+
+                    RecordResult(current, result, executedAt);
+                },
                 cancellationToken).ConfigureAwait(false);
+
+            // A later-started execution already recorded its result. This check did run, but it is
+            // not the state currently being monitored, so it must not emit a state transition or
+            // count as a persisted health result. The flag is assigned on every CAS attempt, so a
+            // conflict retry cannot inherit the outcome of an earlier attempt.
+            if (staleResult)
+            {
+                return;
+            }
 
             // Recorded after the write, so a check whose state could not be stored is not counted
             // as one that ran -- the same reason a storage failure is not a health result.

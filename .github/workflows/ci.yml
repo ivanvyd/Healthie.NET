@@ -33,10 +33,12 @@ jobs:
       # the lock files were not regenerated, which is a chore rather than a defect -- and the
       # error NuGet prints for it does not mention the fix.
       - name: Restore
+        env:
+          REF_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
           set -euo pipefail
           if ! dotnet restore --locked-mode; then
-            echo "::error title=Lock files are out of step::dotnet restore --locked-mode failed. If this is a dependency bump, Dependabot cannot rewrite packages.lock.json under central package management. Run the 'Refresh lock files' workflow against ${{ github.head_ref || github.ref_name }}, then re-run these checks."
+            echo "::error title=Lock files are out of step::dotnet restore --locked-mode failed. If this is a dependency bump, Dependabot cannot rewrite packages.lock.json under central package management. Run the 'Refresh lock files' workflow against $REF_NAME, then re-run these checks."
             exit 1
           fi
 

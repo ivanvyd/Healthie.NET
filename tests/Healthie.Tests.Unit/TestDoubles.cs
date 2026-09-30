@@ -39,6 +39,7 @@ internal sealed class AlwaysUnhealthyPulseChecker(IStateProvider stateProvider)
 internal sealed class FakePulseChecker(string name) : IPulseChecker
 {
     private PulseCheckerState _state = new(PulseInterval.EveryMinute, 0);
+    private List<PulseCheckerHistoryEntry>? _history;
 
     public event EventHandler<PulseCheckerStateChangedEventArgs>? StateChanged;
 
@@ -49,6 +50,10 @@ internal sealed class FakePulseChecker(string name) : IPulseChecker
     public Exception? ThrowOnTrigger { get; set; }
 
     public int TriggerCount { get; private set; }
+
+    public int StateReadCount { get; private set; }
+
+    public int HistoryReadCount { get; private set; }
 
     public string Name => name;
 
@@ -87,13 +92,18 @@ internal sealed class FakePulseChecker(string name) : IPulseChecker
         => Task.FromResult(new PulseCheckerResult(PulseCheckerHealth.Healthy, "ok"));
 
     public Task<PulseCheckerState> GetStateAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(_state);
+    {
+        StateReadCount++;
+        return Task.FromResult(_state);
+    }
 
     public Task SetStateAsync(PulseCheckerState state, CancellationToken cancellationToken = default)
     {
         _state = state;
         return Task.CompletedTask;
     }
+
+    public void SetHistory(IEnumerable<PulseCheckerHistoryEntry> history) => _history = [.. history];
 
     public Task SetIntervalAsync(PulseInterval interval, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
@@ -126,7 +136,10 @@ internal sealed class FakePulseChecker(string name) : IPulseChecker
     public Task<bool> StartAsync(CancellationToken cancellationToken = default) => Task.FromResult(true);
 
     public Task<List<PulseCheckerHistoryEntry>> GetHistoryAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult(_state.History);
+    {
+        HistoryReadCount++;
+        return Task.FromResult((_history ?? _state.History).ToList());
+    }
 
     public Task ClearHistoryAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 

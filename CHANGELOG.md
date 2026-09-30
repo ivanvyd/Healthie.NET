@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [4.1.4] - 2026-09-30
+
+### Fixed
+
+- Timer-scheduled checks now continue after an individual scheduling caller cancels, while host
+  shutdown still stops them; an older overlapping result can no longer overwrite newer checker state.
+- Bulk dashboard state reads and AI diagnoses now avoid redundant state-provider calls.
+- Workflow dispatch inputs are passed to shell steps as environment variables, preventing command
+  injection through a supplied version or branch name.
+- Dashboard status text has stronger contrast, and checker details expose their meaning to assistive
+  technology.
+
 ## [4.1.3] - 2026-09-29
 
 ### Fixed

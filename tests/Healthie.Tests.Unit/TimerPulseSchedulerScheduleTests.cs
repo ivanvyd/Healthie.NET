@@ -1,7 +1,11 @@
 using Healthie.Abstractions;
 using Healthie.Abstractions.Enums;
+using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Healthie.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
 namespace Healthie.Tests.Unit;
@@ -138,6 +142,15 @@ public class TimerPulseSchedulerScheduleTests
     }
 
     [Fact]
+    public void TheOriginalLoggerConstructor_RemainsAvailableForCompiledConsumers()
+    {
+        var constructor = typeof(TimerPulseScheduler).GetConstructor([typeof(ILogger<TimerPulseScheduler>)]);
+
+        Assert.NotNull(constructor);
+        Assert.True(constructor.GetParameters().Single().HasDefaultValue);
+    }
+
+    [Fact]
     public async Task ScheduleAsync_WithACronSchedule_TriggersTheChecker()
     {
         await using var scheduler = new TimerPulseScheduler();
@@ -162,6 +175,95 @@ public class TimerPulseSchedulerScheduleTests
         Assert.True(
             await WaitUntilAsync(() => checker.TriggerCount > 0, TimeSpan.FromSeconds(5)),
             "the period schedule never triggered the checker");
+    }
+
+    /// <summary>
+    /// Scheduling is requested with the host's stopping token, but that token only governs the
+    /// request itself. Linking it to the long-lived timer made a later request cancellation stop a
+    /// checker permanently even though the scheduler was still alive.
+    /// </summary>
+    [Fact]
+    public async Task ScheduleAsync_CancellingTheRequestAfterSuccess_LeavesTheTimerRunning()
+    {
+        await using var scheduler = new TimerPulseScheduler();
+        var checker = new FakePulseChecker("request-cancellation");
+        using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+
+        await scheduler.ScheduleAsync(
+            checker,
+            PulseSchedule.Every(TimeSpan.FromMilliseconds(50)),
+            requestCancellation.Token);
+
+        Assert.True(await WaitUntilAsync(() => checker.TriggerCount > 0, TimeSpan.FromSeconds(5)));
+
+        requestCancellation.Cancel();
+        var countAfterCancellation = checker.TriggerCount;
+
+        Assert.True(
+            await WaitUntilAsync(
+                () => checker.TriggerCount > countAfterCancellation,
+                TimeSpan.FromSeconds(5)),
+            "cancelling the completed scheduling request stopped the timer");
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_CancelledRequest_DoesNotReplaceTheExistingTimer()
+    {
+        await using var scheduler = new TimerPulseScheduler();
+        var checker = new FakePulseChecker("cancelled-request");
+
+        await scheduler.ScheduleAsync(checker, PulseSchedule.Every(TimeSpan.FromMilliseconds(50)), Ct);
+        Assert.True(await WaitUntilAsync(() => checker.TriggerCount > 0, TimeSpan.FromSeconds(5)));
+
+        using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        requestCancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => scheduler.ScheduleAsync(
+                checker,
+                PulseSchedule.Every(TimeSpan.FromMilliseconds(100)),
+                requestCancellation.Token));
+
+        var countAfterCancelledRequest = checker.TriggerCount;
+        Assert.True(
+            await WaitUntilAsync(
+                () => checker.TriggerCount > countAfterCancelledRequest,
+                TimeSpan.FromSeconds(5)),
+            "a cancelled scheduling request replaced the existing timer");
+    }
+
+    /// <summary>
+    /// A host stops its hosted services before disposing singleton services. The timer therefore
+    /// must observe the host lifetime directly rather than relying on disposal to stop its workers.
+    /// </summary>
+    [Fact]
+    public async Task StoppingTheHost_StopsTimersBeforeTheContainerIsDisposed()
+    {
+        var checker = new FakePulseChecker("host-stopping");
+        await checker.SetStateAsync(
+            new PulseCheckerState(PulseInterval.EveryMinute, 0)
+            {
+                Schedule = PulseSchedule.Every(TimeSpan.FromMilliseconds(50)),
+            },
+            Ct);
+        using var host = new HostBuilder()
+            .ConfigureServices(services =>
+            {
+                services.AddSingleton<IPulseChecker>(checker);
+                services.AddHealthie();
+            })
+            .Build();
+
+        await host.StartAsync(Ct);
+        Assert.True(await WaitUntilAsync(() => checker.TriggerCount > 0, TimeSpan.FromSeconds(5)));
+
+        await host.StopAsync(Ct);
+        await Task.Delay(200, Ct);
+
+        var countAfterStopping = checker.TriggerCount;
+        await Task.Delay(400, Ct);
+
+        Assert.Equal(countAfterStopping, checker.TriggerCount);
     }
 
     /// <summary>

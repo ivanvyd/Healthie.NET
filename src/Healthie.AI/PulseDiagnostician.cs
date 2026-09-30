@@ -1,3 +1,4 @@
+using Healthie.Abstractions;
 using Healthie.Abstractions.Models;
 using Healthie.Abstractions.Scheduling;
 using Microsoft.Extensions.AI;
@@ -44,14 +45,17 @@ public sealed class PulseDiagnostician(IChatClient chatClient, IPulsesScheduler 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
-        var states = await _pulsesScheduler.GetPulsesStatesAsync(cancellationToken).ConfigureAwait(false);
+        var checkers = await _pulsesScheduler.GetPulseCheckersAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!states.TryGetValue(name, out var state))
+        if (!checkers.TryGetValue(name, out var checker))
         {
             throw new ArgumentException($"Pulse checker with name '{name}' not found.", nameof(name));
         }
 
-        var history = await _pulsesScheduler.GetHistoryAsync(name, cancellationToken).ConfigureAwait(false);
+        var state = await checker.GetStateAsync(cancellationToken).ConfigureAwait(false);
+        var history = checker is PulseChecker
+            ? state.History
+            : await checker.GetHistoryAsync(cancellationToken).ConfigureAwait(false);
 
         if (history.Count == 0)
         {

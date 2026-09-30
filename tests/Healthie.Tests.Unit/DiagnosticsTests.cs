@@ -50,6 +50,44 @@ public sealed class DiagnosticsTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// Makes a completed write appear to have won in another process. The retry then sees the
+    /// exact result this checker was about to store, which is a non-stale state no-op.
+    /// </summary>
+    private sealed class FirstWriteWinsElsewhereProvider(IStateProvider inner) : IStateProvider
+    {
+        private bool _firstWrite = true;
+
+        public bool SupportsOptimisticConcurrency => inner.SupportsOptimisticConcurrency;
+
+        public Task<TState?> GetStateAsync<TState>(string name, CancellationToken cancellationToken = default) =>
+            inner.GetStateAsync<TState>(name, cancellationToken);
+
+        public Task<StateEntry<TState>?> GetStateEntryAsync<TState>(
+            string name,
+            CancellationToken cancellationToken = default) =>
+            inner.GetStateEntryAsync<TState>(name, cancellationToken);
+
+        public Task SetStateAsync<TState>(string name, TState state, CancellationToken cancellationToken = default) =>
+            inner.SetStateAsync(name, state, cancellationToken);
+
+        public async Task<bool> TrySetStateAsync<TState>(
+            string name,
+            TState state,
+            string? expectedVersion,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_firstWrite)
+            {
+                return await inner.TrySetStateAsync(name, state, expectedVersion, cancellationToken);
+            }
+
+            _firstWrite = false;
+            await inner.TrySetStateAsync(name, state, expectedVersion, cancellationToken);
+            return false;
+        }
+    }
+
     private readonly record struct Measurement(string Instrument, double Value, Dictionary<string, object?> Tags);
 
     private readonly List<Measurement> _measurements = [];
@@ -147,6 +185,36 @@ public sealed class DiagnosticsTests : IDisposable
         var result = Assert.Single(For("healthie.check.results", name));
         Assert.Equal(1d, result.Value);
         Assert.Equal("Healthy", result.Tags[HealthieDiagnostics.ResultTag]);
+    }
+
+    /// <summary>
+    /// A CAS retry can find that another replica stored the exact same result. It is not stale, so
+    /// it still represents a completed check and must be observable through its telemetry, while
+    /// remaining a no-op for state-change subscribers.
+    /// </summary>
+    [Fact]
+    public async Task ACheckWhoseResultAlreadyWonACasRetry_StillRecordsTelemetry()
+    {
+        var name = $"same-result-{Guid.NewGuid():N}";
+        var inner = new InMemoryStateProvider();
+        await inner.SetStateAsync(
+            name,
+            new PulseCheckerState { IsHistoryEnabled = false },
+            Ct);
+        var provider = new FirstWriteWinsElsewhereProvider(inner);
+        using var checker = new NamedChecker(provider) { CheckerName = name };
+        var stateChanges = 0;
+        checker.StateChanged += (_, _) => stateChanges++;
+
+        await checker.TriggerAsync(Ct);
+
+        Assert.Equal(0, stateChanges);
+        Assert.Equal(
+            "Healthy",
+            Assert.Single(For("healthie.check.results", name)).Tags[HealthieDiagnostics.ResultTag]);
+        Assert.Equal(
+            "Healthy",
+            Assert.Single(ActivitiesFor(name)).GetTagItem(HealthieDiagnostics.ResultTag));
     }
 
     [Fact]
