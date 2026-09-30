@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [4.1.4] - 2026-09-30
+
 ### Fixed
 
 - Timer-scheduled checks now continue after an individual scheduling caller cancels, while host
